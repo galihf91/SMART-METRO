@@ -262,10 +262,14 @@ def home():
             """
             <div class="smart-hero">
                 <h1>SMART METRO</h1>
-                <h3>Sistem Manajemen dan Aplikasi Tera Metrologi</h3>
+                <h3>Smart Metrology Digital Service</h3>
                 <p>
-                    Aplikasi terintegrasi untuk pengujian UTTP serta penyajian
-                    informasi pelayanan tera ulang di Kabupaten Tangerang.
+                    Digitalisasi Pelayanan Tera dan Tera Ulang
+                    Berbasis Dashboard dan Generative AГ
+                    dalam Mewujudkan Pelayanan Kemetrologian
+                    Modern, Cepat, Akurat dan Berintegritas
+                    pada Dinas Perindustrian dan Perdagangan
+                    Kabupaten Tangerang
                 </p>
             </div>
             """,
