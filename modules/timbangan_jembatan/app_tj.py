@@ -1,0 +1,2059 @@
+import streamlit as st
+import pandas as pd
+from datetime import datetime, date
+from modules.timbangan_jembatan.cerapan_tj_generator import generate_cerapan_pdf
+from modules.timbangan_jembatan.sertifikat_tj_generator import generate_sertifikat_pdf
+from modules.timbangan_jembatan.form_peminjaman_standar_generator import (
+    generate_form_peminjaman_standar_pdf
+)
+from modules.timbangan_jembatan.form_peminjaman_ctt_generator import (
+    generate_form_peminjaman_ctt_pdf
+)
+import os
+from pathlib import Path
+
+def bulan_singkat_id(tanggal):
+    bulan = {
+        1: "JAN", 2: "FEB", 3: "MAR", 4: "APR",
+        5: "MEI", 6: "JUN", 7: "JUL", 8: "AGS",
+        9: "SEP", 10: "OKT", 11: "NOV", 12: "DES"
+    }
+    return bulan.get(tanggal.month, "")
+
+
+def slug_filename(text):
+    text = str(text).replace("/", "_").replace("\\", "_").replace(" ", "_")
+    return "".join(ch for ch in text if ch.isalnum() or ch in ["_", "-", "."])
+
+
+def parse_tanggal_file(data):
+    tanggal = data.get("tanggal") or data.get("tanggal_pengujian")
+
+    if tanggal:
+        if isinstance(tanggal, str):
+            try:
+                return datetime.strptime(tanggal, "%Y-%m-%d")
+            except Exception:
+                pass
+        return tanggal
+
+    tanggal_penera = data.get("tanggal_penera", "")
+
+    if tanggal_penera:
+        try:
+            bulan_map = {
+                "Januari": 1, "Februari": 2, "Maret": 3, "April": 4,
+                "Mei": 5, "Juni": 6, "Juli": 7, "Agustus": 8,
+                "September": 9, "Oktober": 10, "November": 11, "Desember": 12
+            }
+
+            parts = tanggal_penera.split()
+
+            if len(parts) == 3:
+                day = int(parts[0])
+                month = bulan_map[parts[1]]
+                year = int(parts[2])
+                return datetime(year, month, day)
+
+        except Exception:
+            pass
+
+    return datetime.now()
+
+
+def format_nama_file_dokumen(data, jenis_dokumen="Sertifikat"):
+    nama_perusahaan = (
+        data.get("pemilik")
+        or data.get("nama_perusahaan")
+        or "PERUSAHAAN"
+    )
+
+    nama_penera = (
+        data.get("nama_penera")
+        or data.get("penera_1")
+        or data.get("penera")
+        or "PENERA"
+    )
+
+    tanggal = parse_tanggal_file(data)
+    tanggal_file = f"{tanggal.day:02d} {bulan_singkat_id(tanggal)}"
+
+    nama_file = f"{nama_perusahaan}_TJ_{jenis_dokumen}_{nama_penera}_{tanggal_file}"
+    return slug_filename(nama_file)
+    
+def normalize_nip(value):
+    if pd.isna(value):
+        return ""
+
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+
+    return str(value).strip()
+
+def tambah_satu_tahun(tanggal_obj):
+    try:
+        return tanggal_obj.replace(
+            year=tanggal_obj.year + 1
+        )
+    except ValueError:
+        return tanggal_obj.replace(
+            year=tanggal_obj.year + 1,
+            month=2,
+            day=28
+        )
+        
+def run():
+    st.title("Pengujian Timbangan Jembatan")
+
+    col_nav1, col_nav2 = st.columns([1, 1])
+
+    with col_nav1:
+        if st.button("← Kembali ke Home", use_container_width=True):
+            st.session_state.halaman = "home"
+            st.rerun()
+
+    with col_nav2:
+        if st.button("📋 Ke Pengujian UTTP", use_container_width=True):
+            st.session_state.halaman_uttp = "home_uttp"
+            st.rerun()
+            
+    def bulan_ke_romawi(bulan):
+        romawi = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"]
+        return romawi[bulan-1]
+    
+    def generate_nomor_sertifikat(tanggal):
+        if isinstance(tanggal, str):
+            t = datetime.strptime(tanggal, '%Y-%m-%d')
+        else:
+            t = tanggal
+        return f"500.2.3.15/0000/BID-K/{bulan_ke_romawi(t.month)}/{t.year}"
+    
+    def generate_nomor_order(tanggal):
+        if isinstance(tanggal, str):
+            t = datetime.strptime(tanggal, '%Y-%m-%d')
+        else:
+            t = tanggal
+        return f"0000/SCD/{bulan_ke_romawi(t.month)}/{t.year}"
+    
+    # ===== BACA DATA PERUSAHAAN =====
+    def format_tanggal_indonesia(tanggal_str):
+        """Mengubah format YYYY-MM-DD menjadi 'DD Month YYYY' (contoh: 8 Juni 2026)"""
+        if not tanggal_str:
+            return ""
+        try:
+            if isinstance(tanggal_str, str):
+                t = datetime.strptime(tanggal_str, '%Y-%m-%d')
+            else:
+                t = tanggal_str
+            bulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni",
+                     "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+            return f"{t.day} {bulan[t.month-1]} {t.year}"
+        except:
+            return tanggal_str
+    def parse_date_value(value, default_value=None):
+        if default_value is None:
+            default_value = date.today()
+
+        if isinstance(value, datetime):
+            return value.date()
+
+        if isinstance(value, date):
+            return value
+
+        if isinstance(value, str) and value.strip():
+            try:
+                return datetime.strptime(
+                    value.strip(),
+                    "%Y-%m-%d"
+                ).date()
+            except ValueError:
+                pass
+
+        return default_value
+    def load_data_perusahaan():
+        """Membaca data perusahaan dari Excel atau fallback ke data kosong."""
+        possible_names = ["data/data_perusahaan.xlsx"]
+        for filename in possible_names:
+            if os.path.exists(filename):
+                try:
+                    df = pd.read_excel(filename, engine='openpyxl')
+                    required_cols = ['Nama Perusahaan', 'Alamat']
+                    if all(col in df.columns for col in required_cols):
+                        # Hapus duplikat dan NaN
+                        df = df.dropna(subset=['Nama Perusahaan'])
+                        df = df.drop_duplicates(subset=['Nama Perusahaan'])
+                        return df
+                    else:
+                        st.warning(f"File {filename} ditemukan, tetapi kolom tidak sesuai. Harus ada: Nama Perusahaan, Alamat")
+                        return None
+                except Exception as e:
+                    st.warning(f"Error membaca {filename}: {e}. Gunakan data bawaan.")
+                    break
+        # Fallback: data kosong (atau bisa beri contoh)
+        return pd.DataFrame(columns=['Nama Perusahaan', 'Alamat'])
+    
+    if 'data_perusahaan' not in st.session_state:
+        st.session_state.data_perusahaan = load_data_perusahaan()
+    def update_perusahaan_terpilih_tj():
+        selected = str(
+            st.session_state.get(
+                "perusahaan_select",
+                ""
+            )
+        ).strip()
+
+        df_perusahaan = st.session_state.get(
+            "data_perusahaan"
+        )
+
+        if (
+            not selected
+            or df_perusahaan is None
+            or df_perusahaan.empty
+        ):
+            return
+
+        row = df_perusahaan[
+            df_perusahaan["Nama Perusahaan"]
+            .astype(str)
+            .str.strip()
+            == selected
+        ]
+
+        if row.empty:
+            return
+
+        data_perusahaan = row.iloc[0]
+
+        alamat_perusahaan = data_perusahaan.get(
+            "Alamat",
+            ""
+        )
+
+        if pd.isna(alamat_perusahaan):
+            alamat_perusahaan = ""
+
+        st.session_state["nama_perusahaan_tj"] = selected
+        st.session_state["alamat_input_tj"] = str(
+            alamat_perusahaan
+        ).strip()
+
+        st.session_state[
+            "input_manual_perusahaan_tj"
+        ] = False
+    def load_data_penera():
+        """Membaca file data penera dari Excel dengan pengecekan lokasi."""
+        possible_names = ["data/data_penera.xlsx"]
+        
+        # Tampilkan file yang ada di direktori (debug)
+        # st.write("File di direktori:", os.listdir())
+        
+        for filename in possible_names:
+            if os.path.exists(filename):
+                try:
+                    df = pd.read_excel(filename, engine='openpyxl')
+                    required_cols = ['Nama', 'NIP', 'Golongan']
+                    if all(col in df.columns for col in required_cols):
+                        return df
+                    else:
+                        st.warning(f"File {filename} ditemukan, tetapi kolom tidak sesuai. Harus ada: {required_cols}")
+                        return None
+                except Exception as e:
+                    st.error(f"Error membaca {filename}: {e}")
+                    return None
+        st.warning("File data_penera.xlsx tidak ditemukan. Silakan input manual.")
+        return None
+    
+    if 'data_penera' not in st.session_state:
+        st.session_state.data_penera = load_data_penera()
+    def copy_standar():
+        """Salin nilai standar baris ke-2 (indeks 1) ke baris 4, 6, 8 (indeks 3,5,7)."""
+        e = st.session_state.get('interval_skala_input', 20)
+        key_src = f"standar_1_{e}"
+        if key_src in st.session_state:
+            val = st.session_state[key_src]
+            st.session_state[f"standar_3_{e}"] = val
+            st.session_state[f"standar_5_{e}"] = val
+            st.session_state[f"standar_7_{e}"] = val
+    
+    def sync_balas(prev_key, next_key):
+        """Salin nilai dari prev_key ke next_key di session state."""
+        if prev_key in st.session_state:
+            st.session_state[next_key] = st.session_state[prev_key]
+    def hitung_bkd(muatan, interval_skala, kelas, keterangan):
+        if interval_skala == 0:
+            return 0, 0
+    
+        m = muatan / interval_skala
+    
+        # Tabel 4.7: BKD dasar untuk Kelas III
+        batas = {
+            'I'   : [(50000, 0.5), (200000, 1.0), (float('inf'), 1.5)],
+            'II'  : [(5000,  0.5), (20000,  1.0), (100000, 1.5)],
+            'III' : [(500,   0.5), (2000,   1.0), (10000,  1.5)],
+            'IIII': [(50,    0.5), (200,    1.0), (1000,   1.5)],
+        }
+    
+        koef_dasar = 1.5
+        for batas_m, koef in batas.get(kelas, batas['III']):
+            if m <= batas_m:
+                koef_dasar = koef
+                break
+    
+        # Tabel 4.8: Multiplier untuk Tera Ulang
+        multiplier = 2.0 if keterangan == "Tera Ulang" else 1.0
+    
+        koef_final = koef_dasar * multiplier
+        bkd_kg     = koef_final * interval_skala
+    
+        return koef_final, bkd_kg
+    def reset_form_timbangan_jembatan():
+        # Key utama form
+        keys_to_remove = [
+            "saved_data",
+            "test_results",
+            "generated_files",
+
+            "nama_perusahaan_tj",
+            "alamat_input_tj",
+            "input_manual_perusahaan_tj",
+            "perusahaan_select",
+
+            "kapasitas_max_input",
+            "daya_baca_input",
+            "interval_skala_input",
+            "kapasitas_min_input",
+            "prev_interval_skala_tj",
+
+            "kelas",
+            "keterangan",
+
+            "tanggal_pengujian_tj",
+            "tanggal_sertifikat_tj",
+
+            "penera_select",
+            "nama_penera",
+            "nip_penera",
+            "golongan_penera",
+
+            "jumlah_bidur_tj",
+            "jumlah_at_10kg_tj",
+            "jumlah_at_5kg_tj",
+            "jumlah_at_2kg_tj",
+            "jumlah_at_1kg_tj",
+
+            "tambahkan_alat_standar_tj",
+            "pilihan_alat_tambahan_tj",
+            "jumlah_alat_tambahan_tj",
+
+            "prev_kapasitas_max",
+            "prev_kapasitas_max_eks",
+            "repet_I_1",
+            "eksen_I_1",
+        ]
+
+        for key in keys_to_remove:
+            st.session_state.pop(
+                key,
+                None
+            )
+
+        # Hapus key dinamis tabel pengujian
+        prefixes_to_remove = [
+            "standar_",
+            "balas_",
+            "delta_l_",
+            "kesalahan_",
+            "penunjukan_",
+            "hasil_",
+            "repet_",
+            "eksen_",
+            "nol_",
+            "vis_",
+        ]
+
+        for key in list(
+            st.session_state.keys()
+        ):
+            if any(
+                key.startswith(prefix)
+                for prefix in prefixes_to_remove
+            ):
+                st.session_state.pop(
+                    key,
+                    None
+                )
+
+        st.session_state.saved_data = {}
+        st.session_state.test_results = []
+        st.session_state.generated_files = {}
+    
+    # ===== INISIALISASI SESSION STATE =====
+    if 'saved_data' not in st.session_state:
+        st.session_state.saved_data = {}
+    
+    if 'test_results' not in st.session_state:
+        st.session_state.test_results = []
+    
+    # Nilai default untuk input utama (diambil dari saved_data jika ada)
+    if 'kapasitas_max_input' not in st.session_state:
+        st.session_state.kapasitas_max_input = st.session_state.saved_data.get('kapasitas_max', 60000)
+    
+    if 'daya_baca_input' not in st.session_state:
+        st.session_state.daya_baca_input = st.session_state.saved_data.get('daya_baca', 10)
+    
+    if 'interval_skala_input' not in st.session_state:
+        st.session_state.interval_skala_input = st.session_state.daya_baca_input
+    
+    if 'kelas' not in st.session_state:
+        st.session_state.kelas = st.session_state.saved_data.get('kelas', 'III')
+    
+    if 'keterangan' not in st.session_state:
+        st.session_state.keterangan = st.session_state.saved_data.get('keterangan', 'Tera')
+        
+    if 'generated_files' not in st.session_state:
+        st.session_state.generated_files = {}
+        
+    # CSS styling
+    st.markdown("""
+        <style>
+        .main {
+            padding-top: 2rem;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+    
+    # Title
+    st.title("⚖️ Aplikasi Automasi Sertifikat Tera Timbangan")
+    st.markdown("---")
+    
+    # Sidebar - Navigation
+    with st.sidebar:
+        st.header("📋 Menu Navigasi")
+        mode = st.radio(
+            "Pilih Mode:",
+            [
+                "📝 Input Data Pengujian",
+                "📄 Generate Dokumen"
+            ],
+            key="mode_timbangan_jembatan",
+            help="Pilih mode yang ingin Anda gunakan",
+        )
+    
+    if mode == "📝 Input Data Pengujian":
+        st.header("Masukkan Data Pengujian")
+    
+        # Ambil nilai dari session state untuk digunakan di seluruh blok
+        e = st.session_state.get('interval_skala_input', 20)
+        cls = st.session_state.get('kelas', 'III')
+        jns_uji = st.session_state.get('keterangan', 'Tera')
+    
+        # ======================== KOLOM 1-3 ========================
+        col1, col2, col3 = st.columns(3)
+    
+        with col1:
+            st.subheader("Identitas Pemilik")
+
+            df_perusahaan = st.session_state.get(
+                "data_perusahaan"
+            )
+
+            if "nama_perusahaan_tj" not in st.session_state:
+                st.session_state.nama_perusahaan_tj = str(
+                    st.session_state.saved_data.get(
+                        "pemilik",
+                        ""
+                    )
+                ).strip()
+
+            if "alamat_input_tj" not in st.session_state:
+                st.session_state.alamat_input_tj = str(
+                    st.session_state.saved_data.get(
+                        "alamat",
+                        ""
+                    )
+                ).strip()
+
+            if "input_manual_perusahaan_tj" not in st.session_state:
+                st.session_state.input_manual_perusahaan_tj = False
+
+            if (
+                df_perusahaan is not None
+                and not df_perusahaan.empty
+            ):
+                all_names = (
+                    df_perusahaan["Nama Perusahaan"]
+                    .dropna()
+                    .astype(str)
+                    .str.strip()
+                    .tolist()
+                )
+
+                if "perusahaan_select" not in st.session_state:
+                    nama_tersimpan = (
+                        st.session_state.nama_perusahaan_tj
+                    )
+
+                    if nama_tersimpan in all_names:
+                        st.session_state.perusahaan_select = (
+                            nama_tersimpan
+                        )
+                    else:
+                        st.session_state.perusahaan_select = ""
+
+                        if nama_tersimpan:
+                            st.session_state[
+                                "input_manual_perusahaan_tj"
+                            ] = True
+
+                st.selectbox(
+                    "Cari & Pilih Nama Perusahaan",
+                    options=[""] + all_names,
+                    placeholder="Ketik nama perusahaan...",
+                    key="perusahaan_select",
+                    on_change=update_perusahaan_terpilih_tj,
+                )
+
+                st.text_area(
+                    "Alamat",
+                    height=90,
+                    key="alamat_input_tj",
+                    help=(
+                        "Alamat otomatis muncul setelah perusahaan "
+                        "dipilih dan tetap dapat diedit."
+                    ),
+                )
+
+                st.checkbox(
+                    "Input manual nama perusahaan",
+                    key="input_manual_perusahaan_tj",
+                )
+
+                if st.session_state.input_manual_perusahaan_tj:
+                    st.text_input(
+                        "Nama Pemilik / Perusahaan",
+                        key="nama_perusahaan_tj",
+                        placeholder=(
+                            "Contoh: PT. MULTI WELINDO"
+                        ),
+                    )
+
+            else:
+                st.info(
+                    "📂 File data perusahaan tidak ditemukan. "
+                    "Silakan input manual."
+                )
+
+                st.text_input(
+                    "Nama Pemilik / Perusahaan",
+                    key="nama_perusahaan_tj",
+                )
+
+                st.text_area(
+                    "Alamat",
+                    height=90,
+                    key="alamat_input_tj",
+                )
+
+            pemilik = str(
+                st.session_state.get(
+                    "nama_perusahaan_tj",
+                    ""
+                )
+            ).strip()
+
+            alamat = str(
+                st.session_state.get(
+                    "alamat_input_tj",
+                    ""
+                )
+            ).strip()
+    
+        with col2:
+            st.subheader("Spesifikasi Alat")
+            merek = st.text_input("Merek/Buatan",
+                                  value=st.session_state.saved_data.get('merek', ''),
+                                  placeholder="")
+            model = st.text_input("Model/Tipe",
+                                  value=st.session_state.saved_data.get('model', ''),
+                                  placeholder="")
+            no_seri = st.text_input("No. Seri",
+                                    value=st.session_state.saved_data.get('no_seri', ''),
+                                    placeholder="")
+    
+        with col3:
+            st.subheader("Kapasitas & Skala")
+    
+            # Kapasitas Maksimum
+            st.number_input(
+                "Kapasitas Maksimum (kg)",
+                value=st.session_state.kapasitas_max_input,
+                min_value=100,
+                step=100,
+                key="kapasitas_max_input"
+            )
+    
+            # Daya Baca
+            st.number_input(
+                "Daya Baca (kg)",
+                value=st.session_state.daya_baca_input,
+                min_value=1,
+                step=1,
+                key="daya_baca_input"
+            )
+    
+            # Sinkronkan Interval Skala dengan Daya Baca
+            st.session_state.interval_skala_input = st.session_state.daya_baca_input
+    
+            # Interval Skala Verifikasi (disabled)
+            st.number_input(
+                "Interval Skala Verifikasi (kg)",
+                value=st.session_state.interval_skala_input,
+                min_value=1,
+                step=1,
+                disabled=True,
+                key="interval_skala_input",
+                help="Interval Skala Verifikasi (e) otomatis mengikuti Daya Baca (d)."
+            )
+    
+            # Kapasitas Minimum = 20 × interval skala
+            current_e = st.session_state.interval_skala_input
+
+            if "prev_interval_skala_tj" not in st.session_state:
+                st.session_state.prev_interval_skala_tj = current_e
+
+            if "kapasitas_min_input" not in st.session_state:
+                st.session_state.kapasitas_min_input = (
+                    20 * current_e
+                )
+
+            if (
+                current_e
+                != st.session_state.prev_interval_skala_tj
+            ):
+                st.session_state.kapasitas_min_input = (
+                    20 * current_e
+                )
+
+                st.session_state.prev_interval_skala_tj = (
+                    current_e
+                )
+
+            st.number_input(
+                "Kapasitas Minimum (kg)",
+                min_value=1,
+                step=1,
+                disabled=True,
+                key="kapasitas_min_input",
+                help=(
+                    "Kapasitas minimum otomatis sama dengan "
+                    "20 × interval skala verifikasi."
+                ),
+            )
+        st.markdown("---")
+    
+        # ======================== KELAS & JENIS PENGUJIAN ========================
+        col_extra1, col_extra2, col_extra3 = st.columns(3)
+        with col_extra1:
+            st.text_input(
+                "Kelas Timbangan",
+                value="III",
+                disabled=True
+            )
+            st.session_state.kelas = "III"
+    
+        with col_extra2:
+            default_keterangan = st.session_state.saved_data.get("keterangan", "Tera Ulang")
+    
+            keterangan = st.selectbox(
+                "Jenis Pengujian",
+                ["Tera", "Tera Ulang"],
+                index=0 if default_keterangan == "Tera" else 1
+            )
+    
+            st.session_state.keterangan = keterangan
+    
+        with col_extra3:
+            # kosong atau bisa untuk informasi tambahan
+            st.write("")
+    
+        st.markdown("---")
+    
+        # ======================== DATA PENGUJIAN LAINNYA ========================
+        col4, col5, col6 = st.columns(3)
+    
+        with col4:
+            st.subheader("Data Pengujian")
+            
+            tanggal = st.date_input(
+                "Tanggal Pengujian",
+                value=parse_date_value(
+                    st.session_state.saved_data.get(
+                        "tanggal",
+                        date.today()
+                    )
+                ),
+                key="tanggal_pengujian_tj",
+            )
+            
+            # Lokasi Pengujian selalu "Perusahaan" (tidak bisa diubah)
+            lokasi = st.text_input(
+                "Lokasi Pengujian",
+                value="Perusahaan",
+                disabled=True,
+                help="Lokasi pengujian tetap Perusahaan sesuai standar."
+            )
+            tanggal_tanda_tangan = st.date_input(
+                "Tanggal Tanda Tangan",
+                value=parse_date_value(
+                    st.session_state.saved_data.get(
+                        "tanggal_sertifikat",
+                        date.today()
+                    )
+                ),
+                key="tanggal_sertifikat_tj",
+                help=(
+                    "Tanggal ini digunakan pada bagian tanda tangan "
+                    "sertifikat."
+                ),
+            )
+    
+        with col5:
+            st.subheader("Data Penera")
+            
+            df_penera = st.session_state.get('data_penera')
+            
+            if df_penera is not None and not df_penera.empty:
+                # Pilihan nama dari dropdown
+                selected_nama = st.selectbox(
+                    "Pilih Nama Penera",
+                    options=df_penera['Nama'].tolist(),
+                    index=None,
+                    placeholder="Ketik atau pilih nama...",
+                    key="penera_select"
+                )
+                
+                if selected_nama:
+                    row = df_penera[df_penera['Nama'] == selected_nama].iloc[0]
+                    # Simpan ke session state
+                    st.session_state.nama_penera = selected_nama
+                    st.session_state.nip_penera = normalize_nip(
+                        row.get("NIP", "")
+                    )
+
+                    st.session_state.golongan_penera = str(
+                        row.get("Golongan", "")
+                    ).strip()
+                    
+                    # Tampilkan info
+                    st.caption(f"**NIP:** {row['NIP']}")
+                    st.caption(f"**Golongan:** {row.get('Golongan', '')}")
+                else:
+                    # Jika belum memilih, tetap gunakan nilai session state (jika ada)
+                    st.session_state.nama_penera = st.session_state.get('nama_penera', '')
+                    st.session_state.nip_penera = st.session_state.get('nip_penera', '')
+                    
+                    # Opsi input manual
+                    if st.checkbox("Input manual"):
+                        manual_nama = st.text_input(
+                            "Nama Penera (manual)",
+                            value=st.session_state.saved_data.get('nama_penera', '')
+                        )
+                        manual_nip = st.text_input(
+                            "NIP Penera (manual)",
+                            value=st.session_state.saved_data.get('nip_penera', '')
+                        )
+                        st.session_state.nama_penera = manual_nama
+                        st.session_state.nip_penera = manual_nip
+            else:
+                # Jika file tidak ada, input manual
+                st.info("📂 File data penera tidak ditemukan. Silakan input manual.")
+                manual_nama = st.text_input(
+                    "Nama Penera",
+                    value=st.session_state.saved_data.get('nama_penera', '')
+                )
+                manual_nip = st.text_input(
+                    "NIP Penera",
+                    value=st.session_state.saved_data.get('nip_penera', '')
+                )
+                st.session_state.nama_penera = manual_nama
+                st.session_state.nip_penera = manual_nip
+            
+            # Ambil nilai dari session state untuk digunakan di submit
+            nama_penera = st.session_state.get('nama_penera', '')
+            nip_penera = st.session_state.get('nip_penera', '')
+    
+        with col6:
+            st.subheader("Informasi Tambahan")
+            
+            # Suhu ruangan selalu "Ambient" (tidak bisa diubah)
+            suhu = st.text_input(
+                "Suhu Ruangan",
+                value="Ambient",
+                disabled=True,
+                help="Nilai tetap Ambient sesuai standar pengujian."
+            )
+            
+            # Kelembaban selalu "Ambient" (tidak bisa diubah)
+            kelembaban = st.text_input(
+                "Kelembaban",
+                value="Ambient",
+                disabled=True,
+                help="Nilai tetap Ambient sesuai standar pengujian."
+            )
+            
+            # Metode pengujian tetap "Beban Substitusi Tunggal"
+            metode = st.text_input(
+                "Metode Pengujian",
+                value="Beban Substitusi Tunggal",
+                disabled=True,
+            )
+    
+        st.markdown("---")
+        st.subheader("Hasil Pengujian Kebenaran")
+    
+        # ======================== TABEL PENGUJIAN KEBENARAN ========================
+        # Ambil nilai dari session state
+        e = st.session_state.get('interval_skala_input', 20)
+        cls = st.session_state.get('kelas', 'III')
+        jns_uji = st.session_state.get('keterangan', 'Tera')
+    
+        # ======================== TABEL PENGUJIAN KEBENARAN ========================
+        num_results = 8
+        test_results = []
+    
+        st.write("**Masukkan Hasil Pengujian**")
+    
+        # Header kolom
+        cols_header = st.columns([0.5, 1.6, 1.6, 1.2, 1.4, 1.6, 1.0, 1.0])
+        for col, label in zip(cols_header, [
+            "**No**", "**Standar (S)**", "**Balas (B)**",
+            "**ΔL**", "**Kesalahan**", "**Penunjukan (I)**", "**BKD**", "**Hasil**"
+        ]):
+            col.write(label)
+    
+        for i in range(num_results):
+            cols = st.columns([0.5, 1.6, 1.6, 1.2, 1.4, 1.6, 1.0, 1.0])
+    
+            with cols[0]:
+                st.write(f"{i+1}")
+    
+            if i == 0:
+                default_s = 20 * e
+                default_b = 0
+                default_hasil = "SAH"
+            else:
+                default_s = 0
+                default_b = 0
+                default_hasil = "SAH"
+    
+            default_dl = e / 2.0
+            default_kes = 0
+    
+            # --- Standar ---
+            with cols[1]:
+                if i == 1:
+                    standar_val = st.number_input(
+                        f"Standar {i+1}",
+                        value=st.session_state.get(f"standar_{i}_{e}", default_s),
+                        step=1,
+                        format="%d",
+                        key=f"standar_{i}_{e}",
+                        on_change=copy_standar,
+                        label_visibility="collapsed"
+                    )
+                else:
+                    if i in [2, 4, 6]:
+                        standar_val = 0
+                    elif i in [3, 5, 7]:
+                        standar_val = st.session_state.get(f"standar_1_{e}", default_s)
+                    else:
+                        standar_val = default_s
+    
+                    st.number_input(
+                        f"Standar {i+1}",
+                        value=standar_val,
+                        step=1,
+                        format="%d",
+                        key=f"standar_{i}_{e}",
+                        disabled=True,
+                        label_visibility="collapsed"
+                    )
+    
+            # --- Balas ---
+            with cols[2]:
+                if i in [2, 4, 6]:
+                    balas_val = st.number_input(
+                        f"Balas {i+1}",
+                        value=st.session_state.get(f"balas_{i}", 0),
+                        step=1,
+                        format="%d",
+                        key=f"balas_{i}",
+                        on_change=sync_balas,
+                        args=(f"balas_{i}", f"balas_{i+1}"),
+                        label_visibility="collapsed"
+                    )
+                elif i in [3, 5, 7]:
+                    prev_idx = i - 1
+                    balas_val = st.session_state.get(f"balas_{prev_idx}", 0)
+    
+                    st.number_input(
+                        f"Balas {i+1}",
+                        value=balas_val,
+                        step=1,
+                        format="%d",
+                        key=f"balas_{i}",
+                        disabled=True,
+                        label_visibility="collapsed"
+                    )
+                else:
+                    balas_val = 0
+    
+                    st.number_input(
+                        f"Balas {i+1}",
+                        value=0,
+                        step=1,
+                        format="%d",
+                        key=f"balas_{i}",
+                        disabled=True,
+                        label_visibility="collapsed"
+                    )
+    
+            # --- ΔL ---
+            with cols[3]:
+                delta_l_val = st.number_input(
+                    f"ΔL {i+1}",
+                    value=default_dl,
+                    step=0.1,
+                    format="%g",
+                    key=f"delta_l_{i}_{e}",
+                    disabled=True,
+                    label_visibility="collapsed"
+                )
+    
+            # --- Kesalahan ---
+            with cols[4]:
+                kesalahan_val = st.number_input(
+                    f"Kesalahan {i+1}",
+                    value=default_kes,
+                    step=1,
+                    format="%d",
+                    disabled=True,
+                    key=f"kesalahan_{i}_{e}",
+                    label_visibility="collapsed"
+                )
+    
+            # --- Penunjukan (I) ---
+            with cols[5]:
+                penunjukan_default = standar_val + balas_val
+                penunjukan_val = st.number_input(
+                    f"Penunjukan {i+1}",
+                    value=penunjukan_default,
+                    step=1,
+                    format="%d",
+                    disabled=True,
+                    key=f"penunjukan_{i}_{e}_{penunjukan_default}",
+                    label_visibility="collapsed"
+                )
+    
+            # --- BKD ---
+            with cols[6]:
+                muatan = standar_val + balas_val
+                koef, bkd_kg = hitung_bkd(muatan, e, cls, jns_uji)
+                if koef == 0.5:
+                    bkd_text = "±0.5e"
+                elif koef == 1.0:
+                    bkd_text = "±1e"
+                elif koef == 1.5:
+                    bkd_text = "±1.5e"
+                elif koef == 2.0:
+                    bkd_text = "±2e"
+                elif koef == 3.0:
+                    bkd_text = "±3e"
+                else:
+                    bkd_text = f"±{koef:.1f}e"
+                st.write(f"**{bkd_text}**")
+    
+            # --- Hasil ---
+            with cols[7]:
+                hasil_val = st.selectbox(
+                    f"Hasil {i+1}",
+                    ["SAH", "TIDAK SAH"],
+                    index=0 if default_hasil == "SAH" else 1,
+                    key=f"hasil_{i}_{e}",
+                    disabled=True,
+                    label_visibility="collapsed"
+                )
+    
+            muatan_sb = standar_val + balas_val
+            p_aktual = penunjukan_val + 0.5 * e - delta_l_val
+    
+            test_results.append({
+                'standar': standar_val,
+                'balas': balas_val,
+                'muatan_sb': muatan_sb,
+                'timbangan': penunjukan_val,
+                'imbuh': delta_l_val,
+                'p_aktual': p_aktual,
+                'kesalahan': kesalahan_val,
+                'bkd_koef': koef,
+                'bkd_kg': bkd_kg,
+                'bkd_text': bkd_text,
+                'hasil': hasil_val == "SAH"
+            })
+    
+        st.markdown("---")
+    
+        # ======================== PEMERIKSAAN VISUAL ========================
+        st.markdown("---")
+        st.subheader("Pemeriksaan Visual")
+        visual_items = ["Tanda Tera", "Alat Penunjuk Kedataran", "Bersih dan Siap Uji", "Sesuai Persetujuan Tipe"]
+        visual_results = {}
+        cols_vis = st.columns(4)
+        for idx, item in enumerate(visual_items):
+            with cols_vis[idx % 4]:
+                visual_results[item] = st.checkbox(item, value=True, key=f"vis_{item}")
+        # ======================== REPETABILITY ========================
+        st.markdown("---")
+        st.subheader("Repetability (50% Maks)")
+    
+        kapasitas_max = st.session_state.kapasitas_max_input
+        interval_skala = st.session_state.interval_skala_input
+        kelas = st.session_state.get('kelas', 'III')
+        keterangan = st.session_state.get('keterangan', 'Tera')
+    
+        half_max = int(kapasitas_max * 0.5)
+        deltaL_default = interval_skala / 2.0
+    
+        # === Perbaikan: update nilai default jika kapasitas berubah ===
+        if 'prev_kapasitas_max' not in st.session_state:
+            st.session_state.prev_kapasitas_max = kapasitas_max
+    
+        if 'repet_I_1' not in st.session_state:
+            st.session_state.repet_I_1 = half_max
+        else:
+            # Jika kapasitas berubah dan nilai saat ini masih sama dengan default lama, update
+            if kapasitas_max != st.session_state.prev_kapasitas_max:
+                half_max_old = int(st.session_state.prev_kapasitas_max * 0.5)
+                if st.session_state.repet_I_1 == half_max_old:
+                    st.session_state.repet_I_1 = half_max
+                st.session_state.prev_kapasitas_max = kapasitas_max
+    
+        # Header
+        col_header = st.columns([1.2, 0.8, 1.5, 0.9, 1.0])
+        with col_header[0]:
+            st.write("**Penunjukan (I)**")
+        with col_header[1]:
+            st.write("**ΔL**")
+        with col_header[2]:
+            st.write("**P (I+0.5e-ΔL)**")
+        with col_header[3]:
+            st.write("**BKD**")
+        with col_header[4]:
+            st.write("**Hasil**")
+    
+        repet_data = []
+        I_baris1 = st.session_state.repet_I_1  # acuan baris 1, di-refresh tiap iterasi i==1
+    
+        for i in range(1, 4):
+            cols_repet = st.columns([1.2, 0.8, 1.5, 0.9, 1.0])
+    
+            with cols_repet[0]:
+                if i == 1:
+                    I = st.number_input(
+                        f"Penunjukan (I) {i}",
+                        value=st.session_state.repet_I_1,
+                        step=1,
+                        format="%d",
+                        key="repet_I_1",
+                        label_visibility="collapsed"
+                    )
+                    I_baris1 = I  # tangkap nilai terbaru untuk dipakai baris 2 & 3
+                else:
+                    # key disisipi I_baris1 supaya widget selalu "fresh" mengikuti
+                    # baris 1 tiap kali nilainya berubah (widget disabled dengan
+                    # key statis tidak akan ter-update lewat parameter value saja)
+                    I = st.number_input(
+                        f"Penunjukan (I) {i}",
+                        value=I_baris1,
+                        step=1,
+                        format="%d",
+                        disabled=True,
+                        key=f"repet_I_{i}_{I_baris1}",
+                        label_visibility="collapsed"
+                    )
+            with cols_repet[1]:
+                deltaL = st.number_input(
+                    f"ΔL {i}",
+                    value=deltaL_default,
+                    step=0.1,
+                    format="%g",
+                    disabled=True,
+                    key=f"repet_dL_{i}_{interval_skala}",
+                    label_visibility="collapsed"
+                )
+            with cols_repet[2]:
+                # key disisipi I supaya P ikut ter-update tiap kali I berubah
+                P = st.number_input(
+                    f"P (I+0.5e-ΔL) {i}",
+                    value=I,
+                    step=1,
+                    format="%d",
+                    disabled=True,
+                    key=f"repet_P_{i}_{interval_skala}_{I}",
+                    label_visibility="collapsed"
+                )
+            with cols_repet[3]:
+                muatan = I
+                koef, bkd_kg = hitung_bkd(muatan, interval_skala, kelas, keterangan)
+                bkd_text = "±0.5e" if koef == 0.5 else \
+                           "±1e" if koef == 1.0 else \
+                           "±1.5e" if koef == 1.5 else \
+                           "±2e" if koef == 2.0 else \
+                           "±3e" if koef == 3.0 else f"±{koef:.1f}e"
+                st.write(f"**{bkd_text}**")
+            with cols_repet[4]:
+                hasil = st.selectbox(
+                    f"Hasil {i}",
+                    ["SAH", "TIDAK SAH"],
+                     index=0,
+                    key=f"repet_hasil_{i}",
+                    disabled=True,
+                    label_visibility="collapsed"
+                )
+    
+            repet_data.append({
+                "penunjukan": I,
+                "delta_l": deltaL,
+                "p_value": P,
+                "hasil": hasil == "SAH",
+                "bkd_koef": koef,
+                "bkd_kg": bkd_kg,
+                "bkd_text": bkd_text
+            })
+    # ======================== EKSENTRISITAS ========================
+        st.markdown("---")
+        st.subheader("Eksentrisitas (1/3 Maks)")
+    
+        kapasitas_max = st.session_state.kapasitas_max_input
+        interval_skala = st.session_state.interval_skala_input
+        kelas = st.session_state.get('kelas', 'III')
+        keterangan = st.session_state.get('keterangan', 'Tera')
+    
+        one_third = int(kapasitas_max / 3.0)
+        deltaL_eks = interval_skala / 2.0
+    
+        # === Perbaikan: update nilai default jika kapasitas berubah ===
+        if 'prev_kapasitas_max_eks' not in st.session_state:
+            st.session_state.prev_kapasitas_max_eks = kapasitas_max
+    
+        if 'eksen_I_1' not in st.session_state:
+            st.session_state.eksen_I_1 = one_third
+        else:
+            if kapasitas_max != st.session_state.prev_kapasitas_max_eks:
+                one_third_old = int(st.session_state.prev_kapasitas_max_eks / 3.0)
+                if st.session_state.eksen_I_1 == one_third_old:
+                    st.session_state.eksen_I_1 = one_third
+                st.session_state.prev_kapasitas_max_eks = kapasitas_max
+    
+        # Header
+        col_header = st.columns([1.2, 0.8, 1.5, 0.9, 1.0])
+        with col_header[0]:
+            st.write("**Penunjukan (I)**")
+        with col_header[1]:
+            st.write("**ΔL**")
+        with col_header[2]:
+            st.write("**P (I+0.5e-ΔL)**")
+        with col_header[3]:
+            st.write("**BKD**")
+        with col_header[4]:
+            st.write("**Hasil**")
+    
+        eksen_data = []
+        selisih_labels = ["3 & 1", "1 & 2", "2 & 3"]
+        I_baris1 = st.session_state.eksen_I_1
+    
+        for i in range(1, 4):
+            cols_eksen = st.columns([1.2, 0.8, 1.5, 0.9, 1.0])
+    
+            with cols_eksen[0]:
+                if i == 1:
+                    I = st.number_input(
+                        f"Penunjukan (I) {i}",
+                        value=st.session_state.eksen_I_1,
+                        step=1,
+                        format="%d",
+                        key="eksen_I_1",
+                        label_visibility="collapsed"
+                    )
+                    I_baris1 = I
+                else:
+                    I = st.number_input(
+                        f"Penunjukan (I) {i}",
+                        value=I_baris1,
+                        step=1,
+                        format="%d",
+                        disabled=True,
+                        key=f"eksen_I_{i}_{I_baris1}",
+                        label_visibility="collapsed"
+                    )
+            with cols_eksen[1]:
+                deltaL = st.number_input(
+                    f"ΔL {i}",
+                    value=deltaL_eks,
+                    step=0.1,
+                    format="%g",
+                    disabled=True,
+                    key=f"eksen_dL_{i}_{interval_skala}",
+                    label_visibility="collapsed"
+                )
+            with cols_eksen[2]:
+                P = st.number_input(
+                    f"P (I+0.5e-ΔL) {i}",
+                    value=I,
+                    step=1,
+                    format="%d",
+                    disabled=True,
+                    key=f"eksen_P_{i}_{interval_skala}_{I}",
+                    label_visibility="collapsed"
+                )
+            with cols_eksen[3]:
+                muatan = I
+                koef, bkd_kg = hitung_bkd(muatan, interval_skala, kelas, keterangan)
+                bkd_text = "±0.5e" if koef == 0.5 else \
+                           "±1e" if koef == 1.0 else \
+                           "±1.5e" if koef == 1.5 else \
+                           "±2e" if koef == 2.0 else \
+                           "±3e" if koef == 3.0 else f"±{koef:.1f}e"
+                st.write(f"**{bkd_text}**")
+            with cols_eksen[4]:
+                hasil = st.selectbox(
+                    f"Hasil {i}",
+                    ["SAH", "TIDAK SAH"],
+                     index=0,
+                    key=f"eksen_hasil_{i}",
+                    disabled=True,
+                    label_visibility="collapsed"
+                )
+    
+            eksen_data.append({
+                "penunjukan": I,
+                "delta_l": deltaL,
+                "p_value": P,
+                "selisih": selisih_labels[i-1],
+                "hasil": hasil == "SAH",
+                "bkd_koef": koef,
+                "bkd_kg": bkd_kg,
+                "bkd_text": bkd_text
+            })
+    
+            # ======================== PENGUJIAN PENYETELAN NOL ========================
+        st.markdown("---")
+        st.subheader("Pengujian Penyetelan Nol")
+    
+        # Ambil interval_skala langsung dari session state (reaktif)
+        e = st.session_state.get('interval_skala_input', 20)
+    
+        col_nol1, col_nol2, col_nol3, col_nol4, col_nol5 = st.columns(5)
+        with col_nol1:
+            setel_nol = st.number_input(
+                "SETEL NOL",
+                value=0,
+                step=1,
+                key=f"nol_setel_{e}",  # key dinamis
+                disabled=True,
+            )
+        with col_nol2:
+            muatan_10e = st.number_input(
+                "MUATAN 10e (kg)",
+                value=10 * e,
+                step=1,
+                key=f"nol_muatan_{e}",  # key dinamis
+                disabled=True,
+            )
+        with col_nol3:
+            awal = st.number_input(
+                "AWAL",
+                value=10 * e,
+                step=1,
+                key=f"nol_awal_{e}",  # key dinamis
+                disabled=True,
+            )
+        with col_nol4:
+            plus025e = st.number_input(
+                "+0,25e",
+                value=10 * e,
+                step=1,
+                key=f"nol_plus025_{e}",  # key dinamis
+                disabled=True,
+            )
+        with col_nol5:
+            plus05e = st.number_input(
+                "+0,5e",
+                value=10 * e + e,
+                step=1,
+                key=f"nol_plus05_{e}",  # key dinamis
+                disabled=True,
+            )
+    
+        nol_data = {
+            "setel_nol": setel_nol,
+            "muatan_10e": muatan_10e,
+            "awal": awal,
+            "plus025e": plus025e,
+            "plus05e": plus05e
+        }
+            # ======================== PENGUJIAN PENYETEL TARA (TERA) ========================
+        st.markdown("---")
+        st.subheader("Pengujian Penyetel Tara (TERA)")
+    
+        # Hanya tampil jika jenis pengujian adalah "Tera"
+        if st.session_state.get('keterangan', 'Tera') == "Tera":
+            st.info("Tabel ini otomatis dihitung berdasarkan Kapasitas Maksimum dan Interval Skala.")
+    
+            kapasitas_max_tara = st.session_state.get('kapasitas_max_input', 60000)
+            interval_skala_tara = st.session_state.get('interval_skala_input', 10)
+    
+            # Hitung nilai
+            muatan_tara_val = int(0.2 * kapasitas_max_tara)
+            muatan_10e_val = 10 * interval_skala_tara
+            imbuh_025e_val = muatan_10e_val
+            imbuh_05e_val = 11 * interval_skala_tara
+    
+            data_tara = {
+                "KEGIATAN": ["SETEL NOL", "MUATAN TARA (20% MAKS)", "AKTIFKAN TARA", "+ muatan 10e", "+ imbuh 0,25e", "+ imbuh 0,5e"],
+                "PENUNJUKKAN": [0, muatan_tara_val, 0, muatan_10e_val, imbuh_025e_val, imbuh_05e_val]
+            }
+    
+            df_tara = pd.DataFrame(data_tara)
+            st.dataframe(df_tara, use_container_width=True, hide_index=True)
+        else:
+            st.info("Pengujian Penyetel Tara hanya dilakukan pada Tera (bukan Tera Ulang).")
+            
+        # =========================================================
+        # DATA PEMINJAMAN ALAT STANDAR
+        # =========================================================
+        st.markdown("---")
+        st.subheader("⚖️ Peminjaman Alat Standar")
+        st.caption(
+            "Jenis alat standar sudah ditentukan. "
+            "Silakan ubah jumlahnya apabila diperlukan."
+        )
+
+        col_at1, col_at2, col_at3, col_at4, col_at5 = st.columns(5)
+
+        with col_at1:
+            jumlah_bidur = st.number_input(
+                "BIDUR",
+                min_value=0,
+                step=1,
+                value=int(
+                    st.session_state.saved_data.get(
+                        "jumlah_bidur",
+                        100
+                    )
+                ),
+                key="jumlah_bidur_tj"
+            )
+
+        with col_at2:
+            jumlah_at_10kg = st.number_input(
+                "AT 10 kg",
+                min_value=0,
+                step=1,
+                value=int(
+                    st.session_state.saved_data.get(
+                        "jumlah_at_10kg",
+                        1
+                    )
+                ),
+                key="jumlah_at_10kg_tj"
+            )
+
+        with col_at3:
+            jumlah_at_5kg = st.number_input(
+                "AT 5 kg",
+                min_value=0,
+                step=1,
+                value=int(
+                    st.session_state.saved_data.get(
+                        "jumlah_at_5kg",
+                        1
+                    )
+                ),
+                key="jumlah_at_5kg_tj"
+            )
+
+        with col_at4:
+            jumlah_at_2kg = st.number_input(
+                "AT 2 kg",
+                min_value=0,
+                step=1,
+                value=int(
+                    st.session_state.saved_data.get(
+                        "jumlah_at_2kg",
+                        2
+                    )
+                ),
+                key="jumlah_at_2kg_tj"
+            )
+
+        with col_at5:
+            jumlah_at_1kg = st.number_input(
+                "AT 1 kg",
+                min_value=0,
+                step=1,
+                value=int(
+                    st.session_state.saved_data.get(
+                        "jumlah_at_1kg",
+                        1
+                    )
+                ),
+                key="jumlah_at_1kg_tj"
+            )
+        
+        # =========================================================
+        # ALAT STANDAR TAMBAHAN
+        # =========================================================
+        st.markdown("---")
+        st.subheader("➕ Alat Standar Tambahan")
+
+        tambahkan_alat_standar = st.checkbox(
+            "Tambahkan alat standar",
+            value=bool(
+                st.session_state.saved_data.get(
+                    "tambahkan_alat_standar",
+                    False
+                )
+            ),
+            key="tambahkan_alat_standar_tj"
+        )
+
+        # Nilai default supaya variabel tetap tersedia saat disimpan
+        pilihan_alat_tambahan = ""
+        jumlah_alat_tambahan = 1
+
+        if tambahkan_alat_standar:
+            col_tambah1, col_tambah2 = st.columns(2)
+
+            with col_tambah1:
+                pilihan_alat_tambahan = st.selectbox(
+                    "Pilih Alat Standar Tambahan",
+                    options=[
+                        "AT M1",
+                        "AT F2"
+                    ],
+                    index=0,
+                    key="pilihan_alat_tambahan_tj"
+                )
+
+            with col_tambah2:
+                jumlah_alat_tambahan = st.number_input(
+                    "Jumlah (set)",
+                    min_value=1,
+                    value=int(
+                        st.session_state.saved_data.get(
+                            "jumlah_alat_tambahan",
+                            1
+                        )
+                    ),
+                    step=1,
+                    key="jumlah_alat_tambahan_tj"
+                )
+        # ======================== TOMBOL SIMPAN ========================
+        col_submit1, col_submit2 = st.columns(2)
+        with col_submit1:
+            submit_btn = st.button("💾 Simpan Data", use_container_width=True, type="primary")
+        with col_submit2:
+            st.button(
+                "🔄 Reset Form",
+                use_container_width=True,
+                key="reset_form_tj",
+                on_click=reset_form_timbangan_jembatan,
+            )
+    
+        if submit_btn:
+            # Ambil semua nilai dari session state (dengan default)
+            kapasitas_max_final = st.session_state.get('kapasitas_max_input', 60000)
+            daya_baca_final = st.session_state.get('daya_baca_input', 10)
+            interval_skala_final = st.session_state.get('interval_skala_input', 10)
+            kapasitas_min_final = st.session_state.get('kapasitas_min_input', 20 * interval_skala_final)
+            kelas_final = st.session_state.get('kelas', 'III')
+            keterangan_final = st.session_state.get('keterangan', 'Tera')
+            berlaku_sampai = tambah_satu_tahun(tanggal)
+            st.session_state.generated_files = {}
+            # Ambil nilai dari input yang masih berupa variabel lokal
+            # (pemilik, alamat, merek, model, no_seri, suhu, kelembaban, metode, lokasi, nama_penera, nip_penera, tanggal)
+            # Pastikan variabel-variabel ini sudah didefinisikan di atas (masih dalam scope yang sama)
+            # Jika ada yang belum, gunakan session state atau default.
+    
+            st.session_state.saved_data = {
+                'pemilik': pemilik,
+                'alamat': alamat,
+                'merek': merek,
+                'model': model,
+                'no_seri': no_seri,
+                'kapasitas_max': kapasitas_max_final,
+                'kapasitas_min': kapasitas_min_final,
+                'daya_baca': daya_baca_final,
+                'interval_skala': interval_skala_final,
+                'kelas': kelas_final,
+                'suhu': suhu,          # suhu sudah di-set "Ambient" (disabled)
+                'kelembaban': kelembaban,  # kelembaban sudah di-set "Ambient"
+                'metode': metode,      # metode sudah di-set "Beban Substitusi Tunggal"
+                'lokasi': lokasi,      # lokasi sudah di-set "Perusahaan"
+                'nama_penera': nama_penera,
+                'nip_penera': nip_penera,
+                'golongan_penera': st.session_state.get('golongan_penera', ''),
+                'hasil_pengujian': test_results,
+                'tanggal': tanggal,
+                'tanggal_penera': format_tanggal_indonesia(tanggal.strftime('%Y-%m-%d')),
+                'tanggal_sertifikat': tanggal_tanda_tangan,
+                'keterangan': keterangan_final,
+                'berlaku_sampai': berlaku_sampai.strftime('%Y-%m-%d'),
+                'repetability': repet_data,      # dari bagian repetability
+                'eksentrisitas': eksen_data,     # dari bagian eksentrisitas
+                'penyetelan_nol': nol_data,      # dari bagian penyetelan nol
+                'visual': visual_results,        # dari bagian pemeriksaan visual
+                "jumlah_bidur": int(jumlah_bidur),
+                "jumlah_at_10kg": int(jumlah_at_10kg),
+                "jumlah_at_5kg": int(jumlah_at_5kg),
+                "jumlah_at_2kg": int(jumlah_at_2kg),
+                "jumlah_at_1kg": int(jumlah_at_1kg),
+                'tambahkan_alat_standar': bool(tambahkan_alat_standar),
+                'pilihan_alat_tambahan': (
+                    pilihan_alat_tambahan
+                    if tambahkan_alat_standar
+                    else ""
+                ),
+
+                'jumlah_alat_tambahan': (
+                    int(jumlah_alat_tambahan)
+                    if tambahkan_alat_standar
+                    else 0
+                ),
+            }
+            st.session_state.test_results = test_results
+            st.success("✅ Data berhasil disimpan!")
+            st.balloons()
+    
+    
+    # ===== MODE 2: GENERATE DOKUMEN =====
+    elif mode == "📄 Generate Dokumen":
+        st.header("Generate Dokumen Cerapan & Sertifikat")
+        
+        if not st.session_state.saved_data:
+            st.warning("⚠️ Silakan input data pengujian terlebih dahulu di menu 'Input Data Pengujian'")
+        else:
+            data = st.session_state.saved_data
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.subheader("📋 Preview Data")
+                preview_cols = st.columns(2)
+                
+                with preview_cols[0]:
+                    st.write(f"**Pemilik:** {data.get('pemilik', '-')}")
+                    st.write(f"**Merek:** {data.get('merek', '-')}")
+                    st.write(f"**Model:** {data.get('model', '-')}")
+                    st.write(f"**No. Seri:** {data.get('no_seri', '-')}")
+                
+                with preview_cols[1]:
+                    st.write(f"**Penera:** {data.get('nama_penera', '-')}")
+                    st.write(f"**Tanggal:** {data.get('tanggal_penera', '-')}")
+                    st.write(f"**Kelas:** {data.get('kelas', '-')}")
+                    st.write(f"**Hasil Pengujian:** {len(data.get('hasil_pengujian', []))} data")
+            
+            with col2:
+                st.subheader("📊 Nomor Dokumen")
+
+                # Ambil tanggal pengujian dari saved_data
+                tanggal_data = data.get(
+                    "tanggal",
+                    date.today()
+                )
+
+                tanggal_data = parse_date_value(
+                    tanggal_data,
+                    date.today()
+                )
+
+                # Generate nomor berdasarkan tanggal pengujian
+                default_sertifikat = generate_nomor_sertifikat(
+                    tanggal_data
+                )
+
+                default_order = generate_nomor_order(
+                    tanggal_data
+                )
+
+                nomor_sertifikat = st.text_input(
+                    "Nomor Sertifikat",
+                    value=data.get(
+                        "nomor_sertifikat",
+                        default_sertifikat
+                    ),
+                    placeholder=(
+                        "Format: "
+                        "XXX.X.X.XX/XXXX/XXX-X/X/XXXX"
+                    ),
+                    key="nomor_sertifikat_tj",
+                )
+
+                nomor_order = st.text_input(
+                    "Nomor Order",
+                    value=data.get(
+                        "nomor_order",
+                        default_order
+                    ),
+                    placeholder="Format nomor order",
+                    key="nomor_order_tj",
+                )
+
+                st.session_state.saved_data[
+                    "nomor_sertifikat"
+                ] = nomor_sertifikat
+
+                st.session_state.saved_data[
+                    "nomor_order"
+                ] = nomor_order
+
+                data = st.session_state.saved_data
+            
+            st.markdown("---")
+            
+            # =====================================================
+            # GENERATE DOKUMEN
+            # =====================================================
+            st.markdown("---")
+            st.subheader("📄 Generate Dokumen")
+
+            if "generated_files" not in st.session_state:
+                st.session_state.generated_files = {}
+
+            # =====================================================
+            # GENERATE CERAPAN + SERTIFIKAT SEKALIGUS
+            # =====================================================
+            if st.button(
+                "📦 Generate Cerapan dan Sertifikat",
+                type="primary",
+                use_container_width=True,
+                key="tj_generate_kedua_dokumen",
+            ):
+                try:
+                    output_path = Path(
+                        "./output/timbangan_jembatan"
+                    )
+
+                    output_path.mkdir(
+                        parents=True,
+                        exist_ok=True,
+                    )
+
+                    nama_file_cerapan = (
+                        format_nama_file_dokumen(
+                            data,
+                            "Cerapan"
+                        )
+                    )
+
+                    cerapan_file = (
+                        output_path
+                        / f"{nama_file_cerapan}.pdf"
+                    )
+
+                    generate_cerapan_pdf(
+                        st.session_state.saved_data,
+                        str(cerapan_file),
+                    )
+
+                    st.session_state.generated_files[
+                        "cerapan"
+                    ] = str(cerapan_file)
+
+                    nama_file_sertifikat = (
+                        format_nama_file_dokumen(
+                            data,
+                            "Sertifikat"
+                        )
+                    )
+
+                    sertifikat_file = (
+                        output_path
+                        / f"{nama_file_sertifikat}.pdf"
+                    )
+
+                    generate_sertifikat_pdf(
+                        st.session_state.saved_data,
+                        str(sertifikat_file),
+                        nomor_sertifikat,
+                    )
+
+                    st.session_state.generated_files[
+                        "sertifikat"
+                    ] = str(sertifikat_file)
+
+                    st.success(
+                        "✅ Cerapan dan sertifikat "
+                        "berhasil dibuat."
+                    )
+
+                except Exception as exc:
+                    st.error(
+                        f"❌ Gagal membuat dokumen: {exc}"
+                    )
+
+                    import traceback
+                    st.code(traceback.format_exc())
+
+
+            st.markdown("### Dokumen Individual")
+
+            col_doc1, col_doc2, col_doc3, col_doc4 = (
+                st.columns(4)
+            )
+            with col_doc1:
+                with st.container(border=True):
+                    st.markdown("### 📝 Cerapan")
+
+                    st.caption(
+                        "Generate dan download cerapan "
+                        "pengujian Timbangan Jembatan."
+                    )
+
+                    if st.button(
+                        "Generate Cerapan",
+                        type="primary",
+                        use_container_width=True,
+                        key="tj_generate_cerapan",
+                    ):
+                        try:
+                            output_path = Path(
+                                "./output/timbangan_jembatan"
+                            )
+
+                            output_path.mkdir(
+                                parents=True,
+                                exist_ok=True,
+                            )
+
+                            nama_file = (
+                                format_nama_file_dokumen(
+                                    data,
+                                    "Cerapan"
+                                )
+                            )
+
+                            filename = (
+                                output_path
+                                / f"{nama_file}.pdf"
+                            )
+
+                            generate_cerapan_pdf(
+                                st.session_state.saved_data,
+                                str(filename),
+                            )
+
+                            st.session_state.generated_files[
+                                "cerapan"
+                            ] = str(filename)
+
+                            st.success(
+                                "✅ Cerapan berhasil dibuat."
+                            )
+
+                        except Exception as exc:
+                            st.error(
+                                f"❌ Gagal membuat cerapan: {exc}"
+                            )
+
+                    cerapan_path = (
+                        st.session_state.generated_files.get(
+                            "cerapan"
+                        )
+                    )
+
+                    if (
+                        cerapan_path
+                        and Path(cerapan_path).exists()
+                    ):
+                        with open(
+                            cerapan_path,
+                            "rb"
+                        ) as file_pdf:
+                            st.download_button(
+                                "⬇️ Download Cerapan",
+                                data=file_pdf.read(),
+                                file_name=Path(
+                                    cerapan_path
+                                ).name,
+                                mime="application/pdf",
+                                use_container_width=True,
+                                key="tj_download_cerapan",
+                            )
+                    else:
+                        st.caption(
+                            "Cerapan belum digenerate."
+                        )
+            with col_doc2:
+                with st.container(border=True):
+                    st.markdown("### 🎫 Sertifikat")
+
+                    st.caption(
+                        "Generate dan download sertifikat "
+                        "Timbangan Jembatan."
+                    )
+
+                    if st.button(
+                        "Generate Sertifikat",
+                        type="primary",
+                        use_container_width=True,
+                        key="tj_generate_sertifikat",
+                    ):
+                        try:
+                            output_path = Path(
+                                "./output/timbangan_jembatan"
+                            )
+
+                            output_path.mkdir(
+                                parents=True,
+                                exist_ok=True,
+                            )
+
+                            nama_file = (
+                                format_nama_file_dokumen(
+                                    data,
+                                    "Sertifikat"
+                                )
+                            )
+
+                            filename = (
+                                output_path
+                                / f"{nama_file}.pdf"
+                            )
+
+                            generate_sertifikat_pdf(
+                                st.session_state.saved_data,
+                                str(filename),
+                                nomor_sertifikat,
+                            )
+
+                            st.session_state.generated_files[
+                                "sertifikat"
+                            ] = str(filename)
+
+                            st.success(
+                                "✅ Sertifikat berhasil dibuat."
+                            )
+
+                        except Exception as exc:
+                            st.error(
+                                "❌ Gagal membuat sertifikat: "
+                                f"{exc}"
+                            )
+
+                    sertifikat_path = (
+                        st.session_state.generated_files.get(
+                            "sertifikat"
+                        )
+                    )
+
+                    if (
+                        sertifikat_path
+                        and Path(sertifikat_path).exists()
+                    ):
+                        with open(
+                            sertifikat_path,
+                            "rb"
+                        ) as file_pdf:
+                            st.download_button(
+                                "⬇️ Download Sertifikat",
+                                data=file_pdf.read(),
+                                file_name=Path(
+                                    sertifikat_path
+                                ).name,
+                                mime="application/pdf",
+                                use_container_width=True,
+                                key="tj_download_sertifikat",
+                            )
+                    else:
+                        st.caption(
+                            "Sertifikat belum digenerate."
+                        )
+            with col_doc3:
+                with st.container(border=True):
+                    st.markdown("### ⚖️ Peminjaman Standar")
+
+                    st.caption(
+                        "Generate dan download formulir "
+                        "peminjaman alat standar."
+                    )
+
+                    if st.button(
+                        "Generate Form Standar",
+                        type="primary",
+                        use_container_width=True,
+                        key="tj_generate_form_standar",
+                    ):
+                        try:
+                            output_path = Path(
+                                "./output/timbangan_jembatan"
+                            )
+
+                            output_path.mkdir(
+                                parents=True,
+                                exist_ok=True,
+                            )
+
+                            nama_file = (
+                                format_nama_file_dokumen(
+                                    data,
+                                    "Form_Peminjaman_Alat_Standar"
+                                )
+                            )
+
+                            filename = (
+                                output_path
+                                / f"{nama_file}.pdf"
+                            )
+
+                            generate_form_peminjaman_standar_pdf(
+                                st.session_state.saved_data,
+                                str(filename),
+                                nomor_surat_perintah="",
+                            )
+
+                            st.session_state.generated_files[
+                                "form_peminjaman_standar"
+                            ] = str(filename)
+
+                            st.success(
+                                "✅ Form standar berhasil dibuat."
+                            )
+
+                        except Exception as exc:
+                            st.error(
+                                "❌ Gagal membuat form standar: "
+                                f"{exc}"
+                            )
+
+                    form_standar_path = (
+                        st.session_state.generated_files.get(
+                            "form_peminjaman_standar"
+                        )
+                    )
+
+                    if (
+                        form_standar_path
+                        and Path(form_standar_path).exists()
+                    ):
+                        with open(
+                            form_standar_path,
+                            "rb"
+                        ) as file_pdf:
+                            st.download_button(
+                                "⬇️ Download Form Standar",
+                                data=file_pdf.read(),
+                                file_name=Path(
+                                    form_standar_path
+                                ).name,
+                                mime="application/pdf",
+                                use_container_width=True,
+                                key="tj_download_form_standar",
+                            )
+                    else:
+                        st.caption(
+                            "Form standar belum digenerate."
+                        )
+            with col_doc4:
+                with st.container(border=True):
+                    st.markdown("### 🔏 Peminjaman CTT")
+
+                    st.caption(
+                        "Generate dan download formulir "
+                        "peminjaman Cap Tanda Tera."
+                    )
+
+                    if st.button(
+                        "Generate Form CTT",
+                        type="primary",
+                        use_container_width=True,
+                        key="tj_generate_form_ctt",
+                    ):
+                        try:
+                            output_path = Path(
+                                "./output/timbangan_jembatan"
+                            )
+
+                            output_path.mkdir(
+                                parents=True,
+                                exist_ok=True,
+                            )
+
+                            nama_file = (
+                                format_nama_file_dokumen(
+                                    data,
+                                    "Form_Peminjaman_CTT"
+                                )
+                            )
+
+                            filename = (
+                                output_path
+                                / f"{nama_file}.pdf"
+                            )
+
+                            generate_form_peminjaman_ctt_pdf(
+                                st.session_state.saved_data,
+                                str(filename),
+                                nomor_surat_perintah="",
+                            )
+
+                            st.session_state.generated_files[
+                                "form_peminjaman_ctt"
+                            ] = str(filename)
+
+                            st.success(
+                                "✅ Form CTT berhasil dibuat."
+                            )
+
+                        except Exception as exc:
+                            st.error(
+                                f"❌ Gagal membuat form CTT: {exc}"
+                            )
+
+                    form_ctt_path = (
+                        st.session_state.generated_files.get(
+                            "form_peminjaman_ctt"
+                        )
+                    )
+
+                    if (
+                        form_ctt_path
+                        and Path(form_ctt_path).exists()
+                    ):
+                        with open(
+                            form_ctt_path,
+                            "rb"
+                        ) as file_pdf:
+                            st.download_button(
+                                "⬇️ Download Form CTT",
+                                data=file_pdf.read(),
+                                file_name=Path(
+                                    form_ctt_path
+                                ).name,
+                                mime="application/pdf",
+                                use_container_width=True,
+                                key="tj_download_form_ctt",
+                            )
+                    else:
+                        st.caption(
+                            "Form CTT belum digenerate."
+                        )
+    st.markdown("---")
+    st.markdown("""
+        <div style='text-align: center; color: #888; font-size: 12px;'>
+        <p>Aplikasi Automasi Sertifikat Tera © 2026</p>
+        <p>Match dengan Template Excel & Word</p>
+        </div>
+        """, unsafe_allow_html=True)
