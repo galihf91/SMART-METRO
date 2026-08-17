@@ -265,7 +265,7 @@ def home():
                 <h3>Smart Metrology Digital Service</h3>
                 <p>
                     Digitalisasi Pelayanan Tera dan Tera Ulang
-                    Berbasis Dashboard dan Generative AГ
+                    Berbasis Dashboard dan Generative AI
                     dalam Mewujudkan Pelayanan Kemetrologian
                     Modern, Cepat, Akurat dan Berintegritas
                     pada Dinas Perindustrian dan Perdagangan
