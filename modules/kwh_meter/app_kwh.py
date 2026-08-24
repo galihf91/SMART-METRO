@@ -603,10 +603,20 @@ def run():
                 ),
             )
 
-            berlaku_sampai = st.date_input(
+            # Berlaku sampai selalu dihitung dari tanggal pengujian
+            berlaku_sampai = tambah_tahun(
+                tanggal_pengujian,
+                10
+            )
+            
+            st.date_input(
                 "Berlaku Sampai",
-                key="berlaku_sampai_kwh",
+                value=berlaku_sampai,
                 disabled=True,
+                key=(
+                    "berlaku_sampai_kwh_"
+                    f"{tanggal_pengujian.isoformat()}"
+                )
             )
 
         st.markdown("---")
