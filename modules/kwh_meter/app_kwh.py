@@ -423,6 +423,12 @@ def reset_form_kwh():
             }
         ):
             st.session_state.pop(key, None)
+
+def kembali_edit_kwh():
+    st.session_state["menu_kwh"] = (
+        "📝 Input Data Pengujian"
+    )
+
 # =========================
 # KONFIGURASI HALAMAN
 def run():
