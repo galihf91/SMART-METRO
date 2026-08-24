@@ -207,10 +207,74 @@ def halaman_home_uttp():
             ):
                 pindah_halaman_uttp("kwh")
 
-            
-    st.divider()
-    st.caption("SMART METRO — Pengujian UTTP")
+    # =====================================================
+    # BARIS KETIGA
+    # =====================================================
+    col5, col6 = st.columns(2)
 
+    with col5:
+        with st.container(border=True):
+            st.markdown("## 📋 UTTP Umum")
+            st.write(
+                "Pengujian UTTP umum untuk pembuatan "
+                "sertifikat tanpa cerapan."
+            )
+            st.write(
+                "**Output:** Sertifikat PDF"
+            )
+
+            if st.button(
+                "Masuk ke Pengujian UTTP",
+                use_container_width=True,
+                key="menu_uttp_umum"
+            ):
+                pindah_halaman_uttp("uttp")
+
+    with col6:
+        with st.container(border=True):
+            st.markdown("## 💧 Meter Air")
+            st.write(
+                "Pengujian Meter Air."
+            )
+            st.write(
+                "**Output:** Cerapan PDF dan Sertifikat PDF"
+            )
+
+            if st.button(
+                "Masuk ke Meter Air",
+                use_container_width=True,
+                key="menu_uttp_meter_air"
+            ):
+                pindah_halaman_uttp("meter_air")
+    
+    # =====================================================
+    # BARIS KEEMPAT
+    # =====================================================
+    col7, col8 = st.columns(2)
+
+    with col7:
+        with st.container(border=True):
+            st.markdown("## 🚛 Tangki Ukur Mobil")
+            st.write(
+                "Pengujian Tangki Ukur Mobil untuk cairan "
+                "BBM dan KIMIA."
+            )
+            st.write(
+                "**Output:** Cerapan PDF dan Sertifikat PDF"
+            )
+
+            if st.button(
+                "Masuk ke Tangki Ukur Mobil",
+                use_container_width=True,
+                key="menu_uttp_tangki_ukur_mobil"
+            ):
+                pindah_halaman_uttp("tangki_ukur_mobil")
+
+    with col8:
+        st.empty()
+        
+    st.divider()
+    st.caption("SMART METRO — Pengujian UTTP")        
 
 # =========================================================
 # ROUTER INTERNAL PENGUJIAN UTTP
