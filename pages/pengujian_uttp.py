@@ -306,8 +306,23 @@ def run():
     elif halaman_aktif == "kwh":
         from modules.kwh_meter.app_kwh import run
         run()
-        
-
+    
+    
+    elif halaman_aktif == "meter_air":
+        from modules.meter_air.app_meter_air import run
+        run()
+    
+    
+    elif halaman_aktif == "tangki_ukur_mobil":
+        from modules.tangki_ukur_mobil.app_tangki_ukur_mobil import run
+        run()
+    
+    
+    elif halaman_aktif == "uttp":
+        from modules.uttp.app_uttp import run
+        run()
+    
+    
     else:
         st.session_state.halaman_uttp = "home_uttp"
         st.rerun()
