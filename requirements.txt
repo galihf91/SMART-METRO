@@ -6,3 +6,4 @@ reportlab
 folium
 streamlit-folium
 altair
+supabase
