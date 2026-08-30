@@ -2844,7 +2844,18 @@ def run():
                         simpan_pengujian_tj_ke_supabase(
                             st.session_state.saved_data
                         )
-                    
+
+                        load_data_perusahaan.clear()
+
+                        st.session_state[
+                            "data_perusahaan"
+                        ] = load_data_perusahaan()
+                        
+                        st.success(
+                            "✅ Cerapan dan sertifikat berhasil dibuat "
+                            "serta data pengujian berhasil disimpan "
+                            "ke database."
+                        )
                         st.success(
                             "✅ Cerapan dan sertifikat berhasil dibuat "
                             "serta data pengujian berhasil disimpan "
