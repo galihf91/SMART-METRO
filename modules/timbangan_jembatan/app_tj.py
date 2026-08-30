@@ -935,7 +935,8 @@ def run():
             "Pilih Mode:",
             [
                 "📝 Input Data Pengujian",
-                "📄 Generate Dokumen"
+                "📄 Generate Dokumen",
+                "📚 Riwayat Timbangan Jembatan"
             ],
             key="mode_timbangan_jembatan",
             help="Pilih mode yang ingin Anda gunakan",
