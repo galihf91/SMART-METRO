@@ -2638,6 +2638,323 @@ def run():
                         st.caption(
                             "Form CTT belum digenerate."
                         )
+    
+    elif mode == "📚 Riwayat Timbangan Jembatan":
+
+        st.header("📚 Riwayat Timbangan Jembatan")
+    
+        try:
+            supabase = get_supabase()
+    
+            # =====================================================
+            # AMBIL DATA TIMBANGAN JEMBATAN
+            # =====================================================
+            response_uttp = (
+                supabase
+                .table("uttp")
+                .select(
+                    "id, perusahaan_id, jenis_uttp, merk, tipe, "
+                    "nomor_seri, kapasitas, status"
+                )
+                .eq(
+                    "jenis_uttp",
+                    "Timbangan Jembatan"
+                )
+                .order("id")
+                .execute()
+            )
+    
+            daftar_uttp = response_uttp.data or []
+    
+            if not daftar_uttp:
+                st.info(
+                    "Belum ada data Timbangan Jembatan."
+                )
+                st.stop()
+    
+            # =====================================================
+            # AMBIL HANYA PERUSAHAAN YANG PUNYA TJ
+            # =====================================================
+            daftar_perusahaan_id = list({
+                alat_item.get("perusahaan_id")
+                for alat_item in daftar_uttp
+                if alat_item.get(
+                    "perusahaan_id"
+                ) is not None
+            })
+    
+            if daftar_perusahaan_id:
+                response_perusahaan = (
+                    supabase
+                    .table("perusahaan")
+                    .select(
+                        "id, nama_perusahaan, alamat"
+                    )
+                    .in_(
+                        "id",
+                        daftar_perusahaan_id
+                    )
+                    .execute()
+                )
+    
+                data_perusahaan_riwayat = (
+                    response_perusahaan.data
+                    or []
+                )
+    
+            else:
+                data_perusahaan_riwayat = []
+    
+            perusahaan_by_id = {
+                p["id"]: p
+                for p in data_perusahaan_riwayat
+            }
+    
+            # =====================================================
+            # PILIH PERUSAHAAN
+            # =====================================================
+            perusahaan_tj_map = {}
+    
+            for alat_item in daftar_uttp:
+                perusahaan_id = alat_item.get(
+                    "perusahaan_id"
+                )
+    
+                perusahaan_item = (
+                    perusahaan_by_id.get(
+                        perusahaan_id,
+                        {}
+                    )
+                )
+    
+                nama_perusahaan = str(
+                    perusahaan_item.get(
+                        "nama_perusahaan",
+                        ""
+                    )
+                ).strip()
+    
+                if nama_perusahaan:
+                    perusahaan_tj_map[
+                        nama_perusahaan
+                    ] = perusahaan_item
+    
+            st.subheader("Cari Perusahaan")
+    
+            nama_perusahaan_terpilih = st.selectbox(
+                "Nama Perusahaan",
+                options=sorted(
+                    perusahaan_tj_map.keys()
+                ),
+                index=None,
+                placeholder=(
+                    "Ketik atau pilih nama perusahaan..."
+                ),
+                key="tj_riwayat_perusahaan"
+            )
+    
+            if not nama_perusahaan_terpilih:
+                st.info(
+                    "Silakan pilih perusahaan untuk melihat "
+                    "Timbangan Jembatan yang terdaftar."
+                )
+                st.stop()
+    
+            perusahaan = perusahaan_tj_map[
+                nama_perusahaan_terpilih
+            ]
+    
+            perusahaan_id_terpilih = (
+                perusahaan.get("id")
+            )
+    
+            # =====================================================
+            # FILTER TJ MILIK PERUSAHAAN
+            # =====================================================
+            daftar_tj_perusahaan = [
+                alat_item
+                for alat_item in daftar_uttp
+                if alat_item.get(
+                    "perusahaan_id"
+                ) == perusahaan_id_terpilih
+            ]
+    
+            if not daftar_tj_perusahaan:
+                st.info(
+                    "Belum ada Timbangan Jembatan "
+                    "untuk perusahaan ini."
+                )
+                st.stop()
+    
+            # =====================================================
+            # PILIH TIMBANGAN
+            # =====================================================
+            pilihan_alat_map = {}
+    
+            for alat_item in daftar_tj_perusahaan:
+                label_alat = (
+                    f"{alat_item.get('merk') or '-'} | "
+                    f"{alat_item.get('tipe') or '-'} | "
+                    f"No. Seri: "
+                    f"{alat_item.get('nomor_seri') or '-'}"
+                )
+    
+                pilihan_alat_map[
+                    label_alat
+                ] = alat_item
+    
+            alat_terpilih_label = st.selectbox(
+                "Timbangan Jembatan",
+                options=list(
+                    pilihan_alat_map.keys()
+                ),
+                index=None,
+                placeholder=(
+                    "Pilih Timbangan Jembatan..."
+                ),
+                key="tj_riwayat_alat"
+            )
+    
+            if not alat_terpilih_label:
+                st.info(
+                    "Silakan pilih Timbangan Jembatan "
+                    "untuk melihat riwayat pengujiannya."
+                )
+                st.stop()
+    
+            alat = pilihan_alat_map[
+                alat_terpilih_label
+            ]
+    
+            # =====================================================
+            # RINGKASAN
+            # =====================================================
+            st.markdown("---")
+            st.subheader("Ringkasan Timbangan")
+    
+            col1, col2, col3 = st.columns(3)
+    
+            with col1:
+                st.metric(
+                    "Perusahaan",
+                    perusahaan.get(
+                        "nama_perusahaan",
+                        "-"
+                    )
+                )
+    
+            with col2:
+                st.metric(
+                    "Nomor Seri",
+                    alat.get(
+                        "nomor_seri"
+                    ) or "-"
+                )
+    
+            with col3:
+                kapasitas_text = (
+                    alat.get("kapasitas")
+                    or "-"
+                )
+    
+                st.metric(
+                    "Kapasitas",
+                    f"{kapasitas_text} kg"
+                    if kapasitas_text != "-"
+                    else "-"
+                )
+    
+            # =====================================================
+            # AMBIL RIWAYAT
+            # =====================================================
+            response_riwayat = (
+                supabase
+                .table("pengujian")
+                .select("*")
+                .eq(
+                    "uttp_id",
+                    alat["id"]
+                )
+                .order(
+                    "tanggal_pengujian",
+                    desc=True
+                )
+                .execute()
+            )
+    
+            riwayat = response_riwayat.data or []
+    
+            st.markdown("---")
+            st.subheader(
+                "Riwayat Tera / Tera Ulang"
+            )
+    
+            if not riwayat:
+                st.info(
+                    "Belum ada riwayat pengujian "
+                    "untuk Timbangan Jembatan ini."
+                )
+    
+            else:
+                pilihan_riwayat = {}
+    
+                for r in riwayat:
+                    label = (
+                        f"{r.get('tanggal_pengujian', '-')} | "
+                        f"{r.get('jenis_pengujian', '-')} | "
+                        f"{r.get('nomor_sertifikat', '-')} | "
+                        f"{r.get('penera_1', '-')}"
+                    )
+    
+                    pilihan_riwayat[label] = r
+    
+                riwayat_terpilih_label = st.selectbox(
+                    "Pilih riwayat pengujian",
+                    options=list(
+                        pilihan_riwayat.keys()
+                    ),
+                    key=(
+                        f"tj_pilih_riwayat_"
+                        f"{alat['id']}"
+                    )
+                )
+    
+                riwayat_terpilih = (
+                    pilihan_riwayat[
+                        riwayat_terpilih_label
+                    ]
+                )
+    
+                with st.container(
+                    border=True
+                ):
+                    st.write(
+                        f"**Tanggal:** "
+                        f"{riwayat_terpilih.get('tanggal_pengujian', '-')}"
+                    )
+    
+                    st.write(
+                        f"**Jenis:** "
+                        f"{riwayat_terpilih.get('jenis_pengujian', '-')}"
+                    )
+    
+                    st.write(
+                        f"**Nomor Sertifikat:** "
+                        f"{riwayat_terpilih.get('nomor_sertifikat', '-')}"
+                    )
+    
+                    st.write(
+                        f"**Penera:** "
+                        f"{riwayat_terpilih.get('penera_1', '-')}"
+                    )
+    
+        except Exception as e:
+            st.error(
+                "Gagal mengambil riwayat "
+                "Timbangan Jembatan dari Supabase."
+            )
+    
+            st.exception(e)
     st.markdown("---")
     st.markdown("""
         <div style='text-align: center; color: #888; font-size: 12px;'>
