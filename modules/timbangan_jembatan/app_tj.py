@@ -1004,7 +1004,50 @@ def gunakan_data_lama_untuk_edit(
     st.session_state[
         "tanggal_pengujian_tj"
     ] = tanggal_lama
-
+    tanggal_sertifikat_lama = (
+        pengujian.get(
+            "tanggal_sertifikat"
+        )
+        or pengujian.get(
+            "tanggal_pengujian"
+        )
+    )
+    
+    if isinstance(
+        tanggal_sertifikat_lama,
+        datetime
+    ):
+        tanggal_sertifikat_lama = (
+            tanggal_sertifikat_lama.date()
+        )
+    
+    elif isinstance(
+        tanggal_sertifikat_lama,
+        str
+    ):
+        try:
+            tanggal_sertifikat_lama = (
+                datetime.strptime(
+                    tanggal_sertifikat_lama,
+                    "%Y-%m-%d"
+                ).date()
+            )
+        except ValueError:
+            tanggal_sertifikat_lama = (
+                tanggal_lama
+            )
+    
+    elif not isinstance(
+        tanggal_sertifikat_lama,
+        date
+    ):
+        tanggal_sertifikat_lama = (
+            tanggal_lama
+        )
+    
+    st.session_state[
+        "tanggal_sertifikat_tj"
+    ] = tanggal_sertifikat_lama
     # =====================================================
     # NOMOR DOKUMEN
     # =====================================================
