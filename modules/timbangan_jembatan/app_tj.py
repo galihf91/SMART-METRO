@@ -183,27 +183,89 @@ def run():
                 pass
 
         return default_value
+    @st.cache_data(ttl=60)
     def load_data_perusahaan():
-        """Membaca data perusahaan dari Excel atau fallback ke data kosong."""
-        possible_names = ["data/data_perusahaan.xlsx"]
-        for filename in possible_names:
-            if os.path.exists(filename):
-                try:
-                    df = pd.read_excel(filename, engine='openpyxl')
-                    required_cols = ['Nama Perusahaan', 'Alamat']
-                    if all(col in df.columns for col in required_cols):
-                        # Hapus duplikat dan NaN
-                        df = df.dropna(subset=['Nama Perusahaan'])
-                        df = df.drop_duplicates(subset=['Nama Perusahaan'])
-                        return df
-                    else:
-                        st.warning(f"File {filename} ditemukan, tetapi kolom tidak sesuai. Harus ada: Nama Perusahaan, Alamat")
-                        return None
-                except Exception as e:
-                    st.warning(f"Error membaca {filename}: {e}. Gunakan data bawaan.")
-                    break
-        # Fallback: data kosong (atau bisa beri contoh)
-        return pd.DataFrame(columns=['Nama Perusahaan', 'Alamat'])
+        try:
+            supabase = get_supabase()
+    
+            response = (
+                supabase
+                .table("perusahaan")
+                .select(
+                    "id, nama_perusahaan, alamat, "
+                    "kecamatan, telepon, email"
+                )
+                .order("nama_perusahaan")
+                .execute()
+            )
+    
+            data = response.data or []
+    
+            if not data:
+                return pd.DataFrame(
+                    columns=[
+                        "ID",
+                        "Nama Perusahaan",
+                        "Alamat",
+                        "Kecamatan",
+                        "Telepon",
+                        "Email",
+                    ]
+                )
+    
+            df = pd.DataFrame(data)
+    
+            df = df.rename(
+                columns={
+                    "id": "ID",
+                    "nama_perusahaan": "Nama Perusahaan",
+                    "alamat": "Alamat",
+                    "kecamatan": "Kecamatan",
+                    "telepon": "Telepon",
+                    "email": "Email",
+                }
+            )
+    
+            for col in [
+                "Nama Perusahaan",
+                "Alamat",
+                "Kecamatan",
+                "Telepon",
+                "Email",
+            ]:
+                df[col] = (
+                    df[col]
+                    .fillna("")
+                    .astype(str)
+                    .str.strip()
+                )
+    
+            df = df[
+                df["Nama Perusahaan"] != ""
+            ].copy()
+    
+            return (
+                df
+                .sort_values("Nama Perusahaan")
+                .reset_index(drop=True)
+            )
+    
+        except Exception as exc:
+            st.warning(
+                "Data perusahaan dari Supabase "
+                f"tidak dapat dibaca: {exc}"
+            )
+    
+            return pd.DataFrame(
+                columns=[
+                    "ID",
+                    "Nama Perusahaan",
+                    "Alamat",
+                    "Kecamatan",
+                    "Telepon",
+                    "Email",
+                ]
+            )
     
     if 'data_perusahaan' not in st.session_state:
         st.session_state.data_perusahaan = load_data_perusahaan()
@@ -214,43 +276,48 @@ def run():
                 ""
             )
         ).strip()
-
+    
         df_perusahaan = st.session_state.get(
             "data_perusahaan"
         )
-
+    
         if (
             not selected
             or df_perusahaan is None
             or df_perusahaan.empty
         ):
             return
-
+    
         row = df_perusahaan[
             df_perusahaan["Nama Perusahaan"]
             .astype(str)
             .str.strip()
             == selected
         ]
-
+    
         if row.empty:
             return
-
+    
         data_perusahaan = row.iloc[0]
-
+    
         alamat_perusahaan = data_perusahaan.get(
             "Alamat",
             ""
         )
-
+    
         if pd.isna(alamat_perusahaan):
             alamat_perusahaan = ""
-
-        st.session_state["nama_perusahaan_tj"] = selected
-        st.session_state["alamat_input_tj"] = str(
+    
+        st.session_state[
+            "nama_perusahaan_tj"
+        ] = selected
+    
+        st.session_state[
+            "alamat_input_tj"
+        ] = str(
             alamat_perusahaan
         ).strip()
-
+    
         st.session_state[
             "input_manual_perusahaan_tj"
         ] = False
