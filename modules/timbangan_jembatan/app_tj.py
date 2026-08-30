@@ -24,7 +24,75 @@ def get_supabase():
         url,
         key
     )
+def simpan_atau_update_perusahaan(
+    supabase,
+    nama_perusahaan,
+    alamat
+):
+    nama_perusahaan = str(
+        nama_perusahaan
+    ).strip()
 
+    alamat = str(
+        alamat
+    ).strip()
+
+    if not nama_perusahaan:
+        return None
+
+    response = (
+        supabase
+        .table("perusahaan")
+        .select(
+            "id, nama_perusahaan, alamat"
+        )
+        .eq(
+            "nama_perusahaan",
+            nama_perusahaan
+        )
+        .execute()
+    )
+
+    if response.data:
+        perusahaan = response.data[0]
+
+        perusahaan_id = perusahaan["id"]
+
+        alamat_lama = (
+            perusahaan.get("alamat")
+            or ""
+        ).strip()
+
+        if (
+            alamat
+            and alamat != alamat_lama
+        ):
+            (
+                supabase
+                .table("perusahaan")
+                .update({
+                    "alamat": alamat
+                })
+                .eq(
+                    "id",
+                    perusahaan_id
+                )
+                .execute()
+            )
+
+        return perusahaan_id
+
+    response = (
+        supabase
+        .table("perusahaan")
+        .insert({
+            "nama_perusahaan": nama_perusahaan,
+            "alamat": alamat
+        })
+        .execute()
+    )
+
+    return response.data[0]["id"]
 def bulan_singkat_id(tanggal):
     bulan = {
         1: "JAN", 2: "FEB", 3: "MAR", 4: "APR",
