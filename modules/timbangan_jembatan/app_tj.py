@@ -1691,7 +1691,9 @@ def run():
             "test_results",
             "generated_files",
              "edit_pengujian_id",
-
+            "merek_tj",
+            "model_tj",
+            "no_seri_tj",
             "nama_perusahaan_tj",
             "alamat_input_tj",
             "input_manual_perusahaan_tj",
@@ -1845,20 +1847,12 @@ def run():
                 f"ID Pengujian: {edit_id}"
             )
         
-            if st.button(
+           if st.button(
                 "❌ Batal Edit",
                 use_container_width=True,
                 key="btn_batal_edit_tj"
             ):
-                # Bersihkan seluruh data yang dipulihkan dari riwayat
                 reset_form_timbangan_jembatan()
-            
-                # Pastikan mode edit benar-benar berakhir
-                st.session_state.pop(
-                    "edit_pengujian_id",
-                    None
-                )
-            
                 st.rerun()
         # Ambil nilai dari session state untuk digunakan di seluruh blok
         e = st.session_state.get('interval_skala_input', 20)
