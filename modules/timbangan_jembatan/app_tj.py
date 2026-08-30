@@ -3052,6 +3052,13 @@ def run():
                                     st.session_state.saved_data
                                 )
                             
+                                # Refresh master perusahaan dari Supabase
+                                load_data_perusahaan.clear()
+                            
+                                st.session_state[
+                                    "data_perusahaan"
+                                ] = load_data_perusahaan()
+                            
                                 st.success(
                                     "✅ Sertifikat berhasil dibuat dan "
                                     "data pengujian berhasil disimpan ke database."
