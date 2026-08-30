@@ -294,7 +294,19 @@ def simpan_pengujian_tj_ke_supabase(data):
         tanggal = tanggal.strftime(
             "%Y-%m-%d"
         )
-
+    tanggal_sertifikat = data.get(
+        "tanggal_sertifikat"
+    )
+    
+    if isinstance(
+        tanggal_sertifikat,
+        (datetime, date)
+    ):
+        tanggal_sertifikat = (
+            tanggal_sertifikat.strftime(
+                "%Y-%m-%d"
+            )
+        )
     berlaku_sampai = data.get(
         "berlaku_sampai"
     )
@@ -330,6 +342,7 @@ def simpan_pengujian_tj_ke_supabase(data):
     payload = {
         "uttp_id": uttp_id,
         "tanggal_pengujian": tanggal,
+        "tanggal_sertifikat": tanggal_sertifikat,
         "jenis_pengujian": data.get(
             "keterangan",
             ""
