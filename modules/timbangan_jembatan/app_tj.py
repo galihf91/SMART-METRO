@@ -885,6 +885,67 @@ def gunakan_data_lama_untuk_edit(
             st.session_state[
                 f"eksen_hasil_{i}"
             ] = hasil_eksen
+    
+    # =====================================================
+    # PULIHKAN PENYETELAN NOL
+    # =====================================================
+    nol_lama = detail.get(
+        "penyetelan_nol",
+        {}
+    ) or {}
+    
+    if nol_lama:
+        e_edit = int(
+            detail.get(
+                "interval_skala",
+                10
+            )
+        )
+    
+        st.session_state[
+            f"nol_setel_{e_edit}"
+        ] = int(
+            nol_lama.get(
+                "setel_nol",
+                0
+            ) or 0
+        )
+    
+        st.session_state[
+            f"nol_muatan_{e_edit}"
+        ] = int(
+            nol_lama.get(
+                "muatan_10e",
+                10 * e_edit
+            ) or 0
+        )
+    
+        st.session_state[
+            f"nol_awal_{e_edit}"
+        ] = int(
+            nol_lama.get(
+                "awal",
+                10 * e_edit
+            ) or 0
+        )
+    
+        st.session_state[
+            f"nol_plus025_{e_edit}"
+        ] = int(
+            nol_lama.get(
+                "plus025e",
+                10 * e_edit
+            ) or 0
+        )
+    
+        st.session_state[
+            f"nol_plus05_{e_edit}"
+        ] = int(
+            nol_lama.get(
+                "plus05e",
+                11 * e_edit
+            ) or 0
+        )
     # =====================================================
     # PENERA
     # =====================================================
