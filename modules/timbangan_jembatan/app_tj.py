@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, date
+from supabase import create_client
 from modules.timbangan_jembatan.cerapan_tj_generator import generate_cerapan_pdf
 from modules.timbangan_jembatan.sertifikat_tj_generator import generate_sertifikat_pdf
 from modules.timbangan_jembatan.form_peminjaman_standar_generator import (
@@ -11,6 +12,18 @@ from modules.timbangan_jembatan.form_peminjaman_ctt_generator import (
 )
 import os
 from pathlib import Path
+
+# =========================================================
+# KONEKSI SUPABASE
+# =========================================================
+def get_supabase():
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_KEY"]
+
+    return create_client(
+        url,
+        key
+    )
 
 def bulan_singkat_id(tanggal):
     bulan = {
