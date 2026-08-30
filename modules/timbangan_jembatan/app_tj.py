@@ -93,6 +93,8 @@ def simpan_atau_update_perusahaan(
     )
 
     return response.data[0]["id"]
+
+
 def bulan_singkat_id(tanggal):
     bulan = {
         1: "JAN", 2: "FEB", 3: "MAR", 4: "APR",
@@ -101,7 +103,86 @@ def bulan_singkat_id(tanggal):
     }
     return bulan.get(tanggal.month, "")
 
+def get_or_create_uttp_tj(
+    supabase,
+    perusahaan_id,
+    merek,
+    model,
+    no_seri,
+    kapasitas_max
+):
+    no_seri = str(no_seri).strip()
 
+    if not no_seri:
+        raise ValueError(
+            "Nomor seri Timbangan Jembatan wajib diisi."
+        )
+
+    # Cari berdasarkan jenis UTTP + nomor seri
+    response = (
+        supabase
+        .table("uttp")
+        .select("*")
+        .eq(
+            "jenis_uttp",
+            "Timbangan Jembatan"
+        )
+        .eq(
+            "nomor_seri",
+            no_seri
+        )
+        .execute()
+    )
+
+    # =====================================================
+    # UTTP SUDAH ADA
+    # =====================================================
+    if response.data:
+        uttp = response.data[0]
+
+        (
+            supabase
+            .table("uttp")
+            .update({
+                "perusahaan_id": perusahaan_id,
+                "merk": str(merek).strip(),
+                "tipe": str(model).strip(),
+                "kapasitas": str(
+                    kapasitas_max
+                ),
+                "status": "aktif"
+            })
+            .eq(
+                "id",
+                uttp["id"]
+            )
+            .execute()
+        )
+
+        return uttp["id"]
+
+    # =====================================================
+    # UTTP BELUM ADA
+    # =====================================================
+    response = (
+        supabase
+        .table("uttp")
+        .insert({
+            "perusahaan_id": perusahaan_id,
+            "jenis_uttp": "Timbangan Jembatan",
+            "merk": str(merek).strip(),
+            "tipe": str(model).strip(),
+            "nomor_seri": no_seri,
+            "kapasitas": str(
+                kapasitas_max
+            ),
+            "lokasi": "Perusahaan",
+            "status": "aktif"
+        })
+        .execute()
+    )
+
+    return response.data[0]["id"]
 def slug_filename(text):
     text = str(text).replace("/", "_").replace("\\", "_").replace(" ", "_")
     return "".join(ch for ch in text if ch.isalnum() or ch in ["_", "-", "."])
