@@ -1276,6 +1276,17 @@ def run():
     st.title("⚖️ Aplikasi Automasi Sertifikat Tera Timbangan")
     st.markdown("---")
     
+    # =========================================================
+    # PINDAH MODE DARI AKSI RIWAYAT
+    # Harus dilakukan sebelum widget radio dibuat
+    # =========================================================
+    if "next_mode_tj" in st.session_state:
+        st.session_state[
+            "mode_timbangan_jembatan"
+        ] = st.session_state.pop(
+            "next_mode_tj"
+        )
+    
     # Sidebar - Navigation
     with st.sidebar:
         st.header("📋 Menu Navigasi")
@@ -3295,7 +3306,7 @@ def run():
                         f"**Penera:** "
                         f"{riwayat_terpilih.get('penera_1', '-')}"
                     )
-    
+                    
         except Exception as e:
             st.error(
                 "Gagal mengambil riwayat "
