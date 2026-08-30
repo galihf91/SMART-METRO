@@ -849,6 +849,42 @@ def gunakan_data_lama_untuk_edit(
             st.session_state[
                 f"repet_hasil_{i}"
             ] = hasil_repet
+    
+    # =====================================================
+    # PULIHKAN EKSENTRISITAS
+    # =====================================================
+    eksen_lama = detail.get(
+        "eksentrisitas",
+        []
+    ) or []
+    
+    if eksen_lama:
+        # Penunjukan baris pertama menjadi acuan
+        st.session_state[
+            "eksen_I_1"
+        ] = int(
+            eksen_lama[0].get(
+                "penunjukan",
+                0
+            ) or 0
+        )
+    
+        for i, row in enumerate(
+            eksen_lama[:3],
+            start=1
+        ):
+            hasil_eksen = (
+                "SAH"
+                if row.get(
+                    "hasil",
+                    True
+                )
+                else "TIDAK SAH"
+            )
+    
+            st.session_state[
+                f"eksen_hasil_{i}"
+            ] = hasil_eksen
     # =====================================================
     # PENERA
     # =====================================================
