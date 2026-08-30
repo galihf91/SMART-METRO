@@ -2194,7 +2194,54 @@ def run():
                     st.session_state.generated_files[
                         "sertifikat"
                     ] = str(sertifikat_file)
-
+                    # =====================================================
+                    # SIMPAN PENGUJIAN KE SUPABASE
+                    # =====================================================
+                    try:
+                        st.session_state.saved_data[
+                            "nomor_sertifikat"
+                        ] = nomor_sertifikat
+                    
+                        st.session_state.saved_data[
+                            "nomor_order"
+                        ] = nomor_order
+                    
+                        simpan_pengujian_tj_ke_supabase(
+                            st.session_state.saved_data
+                        )
+                    
+                        st.success(
+                            "✅ Cerapan dan sertifikat berhasil dibuat "
+                            "serta data pengujian berhasil disimpan "
+                            "ke database."
+                        )
+                    
+                    except Exception as db_error:
+                        error_text = str(
+                            db_error
+                        )
+                    
+                        if (
+                            "duplicate key value violates unique constraint"
+                            in error_text
+                            and
+                            "pengujian_nomor_sertifikat_unique"
+                            in error_text
+                        ):
+                            st.error(
+                                "❌ Nomor sertifikat sudah pernah digunakan. "
+                                "Silakan gunakan nomor sertifikat yang berbeda."
+                            )
+                    
+                        else:
+                            st.warning(
+                                "⚠️ Cerapan dan sertifikat berhasil dibuat, "
+                                "tetapi data gagal disimpan ke database."
+                            )
+                    
+                            st.exception(
+                                db_error
+                            )
                     st.success(
                         "✅ Cerapan dan sertifikat "
                         "berhasil dibuat."
