@@ -465,7 +465,355 @@ def tambah_satu_tahun(tanggal_obj):
             month=2,
             day=28
         )
-        
+def gunakan_data_lama_untuk_edit(
+    alat,
+    perusahaan,
+    pengujian
+):
+    detail = (
+        pengujian.get("data_pengujian")
+        or {}
+    )
+
+    # =====================================================
+    # TANDAI MODE EDIT
+    # =====================================================
+    st.session_state["edit_pengujian_id"] = (
+        pengujian["id"]
+    )
+
+    nama_perusahaan = str(
+        perusahaan.get(
+            "nama_perusahaan"
+        )
+        or ""
+    ).strip()
+
+    alamat = str(
+        perusahaan.get(
+            "alamat"
+        )
+        or ""
+    ).strip()
+
+    nama_penera = str(
+        pengujian.get(
+            "penera_1"
+        )
+        or ""
+    ).strip()
+
+    # =====================================================
+    # CARI DATA PENERA
+    # =====================================================
+    nip_penera = ""
+    golongan_penera = ""
+
+    df_penera = st.session_state.get(
+        "data_penera"
+    )
+
+    if (
+        df_penera is not None
+        and not df_penera.empty
+        and nama_penera
+    ):
+        row = df_penera[
+            df_penera["Nama"]
+            .astype(str)
+            .str.strip()
+            == nama_penera
+        ]
+
+        if not row.empty:
+            data_penera = row.iloc[0]
+
+            nip_penera = normalize_nip(
+                data_penera.get(
+                    "NIP",
+                    ""
+                )
+            )
+
+            golongan_penera = str(
+                data_penera.get(
+                    "Golongan",
+                    ""
+                )
+            ).strip()
+
+    # =====================================================
+    # DATA LAMA → SAVED DATA
+    # =====================================================
+    st.session_state.saved_data = {
+        "pemilik": nama_perusahaan,
+        "alamat": alamat,
+
+        "merek": alat.get(
+            "merk"
+        ) or "",
+
+        "model": alat.get(
+            "tipe"
+        ) or "",
+
+        "no_seri": alat.get(
+            "nomor_seri"
+        ) or "",
+
+        "kapasitas_max": detail.get(
+            "kapasitas_max",
+            60000
+        ),
+
+        "kapasitas_min": detail.get(
+            "kapasitas_min",
+            200
+        ),
+
+        "daya_baca": detail.get(
+            "daya_baca",
+            10
+        ),
+
+        "interval_skala": detail.get(
+            "interval_skala",
+            10
+        ),
+
+        "kelas": detail.get(
+            "kelas",
+            "III"
+        ),
+
+        "suhu": detail.get(
+            "suhu",
+            "Ambient"
+        ),
+
+        "kelembaban": detail.get(
+            "kelembaban",
+            "Ambient"
+        ),
+
+        "metode": detail.get(
+            "metode",
+            "Beban Substitusi Tunggal"
+        ),
+
+        "nama_penera": nama_penera,
+        "nip_penera": nip_penera,
+        "golongan_penera": golongan_penera,
+
+        "hasil_pengujian": detail.get(
+            "hasil_kebenaran",
+            []
+        ),
+
+        "repetability": detail.get(
+            "repetability",
+            []
+        ),
+
+        "eksentrisitas": detail.get(
+            "eksentrisitas",
+            []
+        ),
+
+        "penyetelan_nol": detail.get(
+            "penyetelan_nol",
+            {}
+        ),
+
+        "visual": detail.get(
+            "visual",
+            {}
+        ),
+
+        "tanggal": pengujian.get(
+            "tanggal_pengujian"
+        ),
+
+        "keterangan": pengujian.get(
+            "jenis_pengujian",
+            "Tera Ulang"
+        ),
+
+        "nomor_order": pengujian.get(
+            "nomor_order",
+            ""
+        ),
+
+        "nomor_sertifikat": pengujian.get(
+            "nomor_sertifikat",
+            ""
+        ),
+
+        "berlaku_sampai": pengujian.get(
+            "berlaku_sampai"
+        ),
+    }
+
+    # =====================================================
+    # PERUSAHAAN
+    # =====================================================
+    st.session_state[
+        "nama_perusahaan_tj"
+    ] = nama_perusahaan
+
+    st.session_state[
+        "alamat_input_tj"
+    ] = alamat
+
+    st.session_state[
+        "perusahaan_select"
+    ] = nama_perusahaan
+
+    st.session_state[
+        "input_manual_perusahaan_tj"
+    ] = False
+
+    # =====================================================
+    # KAPASITAS
+    # =====================================================
+    st.session_state[
+        "kapasitas_max_input"
+    ] = int(
+        detail.get(
+            "kapasitas_max",
+            60000
+        )
+    )
+
+    st.session_state[
+        "daya_baca_input"
+    ] = int(
+        detail.get(
+            "daya_baca",
+            10
+        )
+    )
+
+    st.session_state[
+        "interval_skala_input"
+    ] = int(
+        detail.get(
+            "interval_skala",
+            10
+        )
+    )
+
+    st.session_state[
+        "kapasitas_min_input"
+    ] = int(
+        detail.get(
+            "kapasitas_min",
+            200
+        )
+    )
+
+    st.session_state["kelas"] = (
+        detail.get(
+            "kelas",
+            "III"
+        )
+    )
+
+    st.session_state["keterangan"] = (
+        pengujian.get(
+            "jenis_pengujian",
+            "Tera Ulang"
+        )
+    )
+
+    # =====================================================
+    # PENERA
+    # =====================================================
+    st.session_state[
+        "penera_select"
+    ] = nama_penera
+
+    st.session_state[
+        "nama_penera"
+    ] = nama_penera
+
+    st.session_state[
+        "nip_penera"
+    ] = nip_penera
+
+    st.session_state[
+        "golongan_penera"
+    ] = golongan_penera
+
+    # =====================================================
+    # TANGGAL
+    # =====================================================
+    tanggal_lama = pengujian.get(
+        "tanggal_pengujian"
+    )
+
+    if isinstance(
+        tanggal_lama,
+        datetime
+    ):
+        tanggal_lama = (
+            tanggal_lama.date()
+        )
+
+    elif isinstance(
+        tanggal_lama,
+        str
+    ):
+        try:
+            tanggal_lama = (
+                datetime.strptime(
+                    tanggal_lama,
+                    "%Y-%m-%d"
+                ).date()
+            )
+
+        except ValueError:
+            tanggal_lama = date.today()
+
+    elif not isinstance(
+        tanggal_lama,
+        date
+    ):
+        tanggal_lama = date.today()
+
+    st.session_state[
+        "tanggal_pengujian_tj"
+    ] = tanggal_lama
+
+    # =====================================================
+    # NOMOR DOKUMEN
+    # =====================================================
+    st.session_state[
+        "nomor_sertifikat_tj"
+    ] = str(
+        pengujian.get(
+            "nomor_sertifikat"
+        )
+        or ""
+    )
+
+    st.session_state[
+        "nomor_order_tj"
+    ] = str(
+        pengujian.get(
+            "nomor_order"
+        )
+        or ""
+    )
+
+    st.session_state.generated_files = {}
+
+    # =====================================================
+    # PINDAH KE INPUT
+    # =====================================================
+    st.session_state[
+        "next_mode_tj"
+    ] = "📝 Input Data Pengujian"       
 def run():
     st.title("Pengujian Timbangan Jembatan")
 
