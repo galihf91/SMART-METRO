@@ -1303,7 +1303,30 @@ def run():
     
     if mode == "📝 Input Data Pengujian":
         st.header("Masukkan Data Pengujian")
-    
+        # =====================================================
+        # MODE EDIT PENGUJIAN
+        # =====================================================
+        edit_id = st.session_state.get(
+            "edit_pengujian_id"
+        )
+        
+        if edit_id:
+            st.warning(
+                f"✏️ Mode Edit Pengujian Aktif — "
+                f"ID Pengujian: {edit_id}"
+            )
+        
+            if st.button(
+                "❌ Batal Edit",
+                use_container_width=True,
+                key="btn_batal_edit_tj"
+            ):
+                st.session_state.pop(
+                    "edit_pengujian_id",
+                    None
+                )
+        
+                st.rerun()
         # Ambil nilai dari session state untuk digunakan di seluruh blok
         e = st.session_state.get('interval_skala_input', 20)
         cls = st.session_state.get('kelas', 'III')
