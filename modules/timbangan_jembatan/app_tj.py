@@ -813,6 +813,42 @@ def gunakan_data_lama_untuk_edit(
         st.session_state[
             f"vis_{item}"
         ] = bool(nilai)
+
+    # =====================================================
+    # PULIHKAN REPETABILITY
+    # =====================================================
+    repet_lama = detail.get(
+        "repetability",
+        []
+    ) or []
+    
+    if repet_lama:
+        # Penunjukan baris pertama menjadi acuan
+        st.session_state[
+            "repet_I_1"
+        ] = int(
+            repet_lama[0].get(
+                "penunjukan",
+                0
+            ) or 0
+        )
+    
+        for i, row in enumerate(
+            repet_lama[:3],
+            start=1
+        ):
+            hasil_repet = (
+                "SAH"
+                if row.get(
+                    "hasil",
+                    True
+                )
+                else "TIDAK SAH"
+            )
+    
+            st.session_state[
+                f"repet_hasil_{i}"
+            ] = hasil_repet
     # =====================================================
     # PENERA
     # =====================================================
