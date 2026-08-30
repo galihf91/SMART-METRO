@@ -814,6 +814,258 @@ def gunakan_data_lama_untuk_edit(
     st.session_state[
         "next_mode_tj"
     ] = "📝 Input Data Pengujian"       
+
+def gunakan_data_lama_untuk_pengujian_baru(
+    alat,
+    perusahaan,
+    pengujian
+):
+    detail = (
+        pengujian.get("data_pengujian")
+        or {}
+    )
+
+    # =====================================================
+    # PASTIKAN BUKAN MODE EDIT
+    # =====================================================
+    st.session_state.pop(
+        "edit_pengujian_id",
+        None
+    )
+
+    nama_perusahaan = str(
+        perusahaan.get(
+            "nama_perusahaan"
+        )
+        or ""
+    ).strip()
+
+    alamat = str(
+        perusahaan.get(
+            "alamat"
+        )
+        or ""
+    ).strip()
+
+    nama_penera = str(
+        pengujian.get(
+            "penera_1"
+        )
+        or ""
+    ).strip()
+
+    # =====================================================
+    # DATA LAMA → IDENTITAS & SPESIFIKASI SAJA
+    # =====================================================
+    st.session_state.saved_data = {
+        "pemilik": nama_perusahaan,
+        "alamat": alamat,
+
+        "merek": alat.get(
+            "merk"
+        ) or "",
+
+        "model": alat.get(
+            "tipe"
+        ) or "",
+
+        "no_seri": alat.get(
+            "nomor_seri"
+        ) or "",
+
+        "kapasitas_max": detail.get(
+            "kapasitas_max",
+            60000
+        ),
+
+        "kapasitas_min": detail.get(
+            "kapasitas_min",
+            200
+        ),
+
+        "daya_baca": detail.get(
+            "daya_baca",
+            10
+        ),
+
+        "interval_skala": detail.get(
+            "interval_skala",
+            10
+        ),
+
+        "kelas": detail.get(
+            "kelas",
+            "III"
+        ),
+
+        "suhu": detail.get(
+            "suhu",
+            "Ambient"
+        ),
+
+        "kelembaban": detail.get(
+            "kelembaban",
+            "Ambient"
+        ),
+
+        "metode": detail.get(
+            "metode",
+            "Beban Substitusi Tunggal"
+        ),
+
+        "nama_penera": nama_penera,
+
+        # Pengujian baru
+        "hasil_pengujian": [],
+        "repetability": [],
+        "eksentrisitas": [],
+        "penyetelan_nol": {},
+        "visual": {},
+
+        "keterangan": "Tera Ulang",
+
+        # Nomor dokumen harus baru
+        "nomor_order": "",
+        "nomor_sertifikat": "",
+    }
+
+    # =====================================================
+    # SINKRONKAN FORM
+    # =====================================================
+    st.session_state[
+        "nama_perusahaan_tj"
+    ] = nama_perusahaan
+
+    st.session_state[
+        "alamat_input_tj"
+    ] = alamat
+
+    st.session_state[
+        "perusahaan_select"
+    ] = nama_perusahaan
+
+    st.session_state[
+        "input_manual_perusahaan_tj"
+    ] = False
+
+    st.session_state[
+        "kapasitas_max_input"
+    ] = int(
+        detail.get(
+            "kapasitas_max",
+            60000
+        )
+    )
+
+    st.session_state[
+        "daya_baca_input"
+    ] = int(
+        detail.get(
+            "daya_baca",
+            10
+        )
+    )
+
+    st.session_state[
+        "interval_skala_input"
+    ] = int(
+        detail.get(
+            "interval_skala",
+            10
+        )
+    )
+
+    st.session_state[
+        "kapasitas_min_input"
+    ] = int(
+        detail.get(
+            "kapasitas_min",
+            200
+        )
+    )
+
+    st.session_state[
+        "kelas"
+    ] = detail.get(
+        "kelas",
+        "III"
+    )
+
+    st.session_state[
+        "keterangan"
+    ] = "Tera Ulang"
+
+    # =====================================================
+    # PENERA
+    # =====================================================
+    st.session_state[
+        "penera_select"
+    ] = nama_penera
+
+    st.session_state[
+        "nama_penera"
+    ] = nama_penera
+
+    # =====================================================
+    # TANGGAL BARU
+    # =====================================================
+    st.session_state[
+        "tanggal_pengujian_tj"
+    ] = date.today()
+
+    st.session_state[
+        "tanggal_sertifikat_tj"
+    ] = date.today()
+
+    # =====================================================
+    # NOMOR DOKUMEN LAMA JANGAN IKUT
+    # =====================================================
+    st.session_state.pop(
+        "nomor_sertifikat_tj",
+        None
+    )
+
+    st.session_state.pop(
+        "nomor_order_tj",
+        None
+    )
+
+    # =====================================================
+    # HAPUS HASIL PENGUJIAN LAMA DARI WIDGET
+    # =====================================================
+    prefixes_to_remove = [
+        "standar_",
+        "balas_",
+        "delta_l_",
+        "kesalahan_",
+        "penunjukan_",
+        "hasil_",
+        "repet_",
+        "eksen_",
+        "nol_",
+        "vis_",
+    ]
+
+    for key in list(
+        st.session_state.keys()
+    ):
+        if any(
+            key.startswith(prefix)
+            for prefix in prefixes_to_remove
+        ):
+            st.session_state.pop(
+                key,
+                None
+            )
+
+    st.session_state.generated_files = {}
+
+    # =====================================================
+    # PINDAH KE INPUT
+    # =====================================================
+    st.session_state[
+        "next_mode_tj"
+    ] = "📝 Input Data Pengujian"
 def run():
     st.title("Pengujian Timbangan Jembatan")
 
