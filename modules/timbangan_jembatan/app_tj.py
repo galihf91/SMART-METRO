@@ -183,6 +183,208 @@ def get_or_create_uttp_tj(
     )
 
     return response.data[0]["id"]
+
+def simpan_pengujian_tj_ke_supabase(data):
+    supabase = get_supabase()
+
+    # =========================================
+    # 1. PERUSAHAAN
+    # =========================================
+    perusahaan_id = simpan_atau_update_perusahaan(
+        supabase,
+        data.get("pemilik", ""),
+        data.get("alamat", "")
+    )
+
+    # =========================================
+    # 2. UTTP
+    # =========================================
+    uttp_id = get_or_create_uttp_tj(
+        supabase,
+        perusahaan_id,
+        data.get("merek", ""),
+        data.get("model", ""),
+        data.get("no_seri", ""),
+        data.get("kapasitas_max", "")
+    )
+
+    # =========================================
+    # 3. DETAIL PENGUJIAN
+    # =========================================
+    detail_pengujian = {
+        "kapasitas_max": data.get("kapasitas_max"),
+        "kapasitas_min": data.get("kapasitas_min"),
+        "daya_baca": data.get("daya_baca"),
+        "interval_skala": data.get("interval_skala"),
+        "kelas": data.get("kelas"),
+        "suhu": data.get("suhu"),
+        "kelembaban": data.get("kelembaban"),
+        "metode": data.get("metode"),
+
+        "hasil_kebenaran": data.get(
+            "hasil_pengujian",
+            []
+        ),
+
+        "repetability": data.get(
+            "repetability",
+            []
+        ),
+
+        "eksentrisitas": data.get(
+            "eksentrisitas",
+            []
+        ),
+
+        "penyetelan_nol": data.get(
+            "penyetelan_nol",
+            {}
+        ),
+
+        "visual": data.get(
+            "visual",
+            {}
+        ),
+
+        "alat_standar": {
+            "jumlah_bidur": data.get(
+                "jumlah_bidur",
+                0
+            ),
+            "jumlah_at_10kg": data.get(
+                "jumlah_at_10kg",
+                0
+            ),
+            "jumlah_at_5kg": data.get(
+                "jumlah_at_5kg",
+                0
+            ),
+            "jumlah_at_2kg": data.get(
+                "jumlah_at_2kg",
+                0
+            ),
+            "jumlah_at_1kg": data.get(
+                "jumlah_at_1kg",
+                0
+            ),
+            "tambahkan_alat_standar": data.get(
+                "tambahkan_alat_standar",
+                False
+            ),
+            "pilihan_alat_tambahan": data.get(
+                "pilihan_alat_tambahan",
+                ""
+            ),
+            "jumlah_alat_tambahan": data.get(
+                "jumlah_alat_tambahan",
+                0
+            )
+        }
+    }
+
+    # =========================================
+    # 4. TANGGAL
+    # =========================================
+    tanggal = data.get("tanggal")
+
+    if isinstance(
+        tanggal,
+        (datetime, date)
+    ):
+        tanggal = tanggal.strftime(
+            "%Y-%m-%d"
+        )
+
+    berlaku_sampai = data.get(
+        "berlaku_sampai"
+    )
+
+    if isinstance(
+        berlaku_sampai,
+        (datetime, date)
+    ):
+        berlaku_sampai = (
+            berlaku_sampai.strftime(
+                "%Y-%m-%d"
+            )
+        )
+
+    # =========================================
+    # 5. NOMOR SERTIFIKAT
+    # =========================================
+    nomor_sertifikat = str(
+        data.get(
+            "nomor_sertifikat",
+            ""
+        )
+    ).strip()
+
+    if not nomor_sertifikat:
+        raise ValueError(
+            "Nomor sertifikat belum diisi."
+        )
+
+    # =========================================
+    # 6. PAYLOAD PENGUJIAN
+    # =========================================
+    payload = {
+        "uttp_id": uttp_id,
+        "tanggal_pengujian": tanggal,
+        "jenis_pengujian": data.get(
+            "keterangan",
+            ""
+        ),
+        "hasil": "SAH",
+        "nomor_order": data.get(
+            "nomor_order",
+            ""
+        ),
+        "nomor_sertifikat": nomor_sertifikat,
+        "penera_1": data.get(
+            "nama_penera",
+            ""
+        ),
+        "berlaku_sampai": berlaku_sampai,
+        "data_pengujian": detail_pengujian
+    }
+
+    # =========================================
+    # 7. EDIT ATAU INSERT BARU
+    # =========================================
+    edit_id = st.session_state.get(
+        "edit_pengujian_id"
+    )
+
+    if edit_id:
+        response = (
+            supabase
+            .table("pengujian")
+            .update(
+                payload
+            )
+            .eq(
+                "id",
+                edit_id
+            )
+            .execute()
+        )
+
+        st.session_state.pop(
+            "edit_pengujian_id",
+            None
+        )
+
+    else:
+        response = (
+            supabase
+            .table("pengujian")
+            .insert(
+                payload
+            )
+            .execute()
+        )
+
+    return response.data
 def slug_filename(text):
     text = str(text).replace("/", "_").replace("\\", "_").replace(" ", "_")
     return "".join(ch for ch in text if ch.isalnum() or ch in ["_", "-", "."])
