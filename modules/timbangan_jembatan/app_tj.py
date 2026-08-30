@@ -321,28 +321,98 @@ def run():
         st.session_state[
             "input_manual_perusahaan_tj"
         ] = False
+    @st.cache_data(ttl=60)
     def load_data_penera():
-        """Membaca file data penera dari Excel dengan pengecekan lokasi."""
-        possible_names = ["data/data_penera.xlsx"]
-        
-        # Tampilkan file yang ada di direktori (debug)
-        # st.write("File di direktori:", os.listdir())
-        
-        for filename in possible_names:
-            if os.path.exists(filename):
-                try:
-                    df = pd.read_excel(filename, engine='openpyxl')
-                    required_cols = ['Nama', 'NIP', 'Golongan']
-                    if all(col in df.columns for col in required_cols):
-                        return df
-                    else:
-                        st.warning(f"File {filename} ditemukan, tetapi kolom tidak sesuai. Harus ada: {required_cols}")
-                        return None
-                except Exception as e:
-                    st.error(f"Error membaca {filename}: {e}")
-                    return None
-        st.warning("File data_penera.xlsx tidak ditemukan. Silakan input manual.")
-        return None
+        try:
+            supabase = get_supabase()
+    
+            response = (
+                supabase
+                .table("penera")
+                .select(
+                    "id, nama, nip, golongan, status"
+                )
+                .eq(
+                    "status",
+                    "aktif"
+                )
+                .order(
+                    "nama"
+                )
+                .execute()
+            )
+    
+            data = response.data or []
+    
+            if not data:
+                return pd.DataFrame(
+                    columns=[
+                        "ID",
+                        "Nama",
+                        "NIP",
+                        "Golongan",
+                        "Status",
+                    ]
+                )
+    
+            df = pd.DataFrame(data)
+    
+            df = df.rename(
+                columns={
+                    "id": "ID",
+                    "nama": "Nama",
+                    "nip": "NIP",
+                    "golongan": "Golongan",
+                    "status": "Status",
+                }
+            )
+    
+            df["Nama"] = (
+                df["Nama"]
+                .fillna("")
+                .astype(str)
+                .str.strip()
+            )
+    
+            df["NIP"] = (
+                df["NIP"]
+                .fillna("")
+                .astype(str)
+                .str.strip()
+            )
+    
+            df["Golongan"] = (
+                df["Golongan"]
+                .fillna("")
+                .astype(str)
+                .str.strip()
+            )
+    
+            df = df[
+                df["Nama"] != ""
+            ].copy()
+    
+            return (
+                df
+                .sort_values("Nama")
+                .reset_index(drop=True)
+            )
+    
+        except Exception as exc:
+            st.warning(
+                "Data penera dari Supabase "
+                f"tidak dapat dibaca: {exc}"
+            )
+    
+            return pd.DataFrame(
+                columns=[
+                    "ID",
+                    "Nama",
+                    "NIP",
+                    "Golongan",
+                    "Status",
+                ]
+            )
     
     if 'data_penera' not in st.session_state:
         st.session_state.data_penera = load_data_penera()
