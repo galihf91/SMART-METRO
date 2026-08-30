@@ -725,7 +725,94 @@ def gunakan_data_lama_untuk_edit(
             "Tera Ulang"
         )
     )
-
+    # =====================================================
+    # PULIHKAN HASIL PENGUJIAN KEBENARAN
+    # =====================================================
+    hasil_kebenaran = detail.get(
+        "hasil_kebenaran",
+        []
+    ) or []
+    
+    e_edit = int(
+        detail.get(
+            "interval_skala",
+            10
+        )
+    )
+    
+    for i, row in enumerate(
+        hasil_kebenaran[:8]
+    ):
+        standar = int(
+            row.get(
+                "standar",
+                0
+            ) or 0
+        )
+    
+        balas = int(
+            row.get(
+                "balas",
+                0
+            ) or 0
+        )
+    
+        delta_l = float(
+            row.get(
+                "imbuh",
+                e_edit / 2
+            ) or 0
+        )
+    
+        kesalahan = int(
+            row.get(
+                "kesalahan",
+                0
+            ) or 0
+        )
+    
+        hasil = (
+            "SAH"
+            if row.get(
+                "hasil",
+                True
+            )
+            else "TIDAK SAH"
+        )
+    
+        st.session_state[
+            f"standar_{i}_{e_edit}"
+        ] = standar
+    
+        st.session_state[
+            f"balas_{i}"
+        ] = balas
+    
+        st.session_state[
+            f"delta_l_{i}_{e_edit}"
+        ] = delta_l
+    
+        st.session_state[
+            f"kesalahan_{i}_{e_edit}"
+        ] = kesalahan
+    
+        st.session_state[
+            f"hasil_{i}_{e_edit}"
+        ] = hasil
+    
+    
+    # =====================================================
+    # PULIHKAN PEMERIKSAAN VISUAL
+    # =====================================================
+    visual_lama = detail.get(
+        "visual",
+        {}
+    ) or {}
+    
+    for item, nilai in visual_lama.items():
+        st.session_state[
+            f"vis_{item}"
+        ] = bool(nilai)
     # =====================================================
     # PENERA
     # =====================================================
