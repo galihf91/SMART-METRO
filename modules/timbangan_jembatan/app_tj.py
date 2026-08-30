@@ -3306,7 +3306,23 @@ def run():
                         f"**Penera:** "
                         f"{riwayat_terpilih.get('penera_1', '-')}"
                     )
-                    
+                st.markdown("---")
+
+                if st.button(
+                    "✏️ Edit Pengujian",
+                    use_container_width=True,
+                    key=(
+                        f"tj_edit_riwayat_"
+                        f"{riwayat_terpilih['id']}"
+                    )
+                ):
+                    gunakan_data_lama_untuk_edit(
+                        alat,
+                        perusahaan,
+                        riwayat_terpilih
+                    )
+                
+                    st.rerun()   
         except Exception as e:
             st.error(
                 "Gagal mengambil riwayat "
