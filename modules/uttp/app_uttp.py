@@ -1374,6 +1374,7 @@ def run():
                     "nomor_seri": nomor_seri_rincian,
                     "kapasitas": kapasitas_rincian,
                     "daya_baca": daya_baca_rincian,
+                    "tanpa_daya_baca": tanpa_daya_baca,
                     "satuan": satuan_rincian,
                     "kelas": kelas_rincian,
                     "nilai_n": nilai_n,
