@@ -1360,13 +1360,23 @@ def run():
                             kelas_signature_key
                         ) != signature_baru
                     ):
-                        st.session_state[
-                            kelas_key
-                        ] = (
-                            kelas_otomatis
-                            if kelas_otomatis
-                            else "III"
-                        )
+                        if (
+                            st.session_state.get(
+                                kelas_signature_key
+                            ) != signature_baru
+                        ):
+                            if kelas_key not in st.session_state:
+                                st.session_state[
+                                    kelas_key
+                                ] = (
+                                    kelas_otomatis
+                                    if kelas_otomatis
+                                    else "III"
+                                )
+                        
+                            st.session_state[
+                                kelas_signature_key
+                            ] = signature_baru
                     
                         st.session_state[
                             kelas_signature_key
