@@ -1360,33 +1360,22 @@ def run():
                     
                     # Jika Max/e/satuan berubah, gunakan kelas hasil
                     # perhitungan sebagai rekomendasi awal.
-                    if (
+                   if (
                         st.session_state.get(
                             kelas_signature_key
                         ) != signature_baru
                     ):
-                        if (
-                            st.session_state.get(
-                                kelas_signature_key
-                            ) != signature_baru
-                        ):
-                            if kelas_key not in st.session_state:
-                                st.session_state[
-                                    kelas_key
-                                ] = (
-                                    kelas_otomatis
-                                    if kelas_otomatis
-                                    else "III"
-                                )
-                        
-                            st.session_state[
-                                kelas_signature_key
-                            ] = signature_baru
+                        st.session_state[
+                            kelas_key
+                        ] = (
+                            kelas_otomatis
+                            if kelas_otomatis
+                            else "III"
+                        )
                     
                         st.session_state[
                             kelas_signature_key
                         ] = signature_baru
-                    
                     
                     kelas_rincian = st.selectbox(
                         "Kelas Timbangan",
