@@ -1342,10 +1342,18 @@ def draw_halaman_2(
                 f"{satuan}"
             ).strip()
 
-            daya_baca = (
-                f"{item.get('daya_baca', '')} "
-                f"{satuan}"
+            nilai_daya_baca = str(
+                item.get(
+                    "daya_baca",
+                    ""
+                )
             ).strip()
+            
+            daya_baca = (
+                "-"
+                if nilai_daya_baca == "-"
+                else f"{nilai_daya_baca} {satuan}".strip()
+            )
             model_tipe = str(
                 item.get(
                     "model_tipe",
