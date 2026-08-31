@@ -1302,11 +1302,15 @@ def run():
                     # ==============================
                     # KELAS
                     # ==============================
-                    kelas_otomatis, nilai_n = tentukan_kelas_timbangan(
-                        kapasitas_rincian,
-                        daya_baca_rincian,
-                        satuan_rincian
-                    )
+                    if tanpa_daya_baca:
+                        kelas_otomatis = "III"
+                        nilai_n = None
+                    else:
+                        kelas_otomatis, nilai_n = tentukan_kelas_timbangan(
+                            kapasitas_rincian,
+                            daya_baca_rincian,
+                            satuan_rincian
+                        )
                     kelas_key = f"uttp_rincian_kelas_{index}"
                     kelas_signature_key = (
                         f"uttp_rincian_kelas_signature_{index}"
