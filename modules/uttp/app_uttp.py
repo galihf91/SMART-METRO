@@ -145,14 +145,6 @@ def tentukan_kelas_timbangan(
     daya_baca,
     satuan
 ):
-    """
-    Menentukan kelas timbangan berdasarkan:
-    - Max / kapasitas maksimum
-    - e / daya baca
-    - n = Max / e
-
-    Nilai dikonversi ke gram agar perhitungan konsisten.
-    """
     max_gram = konversi_ke_gram(
         kapasitas,
         satuan
@@ -171,76 +163,91 @@ def tentukan_kelas_timbangan(
     ):
         return "", None
 
-    n = max_gram / e_gram
+    # Ubah ke kg agar sama dengan logika aplikasi Timbangan
+    max_kg = max_gram / 1000
+    e_kg = e_gram / 1000
 
-    kapasitas_kg = max_gram / 1000
+    n = max_kg / e_kg
 
     # ==========================================
-    # KAPASITAS DI ATAS 75 KG
+    # KAPASITAS > 75 KG
     # HANYA KELAS III ATAU IIII
     # ==========================================
-    if kapasitas_kg > 75:
-        # Kelas III
-        if (
-            0.1 <= e_gram <= 2
-            and 100 <= n <= 10000
-        ):
-            return "III", n
-
-        if (
-            e_gram >= 5
-            and 500 <= n <= 10000
-        ):
-            return "III", n
+    if max_kg > 75:
 
         # Kelas IIII
         if (
-            5 <= e_gram <= 50
+            0.005 <= e_kg <= 0.05
             and 100 <= n <= 2000
         ):
             return "IIII", n
 
+        # Kelas III
+        if (
+            (
+                0.0001 <= e_kg <= 0.002
+                and 100 <= n <= 10000
+            )
+            or
+            (
+                e_kg >= 0.005
+                and 500 <= n <= 10000
+            )
+        ):
+            return "III", n
+
+        # Kapasitas > 75 kg tidak masuk kelas I/II
+        if 10000 < n <= 100000:
+            return "III", n
+
         return "", n
 
     # ==========================================
-    # KAPASITAS 75 KG ATAU KURANG
+    # KAPASITAS <= 75 KG
     # ==========================================
-    
+
     # Kelas I
     if (
-        e_gram >= 0.001
+        e_kg >= 0.000001
         and n >= 50000
     ):
         return "I", n
-  
+
     # Kelas III
     if (
-        0.1 <= e_gram <= 2
-        and 100 <= n <= 10000
+        (
+            0.0001 <= e_kg <= 0.002
+            and 100 <= n <= 10000
+        )
+        or
+        (
+            e_kg >= 0.005
+            and 500 <= n <= 10000
+        )
     ):
         return "III", n
-    
-    if (
-        e_gram >= 5
-        and 500 <= n <= 10000
-    ):
-        return "III", n
-    
+
     # Kelas II
-    if e_gram < 0.1:
-        if 100 <= n <= 100000:
-            return "II", n
-    else:
-        if 10000 < n <= 100000:
-            return "II", n
-    
+    # hanya jika n > 10000
+    if (
+        0.000001 <= e_kg <= 0.00005
+        and 10000 < n <= 100000
+    ):
+        return "II", n
+
+    if (
+        e_kg >= 0.0001
+        and 10000 < n <= 100000
+    ):
+        return "II", n
+
     # Kelas IIII
     if (
-        5 <= e_gram <= 50
+        0.005 <= e_kg <= 0.05
         and 100 <= n <= 2000
     ):
         return "IIII", n
-    
+
     return "", n
 
 def _read_excel(path):
