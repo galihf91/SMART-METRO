@@ -1343,13 +1343,44 @@ def run():
                         satuan_rincian
                     )
                     kelas_key = f"uttp_rincian_kelas_{index}"
-
-                    # Paksa session state kelas mengikuti hasil perhitungan terbaru
-                    st.session_state[kelas_key] = kelas_otomatis
-
-                    kelas_rincian = st.text_input(
-                        "Kelas",
-                        disabled=True,
+                    kelas_signature_key = (
+                        f"uttp_rincian_kelas_signature_{index}"
+                    )
+                    
+                    signature_baru = (
+                        str(kapasitas_rincian),
+                        str(daya_baca_rincian),
+                        str(satuan_rincian),
+                    )
+                    
+                    # Jika Max/e/satuan berubah, gunakan kelas hasil
+                    # perhitungan sebagai rekomendasi awal.
+                    if (
+                        st.session_state.get(
+                            kelas_signature_key
+                        ) != signature_baru
+                    ):
+                        st.session_state[
+                            kelas_key
+                        ] = (
+                            kelas_otomatis
+                            if kelas_otomatis
+                            else "III"
+                        )
+                    
+                        st.session_state[
+                            kelas_signature_key
+                        ] = signature_baru
+                    
+                    
+                    kelas_rincian = st.selectbox(
+                        "Kelas Timbangan",
+                        options=[
+                            "I",
+                            "II",
+                            "III",
+                            "IIII",
+                        ],
                         key=kelas_key,
                     )
                     if nilai_n is not None:
