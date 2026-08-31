@@ -212,10 +212,8 @@ def tentukan_kelas_timbangan(
         and n >= 50000
     ):
         return "I", n
-    
+  
     # Kelas III
-    # Diprioritaskan sebelum Kelas II karena
-    # terdapat rentang n yang saling tumpang tindih.
     if (
         0.1 <= e_gram <= 2
         and 100 <= n <= 10000
@@ -233,7 +231,7 @@ def tentukan_kelas_timbangan(
         if 100 <= n <= 100000:
             return "II", n
     else:
-        if 5000 <= n <= 100000:
+        if 10000 < n <= 100000:
             return "II", n
     
     # Kelas IIII
