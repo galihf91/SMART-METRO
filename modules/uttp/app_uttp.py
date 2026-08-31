@@ -1817,11 +1817,15 @@ def run():
                             f"{satuan_preview}"
                         )
 
-                        st.write(
-                            f"**Daya Baca:** "
-                            f"{daya_baca_preview} "
-                            f"{satuan_preview}"
-                        )
+                        if not item.get(
+                            "tanpa_daya_baca",
+                            False
+                        ):
+                            st.write(
+                                f"**Daya Baca:** "
+                                f"{daya_baca_preview} "
+                                f"{satuan_preview}"
+                            )
 
                         st.write(
                             f"**Kelas:** "
