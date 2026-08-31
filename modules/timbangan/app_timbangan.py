@@ -138,85 +138,72 @@ def format_nama_file_dokumen(data, jenis_dokumen):
     )
 def determine_class(max_kg, e):
     """
-    Menentukan kelas timbangan berdasarkan Kapasitas Maksimum dan Interval Skala (e).
-    Semua nilai e sudah dalam satuan kg.
+    Menentukan kelas timbangan berdasarkan:
+    n = Max / e
 
-    Contoh:
-    5 g = 0.005 kg
-    2 g = 0.002 kg
-    0.1 g = 0.0001 kg
-
-    Aturan tambahan:
-    - Kelas II hanya jika n > 10000
-    - Jika n <= 10000 dan memenuhi rentang kelas III, maka masuk kelas III
+    Aturan:
+    - n < 1000              → Kelas IIII
+    - 1000 s.d. 10000       → Kelas III
+    - >10000 s.d. 100000    → Kelas II
+      khusus Max > 75 kg    → Kelas III
+    - >100000               → Kelas I
     """
+
     if max_kg <= 0 or e <= 0:
-        return "", 0, "Masukkan nilai Kapasitas Maksimum dan Interval Skala terlebih dahulu"
-
-    n = max_kg / e
-
-    # ---------- KAPASITAS > 75 kg : HANYA KELAS III ATAU IIII ----------
-    if max_kg > 75:
-
-        # Kelas IIII
-        if 0.005 <= e <= 0.05 and 100 <= n <= 2000:
-            return (
-                "IIII",
-                10 * e,
-                f"OK (n = {n:.0f}, Kapasitas > 75 kg → Kelas IIII)"
-            )
-
-        # Kelas III sesuai rentang normal
-        if (
-            (0.0001 <= e <= 0.002 and 100 <= n <= 10000)
-            or
-            (e >= 0.005 and 500 <= n <= 10000)
-        ):
-            return (
-                "III",
-                20 * e,
-                f"OK (n = {n:.0f}, Kapasitas > 75 kg → Kelas III)"
-            )
-
-        # Jika secara nilai n masuk kelompok kelas lebih tinggi,
-        # tetapi kapasitas lebih dari 75 kg, turunkan menjadi Kelas III
-        if 10000 < n <= 100000:
-            return (
-                "III",
-                20 * e,
-                f"OK (n = {n:.0f}, kapasitas > 75 kg → otomatis Kelas III)"
-            )
-
         return (
             "",
             0,
-            f"Tidak terdefinisi "
-            f"(n = {n:.0f}, kapasitas > 75 kg, kombinasi tidak valid)"
+            "Masukkan nilai Kapasitas Maksimum "
+            "dan Interval Skala terlebih dahulu"
         )
 
-    # ---------- KAPASITAS ≤ 75 kg ----------
-    # Kelas I
-    if e >= 0.000001 and n >= 50000:
-        return "I", 100 * e, f"OK (n = {n:.0f} → Kelas I)"
-
-    # Kelas III
-    # Contoh: Max 40 kg, e 0.005 kg → n 8000 → Kelas III
-    if (e >= 0.0001 and e <= 0.002 and n >= 100 and n <= 10000) or \
-       (e >= 0.005 and n >= 500 and n <= 10000):
-        return "III", 20 * e, f"OK (n = {n:.0f} → Kelas III)"
-
-    # Kelas II hanya jika n > 10000
-    if e >= 0.000001 and e <= 0.00005 and n > 10000 and n <= 100000:
-        return "II", 20 * e, f"OK (n = {n:.0f} → Kelas II)"
-
-    if e >= 0.0001 and n > 10000 and n <= 100000:
-        return "II", 50 * e, f"OK (n = {n:.0f} → Kelas II)"
+    n = max_kg / e
 
     # Kelas IIII
-    if 0.005 <= e <= 0.05 and 100 <= n <= 2000:
-        return "IIII", 10 * e, f"OK (n = {n:.0f} → Kelas IIII)"
+    if n < 1000:
+        return (
+            "IIII",
+            10 * e,
+            f"OK (n = {n:.0f} → Kelas IIII)"
+        )
 
-    return "", 0, f"Tidak terdefinisi (n = {n:.0f}, kombinasi tidak valid)"
+    # Kelas III
+    if 1000 <= n <= 10000:
+        return (
+            "III",
+            20 * e,
+            f"OK (n = {n:.0f} → Kelas III)"
+        )
+
+    # Kelas II
+    if 10000 < n <= 100000:
+        if max_kg > 75:
+            return (
+                "III",
+                20 * e,
+                f"OK (n = {n:.0f}, "
+                f"Max > 75 kg → Kelas III)"
+            )
+
+        return (
+            "II",
+            50 * e,
+            f"OK (n = {n:.0f} → Kelas II)"
+        )
+
+    # Kelas I
+    if n > 100000:
+        return (
+            "I",
+            100 * e,
+            f"OK (n = {n:.0f} → Kelas I)"
+        )
+
+    return (
+        "",
+        0,
+        f"Tidak terdefinisi (n = {n:.0f})"
+    )
 
 from decimal import Decimal, InvalidOperation
 def convert_to_kg(value_str, satuan):
