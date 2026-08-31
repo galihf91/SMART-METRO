@@ -766,7 +766,17 @@ def validasi_data_uttp(
                 f"Rincian {index}: kapasitas belum diisi."
             )
 
-        if not daya_baca:
+        tanpa_daya_baca = bool(
+            item.get(
+                "tanpa_daya_baca",
+                False
+            )
+        )
+        
+        if (
+            not tanpa_daya_baca
+            and not daya_baca
+        ):
             errors.append(
                 f"Rincian {index}: daya baca belum diisi."
             )
