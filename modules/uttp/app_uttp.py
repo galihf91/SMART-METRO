@@ -1360,7 +1360,7 @@ def run():
                     
                     # Jika Max/e/satuan berubah, gunakan kelas hasil
                     # perhitungan sebagai rekomendasi awal.
-                   if (
+                    if (
                         st.session_state.get(
                             kelas_signature_key
                         ) != signature_baru
