@@ -139,7 +139,6 @@ def konversi_ke_gram(nilai, satuan):
 
     return None
 
-
 def tentukan_kelas_timbangan(
     kapasitas,
     daya_baca,
@@ -163,90 +162,29 @@ def tentukan_kelas_timbangan(
     ):
         return "", None
 
-    # Ubah ke kg agar sama dengan logika aplikasi Timbangan
     max_kg = max_gram / 1000
     e_kg = e_gram / 1000
 
     n = max_kg / e_kg
 
-    # ==========================================
-    # KAPASITAS > 75 KG
-    # HANYA KELAS III ATAU IIII
-    # ==========================================
-    if max_kg > 75:
-
-        # Kelas IIII
-        if (
-            0.005 <= e_kg <= 0.05
-            and 100 <= n <= 2000
-        ):
-            return "IIII", n
-
-        # Kelas III
-        if (
-            (
-                0.0001 <= e_kg <= 0.002
-                and 100 <= n <= 10000
-            )
-            or
-            (
-                e_kg >= 0.005
-                and 500 <= n <= 10000
-            )
-        ):
-            return "III", n
-
-        # Kapasitas > 75 kg tidak masuk kelas I/II
-        if 10000 < n <= 100000:
-            return "III", n
-
-        return "", n
-
-    # ==========================================
-    # KAPASITAS <= 75 KG
-    # ==========================================
-
-    # Kelas I
-    if (
-        e_kg >= 0.000001
-        and n >= 50000
-    ):
-        return "I", n
+    # Kelas IIII
+    if n < 1000:
+        return "IIII", n
 
     # Kelas III
-    if (
-        (
-            0.0001 <= e_kg <= 0.002
-            and 100 <= n <= 10000
-        )
-        or
-        (
-            e_kg >= 0.005
-            and 500 <= n <= 10000
-        )
-    ):
+    if 1000 <= n <= 10000:
         return "III", n
 
     # Kelas II
-    # hanya jika n > 10000
-    if (
-        0.000001 <= e_kg <= 0.00005
-        and 10000 < n <= 100000
-    ):
+    if 10000 < n <= 100000:
+        if max_kg > 75:
+            return "III", n
+
         return "II", n
 
-    if (
-        e_kg >= 0.0001
-        and 10000 < n <= 100000
-    ):
-        return "II", n
-
-    # Kelas IIII
-    if (
-        0.005 <= e_kg <= 0.05
-        and 100 <= n <= 2000
-    ):
-        return "IIII", n
+    # Kelas I
+    if n > 100000:
+        return "I", n
 
     return "", n
 
