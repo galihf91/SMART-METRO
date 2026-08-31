@@ -205,14 +205,29 @@ def tentukan_kelas_timbangan(
     # ==========================================
     # KAPASITAS 75 KG ATAU KURANG
     # ==========================================
-
+    
     # Kelas I
     if (
         e_gram >= 0.001
         and n >= 50000
     ):
         return "I", n
-
+    
+    # Kelas III
+    # Diprioritaskan sebelum Kelas II karena
+    # terdapat rentang n yang saling tumpang tindih.
+    if (
+        0.1 <= e_gram <= 2
+        and 100 <= n <= 10000
+    ):
+        return "III", n
+    
+    if (
+        e_gram >= 5
+        and 500 <= n <= 10000
+    ):
+        return "III", n
+    
     # Kelas II
     if e_gram < 0.1:
         if 100 <= n <= 100000:
@@ -220,27 +235,14 @@ def tentukan_kelas_timbangan(
     else:
         if 5000 <= n <= 100000:
             return "II", n
-
-    # Kelas III
-    if (
-        0.1 <= e_gram <= 2
-        and 100 <= n <= 10000
-    ):
-        return "III", n
-
-    if (
-        e_gram >= 5
-        and 500 <= n <= 10000
-    ):
-        return "III", n
-
+    
     # Kelas IIII
     if (
         5 <= e_gram <= 50
         and 100 <= n <= 2000
     ):
         return "IIII", n
-
+    
     return "", n
 
 def _read_excel(path):
