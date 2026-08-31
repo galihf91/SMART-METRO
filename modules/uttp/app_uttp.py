@@ -1265,16 +1265,38 @@ def run():
                     # ==============================
                     # DAYA BACA
                     # ==============================
-                    daya_baca_rincian = st.text_input(
-                        f"Daya Baca ({satuan_rincian})",
-                        value=str(
+                    tanpa_daya_baca = st.checkbox(
+                        "Tidak ada daya baca",
+                        value=bool(
                             data_lama.get(
-                                "daya_baca",
-                                ""
+                                "tanpa_daya_baca",
+                                False
+                            )
+                        ),
+                        key=f"uttp_tanpa_daya_baca_{index}",
+                    )
+                    
+                    daya_baca_input = st.text_input(
+                        f"Daya Baca ({satuan_rincian})",
+                        value=(
+                            ""
+                            if tanpa_daya_baca
+                            else str(
+                                data_lama.get(
+                                    "daya_baca",
+                                    ""
+                                )
                             )
                         ),
                         placeholder="Contoh: 0,005",
+                        disabled=tanpa_daya_baca,
                         key=f"uttp_rincian_daya_baca_{index}",
+                    )
+                    
+                    daya_baca_rincian = (
+                        "-"
+                        if tanpa_daya_baca
+                        else daya_baca_input
                     )
 
                     # ==============================
