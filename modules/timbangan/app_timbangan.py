@@ -593,42 +593,76 @@ def _normalize_excel_identifier(value):
 
     return str(value).strip()
 
-
+@st.cache_data(ttl=60)
 def load_data_perusahaan():
-    """Membaca data perusahaan dari lokasi proyek."""
-    path = _find_data_file(
-        "data_perusahaan.xlsx",
-        "data_perusahaan.xls",
-    )
-
-    if path is None:
-        return pd.DataFrame(
-            columns=["Nama Perusahaan", "Alamat"]
-        )
+    """
+    Membaca master perusahaan langsung dari Supabase.
+    """
 
     try:
-        df = _read_excel_compatible(path)
-        required_cols = ["Nama Perusahaan", "Alamat"]
+        supabase = get_supabase()
 
-        if not all(col in df.columns for col in required_cols):
-            st.warning(
-                f"File {path.name} ditemukan, tetapi kolom tidak sesuai. "
-                "Harus ada: Nama Perusahaan dan Alamat."
+        response = (
+            supabase
+            .table("perusahaan")
+            .select(
+                "id, nama_perusahaan, alamat, "
+                "kecamatan, telepon, email"
             )
-            return pd.DataFrame(columns=required_cols)
-
-        df = df.dropna(subset=["Nama Perusahaan"]).copy()
-        df["Nama Perusahaan"] = (
-            df["Nama Perusahaan"].astype(str).str.strip()
+            .order("nama_perusahaan")
+            .execute()
         )
-        df["Alamat"] = df["Alamat"].fillna("").astype(str).str.strip()
 
-        # Untuk nama perusahaan yang sama, pilih alamat paling panjang.
-        df["_panjang_alamat"] = df["Alamat"].str.len()
+        data = response.data or []
+
+        if not data:
+            return pd.DataFrame(
+                columns=[
+                    "ID",
+                    "Nama Perusahaan",
+                    "Alamat",
+                    "Kecamatan",
+                    "Telepon",
+                    "Email",
+                ]
+            )
+
+        df = pd.DataFrame(data)
+
+        df = df.rename(
+            columns={
+                "id": "ID",
+                "nama_perusahaan": "Nama Perusahaan",
+                "alamat": "Alamat",
+                "kecamatan": "Kecamatan",
+                "telepon": "Telepon",
+                "email": "Email",
+            }
+        )
+
+        for col in [
+            "Nama Perusahaan",
+            "Alamat",
+            "Kecamatan",
+            "Telepon",
+            "Email",
+        ]:
+            if col not in df.columns:
+                df[col] = ""
+
+            df[col] = (
+                df[col]
+                .fillna("")
+                .astype(str)
+                .str.strip()
+            )
+
+        df = df[
+            df["Nama Perusahaan"] != ""
+        ].copy()
+
         df = (
-            df.sort_values("_panjang_alamat", ascending=False)
-            .drop_duplicates(subset=["Nama Perusahaan"], keep="first")
-            .drop(columns=["_panjang_alamat"])
+            df
             .sort_values("Nama Perusahaan")
             .reset_index(drop=True)
         )
@@ -637,55 +671,110 @@ def load_data_perusahaan():
 
     except Exception as exc:
         st.warning(
-            f"Data perusahaan tidak dapat dibaca: {exc}"
+            "Data perusahaan dari Supabase "
+            f"tidak dapat dibaca: {exc}"
         )
+
         return pd.DataFrame(
-            columns=["Nama Perusahaan", "Alamat"]
+            columns=[
+                "ID",
+                "Nama Perusahaan",
+                "Alamat",
+                "Kecamatan",
+                "Telepon",
+                "Email",
+            ]
         )
-
-
+@st.cache_data(ttl=60)
 def load_data_penera():
-    """Membaca data penera dari lokasi proyek."""
-    path = _find_data_file(
-        "data_penera.xlsx",
-        "data_penera.xls",
-    )
-
-    if path is None:
-        return pd.DataFrame(
-            columns=["Nama", "NIP", "Golongan"]
-        )
+    """
+    Membaca data penera aktif langsung dari Supabase.
+    """
 
     try:
-        df = _read_excel_compatible(path)
-        required_cols = ["Nama", "NIP", "Golongan"]
+        supabase = get_supabase()
 
-        if not all(col in df.columns for col in required_cols):
-            st.warning(
-                f"File {path.name} ditemukan, tetapi kolom tidak sesuai. "
-                f"Harus ada: {required_cols}"
+        response = (
+            supabase
+            .table("penera")
+            .select(
+                "id, nama, nip, golongan, status"
             )
-            return pd.DataFrame(columns=required_cols)
-
-        df = df.dropna(subset=["Nama"]).copy()
-        df["Nama"] = df["Nama"].astype(str).str.strip()
-        df["NIP"] = df["NIP"].apply(
-            _normalize_excel_identifier
-        )
-        df["Golongan"] = (
-            df["Golongan"].fillna("").astype(str).str.strip()
+            .eq("status", "aktif")
+            .order("nama")
+            .execute()
         )
 
-        return (
-            df.drop_duplicates(subset=["Nama", "NIP"])
+        data = response.data or []
+
+        if not data:
+            return pd.DataFrame(
+                columns=[
+                    "ID",
+                    "Nama",
+                    "NIP",
+                    "Golongan",
+                    "Status",
+                ]
+            )
+
+        df = pd.DataFrame(data)
+
+        df = df.rename(
+            columns={
+                "id": "ID",
+                "nama": "Nama",
+                "nip": "NIP",
+                "golongan": "Golongan",
+                "status": "Status",
+            }
+        )
+
+        for col in [
+            "Nama",
+            "NIP",
+            "Golongan",
+            "Status",
+        ]:
+            if col not in df.columns:
+                df[col] = ""
+
+            df[col] = (
+                df[col]
+                .fillna("")
+                .astype(str)
+                .str.strip()
+            )
+
+        df = df[
+            df["Nama"] != ""
+        ].copy()
+
+        df = (
+            df
+            .drop_duplicates(
+                subset=["Nama", "NIP"]
+            )
             .sort_values("Nama")
             .reset_index(drop=True)
         )
 
+        return df
+
     except Exception as exc:
-        st.warning(f"Data penera tidak dapat dibaca: {exc}")
+        st.warning(
+            "Data penera dari Supabase "
+            f"tidak dapat dibaca: {exc}"
+        )
+
         return pd.DataFrame(
-            columns=["Nama", "NIP", "Golongan"]
+            columns=[
+                "ID",
+                "Nama",
+                "NIP",
+                "Golongan",
+                "Status",
+            ]
         )
 
 def update_perusahaan_terpilih_tb():
