@@ -689,6 +689,282 @@ def simpan_pengujian_timbangan_ke_supabase(data):
         )
 
     return response.data
+
+def gunakan_data_lama_untuk_pengujian_baru_timbangan(
+    alat,
+    perusahaan,
+    pengujian
+):
+    """
+    Menggunakan identitas alat lama sebagai dasar
+    pengujian baru, tanpa membawa hasil pengujian lama.
+    """
+
+    detail = (
+        pengujian.get("data_pengujian")
+        or {}
+    )
+
+    # Pastikan bukan mode edit
+    st.session_state.pop(
+        "tb_edit_pengujian_id",
+        None
+    )
+
+    nama_perusahaan = str(
+        perusahaan.get(
+            "nama_perusahaan",
+            ""
+        )
+        or ""
+    ).strip()
+
+    alamat = str(
+        perusahaan.get(
+            "alamat",
+            ""
+        )
+        or ""
+    ).strip()
+
+    st.session_state.tb_saved_data = {
+
+        "pemilik": nama_perusahaan,
+        "alamat": alamat,
+
+        "nama_alat": (
+            alat.get("jenis_uttp")
+            or detail.get("nama_alat")
+            or ""
+        ),
+
+        "merek": (
+            alat.get("merk")
+            or ""
+        ),
+
+        "model": (
+            alat.get("tipe")
+            or detail.get("model")
+            or ""
+        ),
+
+        "no_seri": (
+            alat.get("nomor_seri")
+            or ""
+        ),
+
+        "kapasitas_max": detail.get(
+            "kapasitas_max",
+            0
+        ),
+
+        "kapasitas_min": detail.get(
+            "kapasitas_min",
+            0
+        ),
+
+        "daya_baca": detail.get(
+            "daya_baca",
+            0
+        ),
+
+        "interval_skala": detail.get(
+            "interval_skala",
+            0
+        ),
+
+        "satuan": detail.get(
+            "satuan",
+            "kg"
+        ),
+
+        "kelas": detail.get(
+            "kelas",
+            "III"
+        ),
+
+        "suhu": "Ambient",
+        "kelembaban": "Ambient",
+
+        "metode": detail.get(
+            "metode",
+            ""
+        ),
+
+        "at_standar": detail.get(
+            "at_standar",
+            ""
+        ),
+
+        "lokasi": detail.get(
+            "lokasi",
+            "Perusahaan"
+        ),
+
+        # Hasil pengujian dibuat baru
+        "hasil_pengujian": [],
+        "eksentrisitas": [],
+        "repetability": [],
+        "penyetelan_nol": [],
+
+        "jumlah_titik_uji": detail.get(
+            "jumlah_titik_uji",
+            5
+        ),
+
+        "visual": {},
+
+        "daftar_alat_standar_peminjaman": (
+            detail.get(
+                "daftar_alat_standar_peminjaman",
+                []
+            )
+        ),
+
+        # Nomor dokumen baru
+        "nomor_order": generate_nomor_order(
+            datetime.now().date()
+        ),
+
+        "nomor_sertifikat": generate_nomor_sertifikat(
+            datetime.now().date()
+        ),
+
+        # Tanggal baru
+        "tanggal": datetime.now().strftime(
+            "%Y-%m-%d"
+        ),
+
+        "tanggal_tanda_tangan": (
+            datetime.now().strftime(
+                "%Y-%m-%d"
+            )
+        ),
+
+        "keterangan": "Tera Ulang",
+    }
+
+    # =====================================================
+    # BERSIHKAN WIDGET HASIL PENGUJIAN LAMA
+    # =====================================================
+    prefixes = [
+        "tb_muatan_uji_",
+        "tb_penunjukan_kebenaran_",
+        "tb_pengamatan_penunjukan_",
+        "tb_hasil_kebenaran_",
+        "tb_cek_kebenaran_",
+        "tb_neraca_",
+        "tb_eksen_",
+        "tb_repet_",
+    ]
+
+    for key in list(
+        st.session_state.keys()
+    ):
+        if any(
+            key.startswith(prefix)
+            for prefix in prefixes
+        ):
+            st.session_state.pop(
+                key,
+                None
+            )
+
+    # =====================================================
+    # IDENTITAS KE WIDGET
+    # =====================================================
+    st.session_state[
+        "tb_nama_perusahaan"
+    ] = nama_perusahaan
+
+    st.session_state[
+        "tb_alamat_input"
+    ] = alamat
+
+    st.session_state[
+        "tb_perusahaan_select"
+    ] = nama_perusahaan
+
+    st.session_state[
+        "tb_manual_perusahaan"
+    ] = False
+
+    st.session_state[
+        "tb_nama_alat"
+    ] = st.session_state.tb_saved_data[
+        "nama_alat"
+    ]
+
+    st.session_state[
+        "tb_merek"
+    ] = st.session_state.tb_saved_data[
+        "merek"
+    ]
+
+    st.session_state[
+        "tb_model"
+    ] = st.session_state.tb_saved_data[
+        "model"
+    ]
+
+    st.session_state[
+        "tb_no_seri"
+    ] = st.session_state.tb_saved_data[
+        "no_seri"
+    ]
+
+    # =====================================================
+    # TANGGAL BARU
+    # =====================================================
+    hari_ini = datetime.now().date()
+
+    st.session_state[
+        "tb_tanggal_pengujian"
+    ] = hari_ini
+
+    st.session_state[
+        "tb_tanggal_tanda_tangan"
+    ] = hari_ini
+
+    # =====================================================
+    # NOMOR DOKUMEN BARU
+    # =====================================================
+    nomor_sertifikat_baru = (
+        generate_nomor_sertifikat(
+            hari_ini
+        )
+    )
+
+    nomor_order_baru = (
+        generate_nomor_order(
+            hari_ini
+        )
+    )
+
+    st.session_state[
+        "tb_nomor_sertifikat"
+    ] = nomor_sertifikat_baru
+
+    st.session_state[
+        "tb_nomor_order"
+    ] = nomor_order_baru
+
+    st.session_state.tb_saved_data[
+        "nomor_sertifikat"
+    ] = nomor_sertifikat_baru
+
+    st.session_state.tb_saved_data[
+        "nomor_order"
+    ] = nomor_order_baru
+
+    # Hapus file generated lama
+    st.session_state.tb_generated_files = {}
+
+    # Kembali ke input data
+    st.session_state[
+        "tb_next_mode"
+    ] = "📝 Input Data Pengujian"
 def find_asset_file(filename):
     """Mencari aset pada folder standar proyek dan lokasi modul."""
     candidates = [
