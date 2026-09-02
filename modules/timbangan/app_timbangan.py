@@ -3915,7 +3915,27 @@ def run():
                     ""
                 )
             ).strip()
+            st.markdown("##### Penera 2 (Opsional)")
 
+            daftar_nama_penera_2 = [""]
+            
+            if (
+                df_penera is not None
+                and not df_penera.empty
+            ):
+                daftar_nama_penera_2 += (
+                    df_penera["Nama"]
+                    .dropna()
+                    .astype(str)
+                    .str.strip()
+                    .tolist()
+                )
+            
+            nama_penera_2 = st.selectbox(
+                "Pilih Penera 2",
+                options=daftar_nama_penera_2,
+                key="tb_penera_2_select",
+            )
         with col6:
             st.subheader("Informasi Tambahan")
         
@@ -6338,6 +6358,7 @@ def run():
                 'nama_penera': nama_penera,
                 'nip_penera': nip_penera,
                 'golongan_penera': st.session_state.get('tb_golongan_penera', ''),
+                'nama_penera_2': nama_penera_2,
                 'hasil_pengujian': test_results,
                 'jumlah_titik_uji': jumlah_titik_uji,
                 'tanggal': tanggal.strftime('%Y-%m-%d'),
