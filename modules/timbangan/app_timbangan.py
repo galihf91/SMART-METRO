@@ -3861,7 +3861,24 @@ def run():
 
         with col_judul_bkd:
             st.subheader("Pengujian Kebenaran")
-
+            # ============================================================
+            # PILIHAN JUMLAH TITIK UJI
+            # ============================================================
+            if not is_neraca and not is_timbangan_meja:
+                jumlah_titik_uji = st.radio(
+                    "Jumlah Titik Uji",
+                    options=[5, 3],
+                    horizontal=True,
+                    key="tb_jumlah_titik_kebenaran",
+                    format_func=lambda x: f"{x} Titik Uji",
+                    help=(
+                        "5 titik menggunakan susunan muatan uji standar. "
+                        "3 titik menggunakan Minimum Menimbang, "
+                        "50% Maksimum, dan Maksimum."
+                    ),
+                )
+            else:
+                jumlah_titik_uji = 1
             if is_neraca or is_timbangan_meja:
                 keterangan_ed = ""
             else:
@@ -4113,11 +4130,19 @@ def run():
                     faktor_min.get(cls, 20) * e
                 )
 
-            default_muatan_list = get_default_muatan_uji(
-                cls,
-                e,
-                kapasitas_max_kg
-            )
+            if jumlah_titik_uji == 3:
+                default_muatan_list = [
+                    kapasitas_min_kg,
+                    kapasitas_max_kg * 0.5,
+                    kapasitas_max_kg,
+                ]
+            
+            else:
+                default_muatan_list = get_default_muatan_uji(
+                    cls,
+                    e,
+                    kapasitas_max_kg
+                )
         # ==================================================
         # KETERANGAN PERBANDINGAN e DAN d
         # Tempel tepat di sini
@@ -4139,7 +4164,9 @@ def run():
                 else "e ≠ d"
             )
 
-        num_results = 5
+        num_results = len(
+            default_muatan_list
+        )
         test_results = []
 
         st.write("**Masukkan Hasil Pengujian**")
