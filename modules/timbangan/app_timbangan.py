@@ -4910,7 +4910,22 @@ def run():
                 })
 
         # ======================== REPETABILITY ========================
-
+        # =====================================================
+        # DATA REPETABILITY LAMA
+        # Digunakan saat Mode Edit
+        # =====================================================
+        repetability_lama = (
+            st.session_state
+            .get(
+                "tb_saved_data",
+                {}
+            )
+            .get(
+                "repetability",
+                []
+            )
+            or []
+        )
         nama_alat_repet = (
             st.session_state.get("tb_nama_alat")
             or st.session_state.get("tb_saved_data", {}).get(
@@ -5051,9 +5066,37 @@ def run():
             repet_data = []
             penunjukan_repet_list = []
 
-            # Baris 1 dapat diubah.
-            # Baris 2 dan 3 mengikuti baris 1 dan dibuat disabled.
-            penunjukan_acuan_tampil = float(muatan_repet_tampil)
+            # =====================================================
+            # DEFAULT REPETABILITY LAMA
+            # =====================================================
+            penunjukan_repet_lama_kg = None
+            
+            if repetability_lama:
+                try:
+                    penunjukan_repet_lama_kg = float(
+                        repetability_lama[0].get(
+                            "penunjukan_akhir",
+                            repetability_lama[0].get(
+                                "penunjukan",
+                                0
+                            )
+                        )
+                        or 0
+                    )
+                except (TypeError, ValueError):
+                    penunjukan_repet_lama_kg = None
+            
+            if penunjukan_repet_lama_kg is not None:
+                penunjukan_acuan_tampil = float(
+                    kg_to_satuan(
+                        penunjukan_repet_lama_kg,
+                        satuan_tampilan
+                    )
+                )
+            else:
+                penunjukan_acuan_tampil = float(
+                    muatan_repet_tampil
+                )
 
             for i in range(1, 4):
                 cols_repet = st.columns([3.5, 1.5])
@@ -5066,7 +5109,9 @@ def run():
                             penunjukan_akhir_tampil = st.number_input(
                                 f"Penunjukan Akhir Repetability {i}",
                                 min_value=0.0,
-                                value=float(muatan_repet_tampil),
+                                value=float(
+                                    penunjukan_acuan_tampil
+                                ),
                                 step=float(step_repet),
                                 format=format_repet,
                                 key=(
@@ -5336,6 +5381,18 @@ def run():
             penunjukan_repet_list = []
 
             for i in range(1, 4):
+                # =====================================================
+                # DATA REPETABILITY LAMA BARIS INI
+                # =====================================================
+                row_repet_lama = {}
+                
+                if (i - 1) < len(
+                    repetability_lama
+                ):
+                    row_repet_lama = (
+                        repetability_lama[i - 1]
+                        or {}
+                    )
                 # Harus enam kolom karena kode memakai indeks 0 sampai 5.
                 cols_repet = st.columns([
                     2.2,
