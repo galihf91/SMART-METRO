@@ -4540,7 +4540,7 @@ def run():
                             or is_timbangan_meja
                         ),
                         key=(
-                            f"tb_muatan_uji_{i}_{nama_alat}_"
+                            f"tb_muatan_uji_{jumlah_titik_uji}_{i}_{nama_alat}_"
                             f"{kapasitas_max_kg}_{e}_"
                             f"{satuan_tampilan}"
                         ),
