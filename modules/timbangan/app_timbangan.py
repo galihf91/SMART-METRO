@@ -1725,7 +1725,20 @@ def gunakan_data_lama_untuk_edit_timbangan(
         )
         or ""
     )
-
+    daftar_alat_standar = (
+        detail.get(
+            "daftar_alat_standar_peminjaman",
+            []
+        )
+        or []
+    )
+    
+    st.session_state[
+        "tb_jumlah_baris_alat_standar"
+    ] = max(
+        1,
+        len(daftar_alat_standar)
+    )
     # Bersihkan file lama
     st.session_state.tb_generated_files = {}
 
