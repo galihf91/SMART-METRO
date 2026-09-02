@@ -670,11 +670,6 @@ def simpan_pengujian_timbangan_ke_supabase(data):
             .execute()
         )
 
-        st.session_state.pop(
-            "tb_edit_pengujian_id",
-            None
-        )
-
     else:
         response = (
             supabase
