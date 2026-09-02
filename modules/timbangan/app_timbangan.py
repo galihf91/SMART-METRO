@@ -913,7 +913,181 @@ def gunakan_data_lama_untuk_pengujian_baru_timbangan(
     ] = st.session_state.tb_saved_data[
         "no_seri"
     ]
-
+    # =====================================================
+    # SINKRONKAN SPESIFIKASI KE WIDGET
+    # =====================================================
+    satuan = str(
+        st.session_state.tb_saved_data.get(
+            "satuan",
+            "kg"
+        )
+        or "kg"
+    ).strip()
+    
+    if satuan not in ["kg", "g"]:
+        satuan = "kg"
+    
+    nama_alat = str(
+        st.session_state.tb_saved_data.get(
+            "nama_alat",
+            "Timbangan Elektronik"
+        )
+    ).strip()
+    
+    kapasitas_max_kg = float(
+        st.session_state.tb_saved_data.get(
+            "kapasitas_max",
+            0
+        )
+        or 0
+    )
+    
+    kapasitas_min_kg = float(
+        st.session_state.tb_saved_data.get(
+            "kapasitas_min",
+            0
+        )
+        or 0
+    )
+    
+    daya_baca_kg = float(
+        st.session_state.tb_saved_data.get(
+            "daya_baca",
+            0
+        )
+        or 0
+    )
+    
+    interval_skala_kg = float(
+        st.session_state.tb_saved_data.get(
+            "interval_skala",
+            0
+        )
+        or 0
+    )
+    
+    st.session_state[
+        "tb_satuan_kapasitas_max"
+    ] = satuan
+    
+    if is_neraca_name(nama_alat):
+    
+        st.session_state[
+            "tb_kapasitas_max_neraca_input"
+        ] = _format_input_from_kg(
+            kapasitas_max_kg,
+            satuan
+        )
+    
+        st.session_state[
+            "tb_kapasitas_min_neraca_input"
+        ] = _format_input_from_kg(
+            kapasitas_min_kg,
+            satuan
+        )
+    
+        st.session_state[
+            "tb_interval_skala_neraca_kg"
+        ] = interval_skala_kg
+    
+        st.session_state[
+            "tb_kelas"
+        ] = "III"
+    
+    else:
+    
+        st.session_state[
+            "tb_kapasitas_max_input"
+        ] = _format_input_from_kg(
+            kapasitas_max_kg,
+            satuan
+        )
+    
+        st.session_state[
+            "tb_daya_baca_input"
+        ] = _format_input_from_kg(
+            daya_baca_kg,
+            satuan
+        )
+    
+        st.session_state[
+            "tb_interval_skala_input"
+        ] = _format_input_from_kg(
+            interval_skala_kg,
+            satuan
+        )
+    
+        st.session_state[
+            "tb_kapasitas_min_kg"
+        ] = kapasitas_min_kg
+    
+    if is_timbangan_meja_name(nama_alat):
+    
+        kelas_meja = str(
+            st.session_state.tb_saved_data.get(
+                "kelas",
+                "III"
+            )
+            or "III"
+        ).strip()
+    
+        if kelas_meja not in ["III", "IIII"]:
+            kelas_meja = "III"
+    
+        st.session_state[
+            "tb_kelas_meja"
+        ] = kelas_meja
+    
+    st.session_state[
+        "tb_kelas"
+    ] = str(
+        st.session_state.tb_saved_data.get(
+            "kelas",
+            "III"
+        )
+        or "III"
+    ).strip()
+    
+    st.session_state[
+        "tb_metode_pengujian"
+    ] = str(
+        st.session_state.tb_saved_data.get(
+            "metode",
+            "Perbandingan Langsung"
+        )
+        or "Perbandingan Langsung"
+    ).strip()
+    
+    st.session_state[
+        "tb_at_standar"
+    ] = str(
+        st.session_state.tb_saved_data.get(
+            "at_standar",
+            "M2"
+        )
+        or "M2"
+    ).strip()
+    
+    st.session_state[
+        "tb_lokasi_pengujian"
+    ] = str(
+        st.session_state.tb_saved_data.get(
+            "lokasi",
+            "Perusahaan"
+        )
+        or "Perusahaan"
+    ).strip()
+    
+    jumlah_titik = (
+        st.session_state.tb_saved_data.get(
+            "jumlah_titik_uji"
+        )
+    )
+    
+    if jumlah_titik in [3, 5]:
+        st.session_state[
+            "tb_jumlah_titik_kebenaran"
+        ] = int(jumlah_titik)
     # =====================================================
     # TANGGAL BARU
     # =====================================================
