@@ -823,13 +823,8 @@ def gunakan_data_lama_untuk_pengujian_baru_timbangan(
         ),
 
         # Nomor dokumen baru
-        "nomor_order": generate_nomor_order(
-            datetime.now().date()
-        ),
-
-        "nomor_sertifikat": generate_nomor_sertifikat(
-            datetime.now().date()
-        ),
+        "nomor_order": "",
+        "nomor_sertifikat": "",
 
         # Tanggal baru
         "tanggal": datetime.now().strftime(
