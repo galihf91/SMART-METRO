@@ -1474,7 +1474,27 @@ def gunakan_data_lama_untuk_edit_timbangan(
     st.session_state[
         "tb_nama_alat"
     ] = nama_alat
-
+    st.session_state[
+        "tb_merek"
+    ] = str(
+        alat.get("merk")
+        or ""
+    ).strip()
+    
+    st.session_state[
+        "tb_model"
+    ] = str(
+        alat.get("tipe")
+        or detail.get("model")
+        or ""
+    ).strip()
+    
+    st.session_state[
+        "tb_no_seri"
+    ] = str(
+        alat.get("nomor_seri")
+        or ""
+    ).strip()
     st.session_state[
         "tb_nama_perusahaan"
     ] = nama_perusahaan
@@ -3714,7 +3734,21 @@ def run():
                         "💡 Kelas diupdate otomatis saat Kapasitas "
                         "Maksimum atau Interval Skala berubah."
                     )
-
+        with col_extra2:
+            st.subheader("Jenis Pengujian")
+        
+            keterangan = st.selectbox(
+                "Pilih Jenis Pengujian",
+                options=[
+                    "Tera",
+                    "Tera Ulang",
+                ],
+                key="tb_keterangan",
+                help=(
+                    "Pilih Tera untuk pengujian pertama "
+                    "atau Tera Ulang untuk pengujian berkala."
+                ),
+            )
         st.markdown("---")
 
         # ======================== DATA PENGUJIAN LAINNYA ========================
