@@ -444,6 +444,251 @@ def build_data_pengujian_timbangan(data):
     }
 
     return detail_pengujian
+
+def simpan_pengujian_timbangan_ke_supabase(data):
+    """
+    Menyimpan satu pengujian Timbangan ke Supabase.
+
+    Alur:
+    1. Ambil perusahaan
+    2. Cari / buat UTTP
+    3. Susun data_pengujian JSON
+    4. Insert / update ke tabel pengujian
+    """
+
+    supabase = get_supabase()
+
+    # =====================================================
+    # 1. VALIDASI DASAR
+    # =====================================================
+    pemilik = str(
+        data.get("pemilik", "")
+    ).strip()
+
+    alamat = str(
+        data.get("alamat", "")
+    ).strip()
+
+    nama_alat = str(
+        data.get("nama_alat", "")
+    ).strip()
+
+    no_seri = str(
+        data.get("no_seri", "")
+    ).strip()
+
+    nomor_order = str(
+        data.get("nomor_order", "")
+    ).strip()
+
+    nomor_sertifikat = str(
+        data.get("nomor_sertifikat", "")
+    ).strip()
+
+    if not pemilik:
+        raise ValueError(
+            "Nama pemilik / perusahaan belum diisi."
+        )
+
+    if not nama_alat:
+        raise ValueError(
+            "Nama alat belum diisi."
+        )
+
+    if not no_seri:
+        raise ValueError(
+            "No. Seri / No. Alat belum diisi."
+        )
+
+    if not nomor_order:
+        raise ValueError(
+            "Nomor order belum diisi."
+        )
+
+    if not nomor_sertifikat:
+        raise ValueError(
+            "Nomor sertifikat belum diisi."
+        )
+
+    # =====================================================
+    # 2. CARI / BUAT PERUSAHAAN
+    # =====================================================
+    perusahaan_id = simpan_atau_update_perusahaan(
+        supabase,
+        pemilik,
+        alamat,
+    )
+
+    # =====================================================
+    # 3. CARI / BUAT UTTP
+    # =====================================================
+    uttp_id = get_or_create_uttp_timbangan(
+        supabase=supabase,
+        perusahaan_id=perusahaan_id,
+        nama_alat=nama_alat,
+        merek=data.get(
+            "merek",
+            ""
+        ),
+        model=data.get(
+            "model",
+            ""
+        ),
+        no_seri=no_seri,
+        kapasitas_max=data.get(
+            "kapasitas_max",
+            ""
+        ),
+        lokasi=data.get(
+            "lokasi",
+            "Perusahaan"
+        ),
+    )
+
+    # =====================================================
+    # 4. SUSUN JSON DATA PENGUJIAN
+    # =====================================================
+    detail_pengujian = (
+        build_data_pengujian_timbangan(
+            data
+        )
+    )
+
+    # =====================================================
+    # 5. TANGGAL
+    # =====================================================
+    tanggal_pengujian = data.get(
+        "tanggal"
+    )
+
+    tanggal_sertifikat = data.get(
+        "tanggal_tanda_tangan"
+    )
+
+    berlaku_sampai = data.get(
+        "berlaku_sampai"
+    )
+
+    if hasattr(
+        tanggal_pengujian,
+        "strftime"
+    ):
+        tanggal_pengujian = (
+            tanggal_pengujian.strftime(
+                "%Y-%m-%d"
+            )
+        )
+
+    if hasattr(
+        tanggal_sertifikat,
+        "strftime"
+    ):
+        tanggal_sertifikat = (
+            tanggal_sertifikat.strftime(
+                "%Y-%m-%d"
+            )
+        )
+
+    if hasattr(
+        berlaku_sampai,
+        "strftime"
+    ):
+        berlaku_sampai = (
+            berlaku_sampai.strftime(
+                "%Y-%m-%d"
+            )
+        )
+
+    # =====================================================
+    # 6. PAYLOAD PENGUJIAN
+    # =====================================================
+    payload = {
+        "uttp_id": uttp_id,
+
+        "tanggal_pengujian": (
+            tanggal_pengujian
+        ),
+
+        "tanggal_sertifikat": (
+            tanggal_sertifikat
+        ),
+
+        "jenis_pengujian": str(
+            data.get(
+                "keterangan",
+                "Tera Ulang"
+            )
+        ).strip(),
+
+        "hasil": "SAH",
+
+        "nomor_order": nomor_order,
+
+        "nomor_sertifikat": (
+            nomor_sertifikat
+        ),
+
+        "penera_1": str(
+            data.get(
+                "nama_penera",
+                ""
+            )
+        ).strip(),
+
+        "penera_2": str(
+            data.get(
+                "nama_penera_2",
+                ""
+            )
+        ).strip(),
+
+        "berlaku_sampai": (
+            berlaku_sampai
+        ),
+
+        "data_pengujian": (
+            detail_pengujian
+        ),
+    }
+
+    # =====================================================
+    # 7. INSERT / UPDATE
+    # =====================================================
+    edit_id = st.session_state.get(
+        "tb_edit_pengujian_id"
+    )
+
+    if edit_id:
+        response = (
+            supabase
+            .table("pengujian")
+            .update(payload)
+            .eq(
+                "id",
+                edit_id
+            )
+            .execute()
+        )
+
+        st.session_state.pop(
+            "tb_edit_pengujian_id",
+            None
+        )
+
+    else:
+        response = (
+            supabase
+            .table("pengujian")
+            .insert(payload)
+            .execute()
+        )
+
+    if not response.data:
+        raise RuntimeError(
+            "Data pengujian gagal disimpan ke Supabase."
+        )
+
+    return response.data
 def find_asset_file(filename):
     """Mencari aset pada folder standar proyek dan lokasi modul."""
     candidates = [
