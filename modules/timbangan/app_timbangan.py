@@ -6085,6 +6085,7 @@ def run():
                 'nip_penera': nip_penera,
                 'golongan_penera': st.session_state.get('tb_golongan_penera', ''),
                 'hasil_pengujian': test_results,
+                'jumlah_titik_uji': jumlah_titik_uji,
                 'tanggal': tanggal.strftime('%Y-%m-%d'),
                 'tanggal_penera': format_tanggal_indonesia(tanggal.strftime('%Y-%m-%d')),
                 'tanggal_tanda_tangan': (
@@ -6191,9 +6192,9 @@ def run():
             
                 nomor_sertifikat = st.text_input(
                     "Nomor Sertifikat",
-                    value=data.get(
-                        "nomor_sertifikat",
-                        default_sertifikat
+                    value=(
+                        data.get("nomor_sertifikat")
+                        or default_sertifikat
                     ),
                     placeholder=(
                         "Format: "
@@ -6204,9 +6205,9 @@ def run():
             
                 nomor_order = st.text_input(
                     "Nomor Order",
-                    value=data.get(
-                        "nomor_order",
-                        default_order
+                    value=(
+                        data.get("nomor_order")
+                        or default_order
                     ),
                     placeholder="Format nomor order",
                     key="tb_nomor_order",
