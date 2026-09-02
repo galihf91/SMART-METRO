@@ -5167,9 +5167,46 @@ def run():
                         st.session_state.tb_generated_files["sertifikat"] = (
                             str(sertifikat_file)
                         )
-
-                        st.success("✅ Kedua dokumen berhasil dibuat!")
-                        st.balloons()
+                        st.session_state.tb_saved_data[
+                            "nomor_sertifikat"
+                        ] = nomor_sertifikat
+                        
+                        st.session_state.tb_saved_data[
+                            "nomor_order"
+                        ] = nomor_order
+                        
+                        try:
+                            simpan_pengujian_timbangan_ke_supabase(
+                                st.session_state.tb_saved_data
+                            )
+                        
+                            st.success(
+                                "✅ Cerapan dan sertifikat berhasil dibuat "
+                                "serta data pengujian berhasil disimpan "
+                                "ke database."
+                            )
+                        
+                        except Exception as db_error:
+                            error_text = str(db_error)
+                        
+                            if (
+                                "duplicate key value violates unique constraint"
+                                in error_text
+                                and "pengujian_nomor_sertifikat_unique"
+                                in error_text
+                            ):
+                                st.error(
+                                    "❌ Nomor sertifikat sudah pernah digunakan. "
+                                    "Silakan gunakan nomor sertifikat yang berbeda."
+                                )
+                        
+                            else:
+                                st.warning(
+                                    "⚠️ Cerapan dan sertifikat berhasil dibuat, "
+                                    "tetapi data gagal disimpan ke database."
+                                )
+                        
+                                st.exception(db_error)
 
                     except Exception as exc:
                         st.error(f"❌ Error: {exc}")
