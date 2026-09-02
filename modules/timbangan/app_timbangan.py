@@ -4169,6 +4169,22 @@ def run():
         )
         test_results = []
 
+        # =====================================================
+        # DATA KEBENARAN LAMA
+        # Digunakan ketika Mode Edit
+        # =====================================================
+        hasil_kebenaran_lama = (
+            st.session_state
+            .get(
+                "tb_saved_data",
+                {}
+            )
+            .get(
+                "hasil_pengujian",
+                []
+            )
+            or []
+        )
         st.write("**Masukkan Hasil Pengujian**")
 
         cols_header = st.columns(
@@ -4195,6 +4211,24 @@ def run():
             )
 
             nomor_baris = i + 1
+            # =====================================================
+            # DATA LAMA BARIS INI
+            # =====================================================
+            row_lama = {}
+            
+            if i < len(
+                hasil_kebenaran_lama
+            ):
+                calon_row = (
+                    hasil_kebenaran_lama[i]
+                    or {}
+                )
+            
+                if calon_row.get(
+                    "aktif",
+                    True
+                ):
+                    row_lama = calon_row
             baris_kebenaran_disabled = (
                 (is_neraca or is_timbangan_meja)
                 and i > 0
@@ -4285,10 +4319,44 @@ def run():
                 })
                 continue
 
-            default_muatan_tampil = kg_to_satuan(
-                default_muatan_list[i],
-                satuan_tampilan
-            )
+            if row_lama:
+                muatan_lama_kg = row_lama.get(
+                    "muatan_uji",
+                    row_lama.get(
+                        "muatan_sb",
+                        row_lama.get(
+                            "standar",
+                            default_muatan_list[i]
+                        )
+                    )
+                )
+            
+                try:
+                    muatan_lama_kg = float(
+                        muatan_lama_kg
+                    )
+                except (
+                    TypeError,
+                    ValueError
+                ):
+                    muatan_lama_kg = (
+                        default_muatan_list[i]
+                    )
+            
+                default_muatan_tampil = (
+                    kg_to_satuan(
+                        muatan_lama_kg,
+                        satuan_tampilan
+                    )
+                )
+            
+            else:
+                default_muatan_tampil = (
+                    kg_to_satuan(
+                        default_muatan_list[i],
+                        satuan_tampilan
+                    )
+                )
 
             # --- Muatan Uji ---
             with cols[1]:
@@ -4321,10 +4389,43 @@ def run():
             )
 
             # --- Penunjukan ---
-            default_penunjukan_tampil = kg_to_satuan(
-                muatan_uji,
-                satuan_tampilan
-            )
+            if row_lama:
+                penunjukan_lama_kg = (
+                    row_lama.get(
+                        "penunjukan",
+                        row_lama.get(
+                            "timbangan",
+                            muatan_uji
+                        )
+                    )
+                )
+            
+                try:
+                    penunjukan_lama_kg = float(
+                        penunjukan_lama_kg
+                    )
+                except (
+                    TypeError,
+                    ValueError
+                ):
+                    penunjukan_lama_kg = (
+                        muatan_uji
+                    )
+            
+                default_penunjukan_tampil = (
+                    kg_to_satuan(
+                        penunjukan_lama_kg,
+                        satuan_tampilan
+                    )
+                )
+            
+            else:
+                default_penunjukan_tampil = (
+                    kg_to_satuan(
+                        muatan_uji,
+                        satuan_tampilan
+                    )
+                )
 
             with cols[2]:
                 sub_penunjukan1, sub_penunjukan2 = st.columns(
