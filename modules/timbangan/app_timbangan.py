@@ -50,6 +50,198 @@ def get_supabase():
 
     return create_client(url, key)
 
+def simpan_atau_update_perusahaan(
+    supabase,
+    nama_perusahaan,
+    alamat,
+):
+    """
+    Cari perusahaan berdasarkan nama.
+    Jika sudah ada, update alamat bila berbeda.
+    Jika belum ada, insert perusahaan baru.
+    """
+
+    nama_perusahaan = str(
+        nama_perusahaan or ""
+    ).strip()
+
+    alamat = str(
+        alamat or ""
+    ).strip()
+
+    if not nama_perusahaan:
+        raise ValueError(
+            "Nama perusahaan belum diisi."
+        )
+
+    response = (
+        supabase
+        .table("perusahaan")
+        .select(
+            "id, nama_perusahaan, alamat"
+        )
+        .eq(
+            "nama_perusahaan",
+            nama_perusahaan
+        )
+        .execute()
+    )
+
+    # Perusahaan sudah ada
+    if response.data:
+        row = response.data[0]
+
+        perusahaan_id = row["id"]
+
+        alamat_lama = str(
+            row.get(
+                "alamat",
+                ""
+            ) or ""
+        ).strip()
+
+        if (
+            alamat
+            and alamat != alamat_lama
+        ):
+            (
+                supabase
+                .table("perusahaan")
+                .update({
+                    "alamat": alamat
+                })
+                .eq(
+                    "id",
+                    perusahaan_id
+                )
+                .execute()
+            )
+
+        return perusahaan_id
+
+    # Perusahaan baru
+    response = (
+        supabase
+        .table("perusahaan")
+        .insert({
+            "nama_perusahaan": nama_perusahaan,
+            "alamat": alamat,
+        })
+        .execute()
+    )
+
+    if not response.data:
+        raise RuntimeError(
+            "Perusahaan gagal disimpan."
+        )
+
+    return response.data[0]["id"]
+
+def get_or_create_uttp_timbangan(
+    supabase,
+    perusahaan_id,
+    nama_alat,
+    merek,
+    model,
+    no_seri,
+    kapasitas_max,
+    lokasi="Perusahaan",
+):
+    """
+    Cari atau buat UTTP Timbangan.
+    """
+
+    nama_alat = str(
+        nama_alat or "Timbangan"
+    ).strip()
+
+    merek = str(
+        merek or ""
+    ).strip()
+
+    model = str(
+        model or ""
+    ).strip()
+
+    no_seri = str(
+        no_seri or ""
+    ).strip()
+
+    lokasi = str(
+        lokasi or "Perusahaan"
+    ).strip()
+
+    if not no_seri:
+        raise ValueError(
+            "No. Seri / No. Alat wajib diisi."
+        )
+
+    # Cari UTTP yang sudah ada
+    response = (
+        supabase
+        .table("uttp")
+        .select("*")
+        .eq(
+            "perusahaan_id",
+            perusahaan_id
+        )
+        .eq(
+            "jenis_uttp",
+            nama_alat
+        )
+        .eq(
+            "nomor_seri",
+            no_seri
+        )
+        .execute()
+    )
+
+    # Jika sudah ada, update identitas alat
+    if response.data:
+        uttp = response.data[0]
+        uttp_id = uttp["id"]
+
+        (
+            supabase
+            .table("uttp")
+            .update({
+                "merk": merek,
+                "tipe": model,
+                "kapasitas": str(
+                    kapasitas_max
+                ),
+                "lokasi": lokasi,
+                "status": "aktif",
+            })
+            .eq(
+                "id",
+                uttp_id
+            )
+            .execute()
+        )
+
+        return uttp_id
+
+    # Jika belum ada, buat baru
+    response = (
+        supabase
+        .table("uttp")
+        .insert({
+            "perusahaan_id": perusahaan_id,
+            "jenis_uttp": nama_alat,
+            "merk": merek,
+            "tipe": model,
+            "nomor_seri": no_seri,
+            "kapasitas": str(
+                kapasitas_max
+            ),
+            "lokasi": lokasi,
+            "status": "aktif",
+        })
+        .execute()
+    )
+
+    return response.data[0]["id"]
 def find_asset_file(filename):
     """Mencari aset pada folder standar proyek dan lokasi modul."""
     candidates = [
