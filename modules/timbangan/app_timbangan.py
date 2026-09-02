@@ -826,6 +826,12 @@ def gunakan_data_lama_untuk_pengujian_baru_timbangan(
             1,
             len(daftar_alat_standar)
         )
+        for key in list(st.session_state.keys()):
+            if (
+                key.startswith("tb_jenis_alat_standar_")
+                or key.startswith("tb_jumlah_alat_standar_")
+            ):
+                st.session_state.pop(key, None)
         "visual": {},
 
         "daftar_alat_standar_peminjaman": (
@@ -1752,6 +1758,13 @@ def gunakan_data_lama_untuk_edit_timbangan(
         1,
         len(daftar_alat_standar)
     )
+    # Bersihkan state widget alat standar lama
+    for key in list(st.session_state.keys()):
+        if (
+            key.startswith("tb_jenis_alat_standar_")
+            or key.startswith("tb_jumlah_alat_standar_")
+        ):
+            st.session_state.pop(key, None)
     # Bersihkan file lama
     st.session_state.tb_generated_files = {}
 
