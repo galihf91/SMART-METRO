@@ -4684,7 +4684,36 @@ def run():
                 col.write(label)
 
             eksen_data = []
-
+            # =====================================================
+            # DATA EKSENTRISITAS LAMA
+            # Digunakan saat Mode Edit
+            # =====================================================
+            eksentrisitas_lama = (
+                st.session_state
+                .get(
+                    "tb_saved_data",
+                    {}
+                )
+                .get(
+                    "eksentrisitas",
+                    []
+                )
+                or []
+            )
+            
+            penunjukan_eks_lama_kg = None
+            
+            if eksentrisitas_lama:
+                try:
+                    penunjukan_eks_lama_kg = float(
+                        eksentrisitas_lama[0].get(
+                            "penunjukan",
+                            0
+                        )
+                        or 0
+                    )
+                except (TypeError, ValueError):
+                    penunjukan_eks_lama_kg = None
             for i in range(1, 5):
                 cols_eksen = st.columns([0.8, 2.2, 1.4, 3.4, 1.4, 1.2])
 
@@ -4704,9 +4733,39 @@ def run():
 
                     with sub_penunjukan1:
                         if i == 1:
+
+                            if penunjukan_eks_lama_kg is not None:
+                                default_penunjukan_eks_tampil = (
+                                    kg_to_satuan(
+                                        penunjukan_eks_lama_kg,
+                                        satuan_tampilan
+                                    )
+                                )
+                            else:
+                                default_penunjukan_eks_tampil = (
+                                    muatan_eks_tampil
+                                )
+                        
                             penunjukan_tampil = st.number_input(
                                 f"Penunjukan Eksentrisitas {i}",
-                                value=float(muatan_eks_tampil),
+                                value=float(
+                                    default_penunjukan_eks_tampil
+                                ),
+                                step=float(
+                                    step_penunjukan_tampil
+                                ),
+                                format=format_penunjukan,
+                                key=(
+                                    f"tb_eksen_penunjukan_1_"
+                                    f"{daya_baca_kg}_"
+                                    f"{satuan_tampilan}"
+                                ),
+                                label_visibility="collapsed"
+                            )
+                        
+                            st.session_state[
+                                "tb_eksen_penunjukan_acuan"
+                            ] = penunjukan_tampil
                                 step=float(step_penunjukan_tampil),
                                 format=format_penunjukan,
                                 key=f"tb_eksen_penunjukan_1_{daya_baca_kg}_{satuan_tampilan}",
