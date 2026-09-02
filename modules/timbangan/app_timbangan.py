@@ -5761,7 +5761,38 @@ def run():
                 "tb_at_standar",
                 "M2"
             )
-
+            # =====================================================
+            # SIMPAN NOMOR DOKUMEN LAMA JIKA SEDANG MODE EDIT
+            # =====================================================
+            sedang_edit = bool(
+                st.session_state.get(
+                    "tb_edit_pengujian_id"
+                )
+            )
+            
+            nomor_sertifikat_lama = (
+                st.session_state
+                .get(
+                    "tb_saved_data",
+                    {}
+                )
+                .get(
+                    "nomor_sertifikat",
+                    ""
+                )
+            )
+            
+            nomor_order_lama = (
+                st.session_state
+                .get(
+                    "tb_saved_data",
+                    {}
+                )
+                .get(
+                    "nomor_order",
+                    ""
+                )
+            )
             st.session_state.tb_saved_data = {
                 'pemilik': pemilik,
                 'alamat': alamat,
@@ -5814,6 +5845,17 @@ def run():
                     tanggal_tanda_tangan.strftime("%Y-%m-%d")
                 ),
                 'keterangan': keterangan_final,
+                'nomor_sertifikat': (
+                    nomor_sertifikat_lama
+                    if sedang_edit
+                    else ""
+                ),
+                
+                'nomor_order': (
+                    nomor_order_lama
+                    if sedang_edit
+                    else ""
+                ),
                 'berlaku_sampai': add_one_year_safe(tanggal).strftime('%Y-%m-%d'),
                 'repetability': repet_data,
                 'repetability_sederhana': repet_sederhana,
@@ -5825,9 +5867,25 @@ def run():
 
             # Dokumen lama tidak boleh tetap tersedia setelah data berubah.
             st.session_state.tb_generated_files = {}
-            st.session_state.pop("tb_nomor_sertifikat", None)
-            st.session_state.pop("tb_nomor_order", None)
-
+            if sedang_edit:
+                st.session_state[
+                    "tb_nomor_sertifikat"
+                ] = nomor_sertifikat_lama
+            
+                st.session_state[
+                    "tb_nomor_order"
+                ] = nomor_order_lama
+            
+            else:
+                st.session_state.pop(
+                    "tb_nomor_sertifikat",
+                    None
+                )
+            
+                st.session_state.pop(
+                    "tb_nomor_order",
+                    None
+                )
             st.success("✅ Data berhasil disimpan!")
             st.balloons()
 
