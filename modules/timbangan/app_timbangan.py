@@ -812,26 +812,7 @@ def gunakan_data_lama_untuk_pengujian_baru_timbangan(
             "jumlah_titik_uji",
             5
         ),
-        daftar_alat_standar = (
-            st.session_state.tb_saved_data.get(
-                "daftar_alat_standar_peminjaman",
-                []
-            )
-            or []
-        )
         
-        st.session_state[
-            "tb_jumlah_baris_alat_standar"
-        ] = max(
-            1,
-            len(daftar_alat_standar)
-        )
-        for key in list(st.session_state.keys()):
-            if (
-                key.startswith("tb_jenis_alat_standar_")
-                or key.startswith("tb_jumlah_alat_standar_")
-            ):
-                st.session_state.pop(key, None)
         "visual": {},
 
         "daftar_alat_standar_peminjaman": (
@@ -863,7 +844,33 @@ def gunakan_data_lama_untuk_pengujian_baru_timbangan(
 
         "keterangan": "Tera Ulang",
     }
-
+    # =====================================================
+    # SINKRONKAN ALAT STANDAR
+    # =====================================================
+    daftar_alat_standar = (
+        st.session_state.tb_saved_data.get(
+            "daftar_alat_standar_peminjaman",
+            []
+        )
+        or []
+    )
+    
+    st.session_state[
+        "tb_jumlah_baris_alat_standar"
+    ] = max(
+        1,
+        len(daftar_alat_standar)
+    )
+    
+    for key in list(st.session_state.keys()):
+        if (
+            key.startswith("tb_jenis_alat_standar_")
+            or key.startswith("tb_jumlah_alat_standar_")
+        ):
+            st.session_state.pop(
+                key,
+                None
+            )
     # =====================================================
     # BERSIHKAN WIDGET HASIL PENGUJIAN LAMA
     # =====================================================
