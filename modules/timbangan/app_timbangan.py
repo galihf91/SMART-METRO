@@ -1248,7 +1248,13 @@ def gunakan_data_lama_untuk_edit_timbangan(
         )
         or ""
     ).strip()
-
+    nama_penera_2 = str(
+        pengujian.get(
+            "penera_2",
+            ""
+        )
+        or ""
+    ).strip()
     nip_penera = ""
     golongan_penera = ""
 
@@ -1375,7 +1381,7 @@ def gunakan_data_lama_untuk_edit_timbangan(
         "nama_penera": nama_penera,
         "nip_penera": nip_penera,
         "golongan_penera": golongan_penera,
-
+        "nama_penera_2": nama_penera_2,
         "jumlah_titik_uji": detail.get(
             "jumlah_titik_uji"
         ),
@@ -1712,7 +1718,9 @@ def gunakan_data_lama_untuk_edit_timbangan(
     st.session_state[
         "tb_manual_penera"
     ] = False
-
+    st.session_state[
+        "tb_penera_2_select"
+    ] = nama_penera_2
     # =====================================================
     # TANGGAL
     # =====================================================
