@@ -4766,14 +4766,6 @@ def run():
                             st.session_state[
                                 "tb_eksen_penunjukan_acuan"
                             ] = penunjukan_tampil
-                                step=float(step_penunjukan_tampil),
-                                format=format_penunjukan,
-                                key=f"tb_eksen_penunjukan_1_{daya_baca_kg}_{satuan_tampilan}",
-                                label_visibility="collapsed"
-                            )
-
-                            # Simpan nilai baris 1 agar dipakai baris 2, 3, dan 4
-                            st.session_state["tb_eksen_penunjukan_acuan"] = penunjukan_tampil
 
                         else:
                             penunjukan_acuan = st.session_state.get(
