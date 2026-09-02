@@ -812,7 +812,20 @@ def gunakan_data_lama_untuk_pengujian_baru_timbangan(
             "jumlah_titik_uji",
             5
         ),
-
+        daftar_alat_standar = (
+            st.session_state.tb_saved_data.get(
+                "daftar_alat_standar_peminjaman",
+                []
+            )
+            or []
+        )
+        
+        st.session_state[
+            "tb_jumlah_baris_alat_standar"
+        ] = max(
+            1,
+            len(daftar_alat_standar)
+        )
         "visual": {},
 
         "daftar_alat_standar_peminjaman": (
