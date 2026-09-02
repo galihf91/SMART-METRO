@@ -3050,25 +3050,18 @@ def run():
                 key="tb_merek",
             )
 
-            # Model / Tipe hanya untuk Timbangan Elektronik
-            if is_timbangan_elektronik:
-                model = st.text_input(
-                    "Model / Tipe",
-                    value=st.session_state.tb_saved_data.get(
-                        "model",
-                        ""
-                    ),
-                    key="tb_model"
-                )
-            else:
-                model = ""
-
-                # Bersihkan nilai lama saat user berpindah alat
-                if "tb_model" in st.session_state:
-                    st.session_state["tb_model"] = ""
+            # Model / Tipe ditampilkan untuk semua jenis timbangan
+            model = st.text_input(
+                "Model / Tipe",
+                value=st.session_state.tb_saved_data.get(
+                    "model",
+                    ""
+                ),
+                key="tb_model"
+            )
 
             no_seri = st.text_input(
-                "No. Seri",
+                "No. Seri/No. Alat",
                 value=st.session_state.tb_saved_data.get(
                     "no_seri",
                     ""
@@ -6057,11 +6050,7 @@ def run():
                 'is_neraca': is_neraca,
                 'is_timbangan_meja': is_timbangan_meja,
                 'merek': merek,
-                'model': (
-                    model
-                    if is_timbangan_elektronik
-                    else ""
-                ),
+                'model': model,
                 'no_seri': no_seri,
                 'kapasitas_max': kapasitas_max_kg,
                 'kapasitas_min': kapasitas_min_final,
@@ -6166,14 +6155,10 @@ def run():
                     st.write(f"**Pemilik:** {data.get('pemilik', '-')}")
                     st.write(f"**Nama Alat:** {data.get('nama_alat', '-')}")
                     st.write(f"**Merek:** {data.get('merek', '-')}")
-                    if (
-                        str(data.get("nama_alat", "")).strip().lower()
-                        == "timbangan elektronik"
-                    ):
-                        st.write(
-                            f"**Model / Tipe:** "
-                            f"{data.get('model', '-')}"
-                        )
+                    st.write(
+                        f"**Model / Tipe:** "
+                        f"{data.get('model', '-')}"
+                    )
                     st.write(f"**No. Seri:** {data.get('no_seri', '-')}")
             
                 with preview_cols[1]:
