@@ -6298,7 +6298,500 @@ def run():
         
             st.markdown("---")
         
-
+    # =========================================================
+    # MODE 3: RIWAYAT TIMBANGAN
+    # =========================================================
+    elif mode == "📚 Riwayat Timbangan":
+    
+        st.header("📚 Riwayat Timbangan")
+    
+        try:
+            supabase = get_supabase()
+    
+            # =====================================================
+            # 1. AMBIL SEMUA UTTP JENIS TIMBANGAN
+            # =====================================================
+            response_uttp = (
+                supabase
+                .table("uttp")
+                .select(
+                    "id, perusahaan_id, jenis_uttp, merk, tipe, "
+                    "nomor_seri, kapasitas, lokasi, status"
+                )
+                .order(
+                    "jenis_uttp"
+                )
+                .execute()
+            )
+    
+            semua_uttp = (
+                response_uttp.data
+                or []
+            )
+    
+            # =====================================================
+            # FILTER HANYA MODUL TIMBANGAN
+            # =====================================================
+            jenis_timbangan = {
+                "Timbangan Elektronik",
+                "Timbangan Pegas",
+                "Timbangan Bobot Ingsut",
+                "Timbangan Sentisimal",
+                "Timbangan Meja",
+                "Neraca Obat",
+                "Timbangan Neraca Obat",
+            }
+    
+            daftar_uttp = [
+                item
+                for item in semua_uttp
+                if str(
+                    item.get(
+                        "jenis_uttp",
+                        ""
+                    )
+                ).strip()
+                in jenis_timbangan
+            ]
+    
+            if not daftar_uttp:
+                st.info(
+                    "Belum ada data Timbangan "
+                    "yang tersimpan di database."
+                )
+                st.stop()
+    
+            # =====================================================
+            # 2. AMBIL PERUSAHAAN TERKAIT
+            # =====================================================
+            daftar_perusahaan_id = list({
+                item.get("perusahaan_id")
+                for item in daftar_uttp
+                if item.get(
+                    "perusahaan_id"
+                ) is not None
+            })
+    
+            if daftar_perusahaan_id:
+                response_perusahaan = (
+                    supabase
+                    .table("perusahaan")
+                    .select(
+                        "id, nama_perusahaan, alamat"
+                    )
+                    .in_(
+                        "id",
+                        daftar_perusahaan_id
+                    )
+                    .execute()
+                )
+    
+                daftar_perusahaan = (
+                    response_perusahaan.data
+                    or []
+                )
+    
+            else:
+                daftar_perusahaan = []
+    
+            perusahaan_by_id = {
+                item["id"]: item
+                for item in daftar_perusahaan
+            }
+    
+            # =====================================================
+            # 3. PILIH PERUSAHAAN
+            # =====================================================
+            perusahaan_map = {}
+    
+            for alat_item in daftar_uttp:
+    
+                perusahaan_id = (
+                    alat_item.get(
+                        "perusahaan_id"
+                    )
+                )
+    
+                perusahaan_item = (
+                    perusahaan_by_id.get(
+                        perusahaan_id,
+                        {}
+                    )
+                )
+    
+                nama_perusahaan = str(
+                    perusahaan_item.get(
+                        "nama_perusahaan",
+                        ""
+                    )
+                    or ""
+                ).strip()
+    
+                if nama_perusahaan:
+                    perusahaan_map[
+                        nama_perusahaan
+                    ] = perusahaan_item
+    
+            st.subheader(
+                "Cari Perusahaan"
+            )
+    
+            nama_perusahaan_terpilih = (
+                st.selectbox(
+                    "Nama Perusahaan",
+                    options=sorted(
+                        perusahaan_map.keys()
+                    ),
+                    index=None,
+                    placeholder=(
+                        "Ketik atau pilih "
+                        "nama perusahaan..."
+                    ),
+                    key="tb_riwayat_perusahaan"
+                )
+            )
+    
+            if not nama_perusahaan_terpilih:
+                st.info(
+                    "Silakan pilih perusahaan "
+                    "untuk melihat Timbangan "
+                    "yang terdaftar."
+                )
+                st.stop()
+    
+            perusahaan = perusahaan_map[
+                nama_perusahaan_terpilih
+            ]
+    
+            perusahaan_id = (
+                perusahaan["id"]
+            )
+    
+            # =====================================================
+            # 4. FILTER ALAT MILIK PERUSAHAAN
+            # =====================================================
+            daftar_alat = [
+                item
+                for item in daftar_uttp
+                if item.get(
+                    "perusahaan_id"
+                ) == perusahaan_id
+            ]
+    
+            if not daftar_alat:
+                st.info(
+                    "Belum ada Timbangan "
+                    "untuk perusahaan ini."
+                )
+                st.stop()
+    
+            # =====================================================
+            # 5. PILIH ALAT
+            # =====================================================
+            alat_map = {}
+    
+            for alat_item in daftar_alat:
+    
+                label = (
+                    f"{alat_item.get('jenis_uttp') or '-'} | "
+                    f"{alat_item.get('merk') or '-'} | "
+                    f"{alat_item.get('tipe') or '-'} | "
+                    f"No. Seri/Alat: "
+                    f"{alat_item.get('nomor_seri') or '-'}"
+                )
+    
+                alat_map[
+                    label
+                ] = alat_item
+    
+            alat_terpilih_label = (
+                st.selectbox(
+                    "Pilih Timbangan",
+                    options=list(
+                        alat_map.keys()
+                    ),
+                    index=None,
+                    placeholder=(
+                        "Pilih Timbangan..."
+                    ),
+                    key="tb_riwayat_alat"
+                )
+            )
+    
+            if not alat_terpilih_label:
+                st.info(
+                    "Silakan pilih Timbangan "
+                    "untuk melihat riwayat "
+                    "pengujiannya."
+                )
+                st.stop()
+    
+            alat = alat_map[
+                alat_terpilih_label
+            ]
+    
+            # =====================================================
+            # 6. RINGKASAN ALAT
+            # =====================================================
+            st.markdown("---")
+            st.subheader(
+                "Ringkasan Timbangan"
+            )
+    
+            col1, col2, col3 = (
+                st.columns(3)
+            )
+    
+            with col1:
+                st.write(
+                    "**Jenis Timbangan:**",
+                    alat.get(
+                        "jenis_uttp"
+                    ) or "-"
+                )
+    
+                st.write(
+                    "**Perusahaan:**",
+                    perusahaan.get(
+                        "nama_perusahaan"
+                    ) or "-"
+                )
+    
+            with col2:
+                st.write(
+                    "**Merek:**",
+                    alat.get(
+                        "merk"
+                    ) or "-"
+                )
+    
+                st.write(
+                    "**Model/Tipe:**",
+                    alat.get(
+                        "tipe"
+                    ) or "-"
+                )
+    
+            with col3:
+                st.write(
+                    "**No. Seri / No. Alat:**",
+                    alat.get(
+                        "nomor_seri"
+                    ) or "-"
+                )
+    
+                st.write(
+                    "**Kapasitas:**",
+                    alat.get(
+                        "kapasitas"
+                    ) or "-"
+                )
+    
+            # =====================================================
+            # 7. AMBIL RIWAYAT PENGUJIAN
+            # =====================================================
+            response_riwayat = (
+                supabase
+                .table("pengujian")
+                .select("*")
+                .eq(
+                    "uttp_id",
+                    alat["id"]
+                )
+                .order(
+                    "tanggal_pengujian",
+                    desc=True
+                )
+                .execute()
+            )
+    
+            riwayat = (
+                response_riwayat.data
+                or []
+            )
+    
+            st.markdown("---")
+            st.subheader(
+                "Riwayat Tera / Tera Ulang"
+            )
+    
+            if not riwayat:
+                st.info(
+                    "Belum ada riwayat "
+                    "pengujian untuk Timbangan ini."
+                )
+                st.stop()
+    
+            # =====================================================
+            # 8. TABEL RIWAYAT
+            # =====================================================
+            data_tabel = []
+    
+            for r in riwayat:
+                data_tabel.append({
+                    "Tanggal": (
+                        r.get(
+                            "tanggal_pengujian"
+                        )
+                    ),
+                    "Jenis": (
+                        r.get(
+                            "jenis_pengujian"
+                        )
+                    ),
+                    "Hasil": (
+                        r.get(
+                            "hasil"
+                        )
+                    ),
+                    "Nomor Order": (
+                        r.get(
+                            "nomor_order"
+                        )
+                    ),
+                    "Nomor Sertifikat": (
+                        r.get(
+                            "nomor_sertifikat"
+                        )
+                    ),
+                    "Penera": (
+                        r.get(
+                            "penera_1"
+                        )
+                    ),
+                    "Berlaku Sampai": (
+                        r.get(
+                            "berlaku_sampai"
+                        )
+                    ),
+                })
+    
+            st.dataframe(
+                pd.DataFrame(
+                    data_tabel
+                ),
+                use_container_width=True,
+                hide_index=True,
+            )
+    
+            # =====================================================
+            # 9. PILIH RIWAYAT
+            # =====================================================
+            pilihan_riwayat = {}
+    
+            for r in riwayat:
+    
+                label = (
+                    f"{r.get('tanggal_pengujian', '-')} | "
+                    f"{r.get('jenis_pengujian', '-')} | "
+                    f"{r.get('nomor_sertifikat', '-')} | "
+                    f"{r.get('penera_1', '-')}"
+                )
+    
+                pilihan_riwayat[
+                    label
+                ] = r
+    
+            st.markdown(
+                "#### Pilih Data Pengujian"
+            )
+    
+            riwayat_label = (
+                st.selectbox(
+                    "Pilih riwayat yang akan digunakan",
+                    options=list(
+                        pilihan_riwayat.keys()
+                    ),
+                    key=(
+                        f"tb_pilih_riwayat_"
+                        f"{alat['id']}"
+                    )
+                )
+            )
+    
+            riwayat_terpilih = (
+                pilihan_riwayat[
+                    riwayat_label
+                ]
+            )
+    
+            with st.container(
+                border=True
+            ):
+                st.write(
+                    "**Tanggal:**",
+                    riwayat_terpilih.get(
+                        "tanggal_pengujian"
+                    ) or "-"
+                )
+    
+                st.write(
+                    "**Jenis:**",
+                    riwayat_terpilih.get(
+                        "jenis_pengujian"
+                    ) or "-"
+                )
+    
+                st.write(
+                    "**Nomor Sertifikat:**",
+                    riwayat_terpilih.get(
+                        "nomor_sertifikat"
+                    ) or "-"
+                )
+    
+                st.write(
+                    "**Penera:**",
+                    riwayat_terpilih.get(
+                        "penera_1"
+                    ) or "-"
+                )
+    
+            # =====================================================
+            # 10. AKSI RIWAYAT
+            # =====================================================
+            col_edit, col_baru = st.columns(2)
+    
+            with col_edit:
+                if st.button(
+                    "✏️ Edit Pengujian",
+                    use_container_width=True,
+                    key=(
+                        f"tb_edit_riwayat_"
+                        f"{riwayat_terpilih['id']}"
+                    )
+                ):
+                    gunakan_data_lama_untuk_edit_timbangan(
+                        alat,
+                        perusahaan,
+                        riwayat_terpilih
+                    )
+    
+                    st.rerun()
+    
+            with col_baru:
+                if st.button(
+                    "➕ Tambah Pengujian Baru",
+                    use_container_width=True,
+                    key=(
+                        f"tb_baru_riwayat_"
+                        f"{riwayat_terpilih['id']}"
+                    )
+                ):
+                    gunakan_data_lama_untuk_pengujian_baru_timbangan(
+                        alat,
+                        perusahaan,
+                        riwayat_terpilih
+                    )
+    
+                    st.rerun()
+    
+        except Exception as exc:
+            st.error(
+                "Gagal mengambil riwayat "
+                "Timbangan dari Supabase."
+            )
+    
+            st.exception(exc)
     st.markdown("---")
     st.markdown("""
         <div style='text-align: center; color: #888; font-size: 12px;'>
