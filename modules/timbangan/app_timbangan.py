@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
-
+from supabase import create_client
 try:
     from modules.timbangan.cerapan_timbangan_generator import generate_cerapan_pdf
     from modules.timbangan.sertifikat_timbangan_generator import generate_sertifikat_pdf
@@ -41,7 +41,14 @@ def find_project_root():
 PROJECT_ROOT = find_project_root()
 ASSETS_DIR = PROJECT_ROOT / "assets"
 OUTPUT_DIR = PROJECT_ROOT / "output" / "timbangan"
+# =========================================================
+# KONEKSI SUPABASE
+# =========================================================
+def get_supabase():
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_KEY"]
 
+    return create_client(url, key)
 
 def find_asset_file(filename):
     """Mencari aset pada folder standar proyek dan lokasi modul."""
