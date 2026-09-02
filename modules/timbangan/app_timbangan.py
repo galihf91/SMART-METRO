@@ -5415,7 +5415,9 @@ def run():
                         penunjukan_tampil = st.number_input(
                             f"Penunjukan Repetability {i}",
                             min_value=0.0,
-                            value=float(half_max_tampil),
+                            value=float(
+                                default_penunjukan_repet_tampil
+                            ),
                             step=float(step_penunjukan_tampil),
                             format=format_penunjukan,
                             key=(
