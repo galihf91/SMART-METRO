@@ -5412,6 +5412,25 @@ def run():
                     )
 
                     with col_pen_nilai:
+                        if row_repet_lama:
+                            try:
+                                penunjukan_awal_lama_kg = float(
+                                    row_repet_lama.get(
+                                        "penunjukan",
+                                        half_max_kg
+                                    )
+                                    or half_max_kg
+                                )
+                            except (TypeError, ValueError):
+                                penunjukan_awal_lama_kg = half_max_kg
+                        
+                            default_penunjukan_repet_tampil = kg_to_satuan(
+                                penunjukan_awal_lama_kg,
+                                satuan_tampilan
+                            )
+                        
+                        else:
+                            default_penunjukan_repet_tampil = half_max_tampil
                         penunjukan_tampil = st.number_input(
                             f"Penunjukan Repetability {i}",
                             min_value=0.0,
