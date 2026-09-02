@@ -2823,7 +2823,16 @@ def run():
         """,
         unsafe_allow_html=True
     )
-
+    # =========================================================
+    # PINDAH MODE DARI AKSI RIWAYAT
+    # Harus sebelum widget radio dibuat
+    # =========================================================
+    if "tb_next_mode" in st.session_state:
+        st.session_state["tb_mode"] = (
+            st.session_state.pop(
+                "tb_next_mode"
+            )
+        )
     # Sidebar navigasi
     with st.sidebar:
         st.header("📋 Menu Navigasi")
@@ -2832,15 +2841,35 @@ def run():
             "Pilih Mode:",
             [
                 "📝 Input Data Pengujian",
-                "📄 Generate Dokumen"
+                "📄 Generate Dokumen",
+                "📚 Riwayat Timbangan"
             ],
             key="tb_mode",
             help="Pilih mode yang ingin digunakan."
         )
-
     if mode == "📝 Input Data Pengujian":
         st.header("Masukkan Data Pengujian")
 
+        # =====================================================
+        # MODE EDIT PENGUJIAN
+        # =====================================================
+        edit_id = st.session_state.get(
+            "tb_edit_pengujian_id"
+        )
+        
+        if edit_id:
+            st.warning(
+                f"✏️ Mode Edit Pengujian Aktif — "
+                f"ID Pengujian: {edit_id}"
+            )
+        
+            if st.button(
+                "❌ Batal Edit",
+                use_container_width=True,
+                key="tb_btn_batal_edit"
+            ):
+                reset_form_timbangan()
+                st.rerun()
         # Ambil nilai dari session state untuk digunakan di seluruh blok
         satuan_aktif = st.session_state.get('tb_satuan_kapasitas_max', 'kg')
         e = get_input_kg('interval_skala_input', 0.0)
