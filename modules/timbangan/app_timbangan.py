@@ -965,6 +965,600 @@ def gunakan_data_lama_untuk_pengujian_baru_timbangan(
     st.session_state[
         "tb_next_mode"
     ] = "📝 Input Data Pengujian"
+
+def gunakan_data_lama_untuk_edit_timbangan(
+    alat,
+    perusahaan,
+    pengujian
+):
+    """
+    Memuat data pengujian lama ke form Timbangan
+    dan mengaktifkan mode edit.
+    """
+
+    detail = (
+        pengujian.get("data_pengujian")
+        or {}
+    )
+
+    # =====================================================
+    # BERSIHKAN WIDGET HASIL PENGUJIAN LAMA
+    # =====================================================
+    prefixes_widget_hasil = [
+        "tb_muatan_uji_",
+        "tb_penunjukan_kebenaran_",
+        "tb_pengamatan_penunjukan_",
+        "tb_hasil_kebenaran_",
+        "tb_cek_kebenaran_",
+        "tb_neraca_muatan_disabled_",
+        "tb_neraca_penunjukan_disabled_",
+        "tb_neraca_bkd_disabled_",
+        "tb_neraca_pengamatan_disabled_",
+        "tb_neraca_hasil_disabled_",
+        "tb_neraca_cek_disabled_",
+        "tb_eksen_",
+        "tb_repet_",
+    ]
+
+    for key in list(
+        st.session_state.keys()
+    ):
+        if any(
+            key.startswith(prefix)
+            for prefix in prefixes_widget_hasil
+        ):
+            st.session_state.pop(
+                key,
+                None
+            )
+
+    # =====================================================
+    # AKTIFKAN MODE EDIT
+    # =====================================================
+    st.session_state[
+        "tb_edit_pengujian_id"
+    ] = pengujian["id"]
+
+    # =====================================================
+    # IDENTITAS PERUSAHAAN
+    # =====================================================
+    nama_perusahaan = str(
+        perusahaan.get(
+            "nama_perusahaan",
+            ""
+        )
+        or ""
+    ).strip()
+
+    alamat = str(
+        perusahaan.get(
+            "alamat",
+            ""
+        )
+        or ""
+    ).strip()
+
+    # =====================================================
+    # DATA PENERA
+    # =====================================================
+    nama_penera = str(
+        pengujian.get(
+            "penera_1",
+            ""
+        )
+        or ""
+    ).strip()
+
+    nip_penera = ""
+    golongan_penera = ""
+
+    df_penera = st.session_state.get(
+        "tb_data_penera"
+    )
+
+    if (
+        df_penera is not None
+        and not df_penera.empty
+        and nama_penera
+    ):
+        row_penera = df_penera[
+            df_penera["Nama"]
+            .astype(str)
+            .str.strip()
+            == nama_penera
+        ]
+
+        if not row_penera.empty:
+            penera_data = row_penera.iloc[0]
+
+            nip_penera = str(
+                penera_data.get(
+                    "NIP",
+                    ""
+                )
+                or ""
+            ).strip()
+
+            golongan_penera = str(
+                penera_data.get(
+                    "Golongan",
+                    ""
+                )
+                or ""
+            ).strip()
+
+    # =====================================================
+    # SAVED DATA
+    # =====================================================
+    st.session_state.tb_saved_data = {
+
+        "pemilik": nama_perusahaan,
+        "alamat": alamat,
+
+        "nama_alat": (
+            alat.get("jenis_uttp")
+            or detail.get("nama_alat")
+            or ""
+        ),
+
+        "merek": (
+            alat.get("merk")
+            or ""
+        ),
+
+        "model": (
+            alat.get("tipe")
+            or detail.get("model")
+            or ""
+        ),
+
+        "no_seri": (
+            alat.get("nomor_seri")
+            or ""
+        ),
+
+        "kapasitas_max": detail.get(
+            "kapasitas_max",
+            0
+        ),
+
+        "kapasitas_min": detail.get(
+            "kapasitas_min",
+            0
+        ),
+
+        "daya_baca": detail.get(
+            "daya_baca",
+            0
+        ),
+
+        "interval_skala": detail.get(
+            "interval_skala",
+            0
+        ),
+
+        "satuan": detail.get(
+            "satuan",
+            "kg"
+        ),
+
+        "kelas": detail.get(
+            "kelas",
+            "III"
+        ),
+
+        "suhu": detail.get(
+            "suhu",
+            "Ambient"
+        ),
+
+        "kelembaban": detail.get(
+            "kelembaban",
+            "Ambient"
+        ),
+
+        "metode": detail.get(
+            "metode",
+            ""
+        ),
+
+        "at_standar": detail.get(
+            "at_standar",
+            ""
+        ),
+
+        "lokasi": detail.get(
+            "lokasi",
+            "Perusahaan"
+        ),
+
+        "nama_penera": nama_penera,
+        "nip_penera": nip_penera,
+        "golongan_penera": golongan_penera,
+
+        "jumlah_titik_uji": detail.get(
+            "jumlah_titik_uji"
+        ),
+
+        "hasil_pengujian": detail.get(
+            "hasil_kebenaran",
+            []
+        ),
+
+        "repetability": detail.get(
+            "repetability",
+            []
+        ),
+
+        "repetability_sederhana": detail.get(
+            "repetability_sederhana",
+            False
+        ),
+
+        "eksentrisitas": detail.get(
+            "eksentrisitas",
+            []
+        ),
+
+        "penyetelan_nol": detail.get(
+            "penyetelan_nol",
+            []
+        ),
+
+        "visual": detail.get(
+            "visual",
+            {}
+        ),
+
+        "daftar_alat_standar_peminjaman": (
+            detail.get(
+                "daftar_alat_standar_peminjaman",
+                []
+            )
+        ),
+
+        "tanggal": pengujian.get(
+            "tanggal_pengujian"
+        ),
+
+        "tanggal_tanda_tangan": (
+            pengujian.get(
+                "tanggal_sertifikat"
+            )
+        ),
+
+        "keterangan": pengujian.get(
+            "jenis_pengujian",
+            "Tera Ulang"
+        ),
+
+        "nomor_order": pengujian.get(
+            "nomor_order",
+            ""
+        ),
+
+        "nomor_sertifikat": (
+            pengujian.get(
+                "nomor_sertifikat",
+                ""
+            )
+        ),
+
+        "berlaku_sampai": (
+            pengujian.get(
+                "berlaku_sampai"
+            )
+        ),
+    }
+
+    # =====================================================
+    # SINKRONKAN WIDGET FORM
+    # =====================================================
+    satuan = str(
+        detail.get(
+            "satuan",
+            "kg"
+        )
+        or "kg"
+    ).strip()
+
+    if satuan not in ["kg", "g"]:
+        satuan = "kg"
+
+    nama_alat = str(
+        alat.get("jenis_uttp")
+        or detail.get("nama_alat")
+        or "Timbangan Elektronik"
+    ).strip()
+
+    st.session_state[
+        "tb_nama_alat"
+    ] = nama_alat
+
+    st.session_state[
+        "tb_nama_perusahaan"
+    ] = nama_perusahaan
+
+    st.session_state[
+        "tb_alamat_input"
+    ] = alamat
+
+    st.session_state[
+        "tb_perusahaan_select"
+    ] = nama_perusahaan
+
+    st.session_state[
+        "tb_manual_perusahaan"
+    ] = False
+
+    st.session_state[
+        "tb_satuan_kapasitas_max"
+    ] = satuan
+
+    kapasitas_max_kg = float(
+        detail.get(
+            "kapasitas_max",
+            0
+        )
+        or 0
+    )
+
+    kapasitas_min_kg = float(
+        detail.get(
+            "kapasitas_min",
+            0
+        )
+        or 0
+    )
+
+    daya_baca_kg = float(
+        detail.get(
+            "daya_baca",
+            0
+        )
+        or 0
+    )
+
+    interval_skala_kg = float(
+        detail.get(
+            "interval_skala",
+            0
+        )
+        or 0
+    )
+
+    # =====================================================
+    # NERACA OBAT
+    # =====================================================
+    if is_neraca_name(
+        nama_alat
+    ):
+        st.session_state[
+            "tb_kapasitas_max_neraca_input"
+        ] = _format_input_from_kg(
+            kapasitas_max_kg,
+            satuan
+        )
+
+        st.session_state[
+            "tb_kapasitas_min_neraca_input"
+        ] = _format_input_from_kg(
+            kapasitas_min_kg,
+            satuan
+        )
+
+        st.session_state[
+            "tb_interval_skala_neraca_kg"
+        ] = interval_skala_kg
+
+        st.session_state[
+            "tb_kelas"
+        ] = "III"
+
+    # =====================================================
+    # SELAIN NERACA
+    # =====================================================
+    else:
+        st.session_state[
+            "tb_kapasitas_max_input"
+        ] = _format_input_from_kg(
+            kapasitas_max_kg,
+            satuan
+        )
+
+        st.session_state[
+            "tb_daya_baca_input"
+        ] = _format_input_from_kg(
+            daya_baca_kg,
+            satuan
+        )
+
+        st.session_state[
+            "tb_interval_skala_input"
+        ] = _format_input_from_kg(
+            interval_skala_kg,
+            satuan
+        )
+
+        st.session_state[
+            "tb_kapasitas_min_kg"
+        ] = kapasitas_min_kg
+
+    # =====================================================
+    # TIMBANGAN MEJA
+    # =====================================================
+    if is_timbangan_meja_name(
+        nama_alat
+    ):
+        kelas_meja = str(
+            detail.get(
+                "kelas",
+                "III"
+            )
+            or "III"
+        ).strip()
+
+        if kelas_meja not in [
+            "III",
+            "IIII"
+        ]:
+            kelas_meja = "III"
+
+        st.session_state[
+            "tb_kelas_meja"
+        ] = kelas_meja
+
+    # =====================================================
+    # KELAS
+    # =====================================================
+    st.session_state[
+        "tb_kelas"
+    ] = str(
+        detail.get(
+            "kelas",
+            "III"
+        )
+        or "III"
+    ).strip()
+
+    # =====================================================
+    # JENIS PENGUJIAN
+    # =====================================================
+    st.session_state[
+        "tb_keterangan"
+    ] = str(
+        pengujian.get(
+            "jenis_pengujian",
+            "Tera Ulang"
+        )
+        or "Tera Ulang"
+    ).strip()
+
+    # =====================================================
+    # METODE & AT STANDAR
+    # =====================================================
+    st.session_state[
+        "tb_metode_pengujian"
+    ] = str(
+        detail.get(
+            "metode",
+            "Perbandingan Langsung"
+        )
+        or "Perbandingan Langsung"
+    ).strip()
+
+    st.session_state[
+        "tb_at_standar"
+    ] = str(
+        detail.get(
+            "at_standar",
+            "M2"
+        )
+        or "M2"
+    ).strip()
+
+    # =====================================================
+    # LOKASI
+    # =====================================================
+    st.session_state[
+        "tb_lokasi_pengujian"
+    ] = str(
+        detail.get(
+            "lokasi",
+            "Perusahaan"
+        )
+        or "Perusahaan"
+    ).strip()
+
+    # =====================================================
+    # PENERA
+    # =====================================================
+    st.session_state[
+        "tb_penera_select"
+    ] = nama_penera
+
+    st.session_state[
+        "tb_nama_penera"
+    ] = nama_penera
+
+    st.session_state[
+        "tb_nip_penera"
+    ] = nip_penera
+
+    st.session_state[
+        "tb_golongan_penera"
+    ] = golongan_penera
+
+    st.session_state[
+        "tb_manual_penera"
+    ] = False
+
+    # =====================================================
+    # TANGGAL
+    # =====================================================
+    st.session_state[
+        "tb_tanggal_pengujian"
+    ] = _parse_date_safe(
+        pengujian.get(
+            "tanggal_pengujian"
+        )
+    )
+
+    st.session_state[
+        "tb_tanggal_tanda_tangan"
+    ] = _parse_date_safe(
+        pengujian.get(
+            "tanggal_sertifikat"
+        )
+    )
+
+    # =====================================================
+    # JUMLAH TITIK UJI
+    # =====================================================
+    jumlah_titik = detail.get(
+        "jumlah_titik_uji"
+    )
+
+    if jumlah_titik in [
+        3,
+        5
+    ]:
+        st.session_state[
+            "tb_jumlah_titik_kebenaran"
+        ] = int(
+            jumlah_titik
+        )
+
+    # =====================================================
+    # NOMOR DOKUMEN
+    # =====================================================
+    st.session_state[
+        "tb_nomor_sertifikat"
+    ] = str(
+        pengujian.get(
+            "nomor_sertifikat",
+            ""
+        )
+        or ""
+    )
+
+    st.session_state[
+        "tb_nomor_order"
+    ] = str(
+        pengujian.get(
+            "nomor_order",
+            ""
+        )
+        or ""
+    )
+
+    # Bersihkan file lama
+    st.session_state.tb_generated_files = {}
+
+    # Kembali ke input
+    st.session_state[
+        "tb_next_mode"
+    ] = "📝 Input Data Pengujian"
 def find_asset_file(filename):
     """Mencari aset pada folder standar proyek dan lokasi modul."""
     candidates = [
