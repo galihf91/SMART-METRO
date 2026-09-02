@@ -242,6 +242,208 @@ def get_or_create_uttp_timbangan(
     )
 
     return response.data[0]["id"]
+
+def build_data_pengujian_timbangan(data):
+    """
+    Menyusun detail teknis pengujian Timbangan
+    untuk disimpan ke kolom JSONB data_pengujian.
+
+    Fungsi ini dibuat fleksibel untuk:
+    - Timbangan Elektronik
+    - Timbangan Bobot Ingsut
+    - Timbangan Sentisimal
+    - Timbangan Pegas
+    - Timbangan Meja
+    - Timbangan Neraca Obat
+    """
+
+    nama_alat = str(
+        data.get("nama_alat", "")
+    ).strip()
+
+    # =====================================================
+    # HASIL PENGUJIAN KEBENARAN
+    # =====================================================
+    hasil_kebenaran_raw = list(
+        data.get("hasil_pengujian", []) or []
+    )
+
+    # Hanya simpan baris yang benar-benar aktif.
+    hasil_kebenaran = [
+        item
+        for item in hasil_kebenaran_raw
+        if item.get("aktif", True)
+    ]
+
+    # Fallback untuk kompatibilitas data versi lama.
+    if (
+        not hasil_kebenaran
+        and hasil_kebenaran_raw
+    ):
+        hasil_kebenaran = hasil_kebenaran_raw
+
+    # =====================================================
+    # EKSENTRISITAS
+    # =====================================================
+    eksentrisitas = list(
+        data.get("eksentrisitas", []) or []
+    )
+
+    # =====================================================
+    # REPETABILITY
+    # =====================================================
+    repetability = list(
+        data.get("repetability", []) or []
+    )
+
+    # =====================================================
+    # PEMERIKSAAN VISUAL
+    # =====================================================
+    visual = dict(
+        data.get("visual", {}) or {}
+    )
+
+    # =====================================================
+    # ALAT STANDAR PEMINJAMAN
+    # =====================================================
+    alat_standar_peminjaman = list(
+        data.get(
+            "daftar_alat_standar_peminjaman",
+            []
+        ) or []
+    )
+
+    # =====================================================
+    # JUMLAH TITIK UJI
+    # =====================================================
+    jumlah_titik_uji = data.get(
+        "jumlah_titik_uji"
+    )
+
+    if jumlah_titik_uji is None:
+        jumlah_titik_uji = len(
+            hasil_kebenaran
+        )
+
+    try:
+        jumlah_titik_uji = int(
+            jumlah_titik_uji
+        )
+    except (TypeError, ValueError):
+        jumlah_titik_uji = len(
+            hasil_kebenaran
+        )
+
+    # =====================================================
+    # SUSUN JSON
+    # =====================================================
+    detail_pengujian = {
+        "nama_alat": nama_alat,
+
+        "model": str(
+            data.get(
+                "model",
+                ""
+            ) or ""
+        ).strip(),
+
+        "kapasitas_max": data.get(
+            "kapasitas_max",
+            0
+        ),
+
+        "kapasitas_min": data.get(
+            "kapasitas_min",
+            0
+        ),
+
+        "daya_baca": data.get(
+            "daya_baca",
+            0
+        ),
+
+        "interval_skala": data.get(
+            "interval_skala",
+            0
+        ),
+
+        "satuan": str(
+            data.get(
+                "satuan",
+                "kg"
+            ) or "kg"
+        ).strip(),
+
+        "kelas": str(
+            data.get(
+                "kelas",
+                ""
+            ) or ""
+        ).strip(),
+
+        "suhu": str(
+            data.get(
+                "suhu",
+                "Ambient"
+            ) or "Ambient"
+        ).strip(),
+
+        "kelembaban": str(
+            data.get(
+                "kelembaban",
+                "Ambient"
+            ) or "Ambient"
+        ).strip(),
+
+        "metode": str(
+            data.get(
+                "metode",
+                ""
+            ) or ""
+        ).strip(),
+
+        "at_standar": str(
+            data.get(
+                "at_standar",
+                ""
+            ) or ""
+        ).strip(),
+
+        "lokasi": str(
+            data.get(
+                "lokasi",
+                "Perusahaan"
+            ) or "Perusahaan"
+        ).strip(),
+
+        "jumlah_titik_uji": jumlah_titik_uji,
+
+        "hasil_kebenaran": hasil_kebenaran,
+
+        "eksentrisitas": eksentrisitas,
+
+        "repetability": repetability,
+
+        "repetability_sederhana": bool(
+            data.get(
+                "repetability_sederhana",
+                False
+            )
+        ),
+
+        "penyetelan_nol": data.get(
+            "penyetelan_nol",
+            []
+        ),
+
+        "visual": visual,
+
+        "daftar_alat_standar_peminjaman": (
+            alat_standar_peminjaman
+        ),
+    }
+
+    return detail_pengujian
 def find_asset_file(filename):
     """Mencari aset pada folder standar proyek dan lokasi modul."""
     candidates = [
