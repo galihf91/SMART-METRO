@@ -3283,7 +3283,54 @@ def run():
 
         with col1:
             st.subheader("Identitas Pemilik")
-
+        
+            # =====================================================
+            # MODE PERUSAHAAN SAAT EDIT RIWAYAT
+            # =====================================================
+            sedang_edit_perusahaan = bool(
+                st.session_state.get(
+                    "tb_edit_pengujian_id"
+                )
+            )
+        
+            if sedang_edit_perusahaan:
+        
+                opsi_aksi_perusahaan = [
+                    "Gunakan perusahaan saat ini",
+                    "Edit data perusahaan saat ini",
+                    "Ganti / tambah perusahaan baru",
+                ]
+        
+                if (
+                    st.session_state.get(
+                        "tb_aksi_perusahaan_edit"
+                    )
+                    not in opsi_aksi_perusahaan
+                ):
+                    st.session_state[
+                        "tb_aksi_perusahaan_edit"
+                    ] = "Gunakan perusahaan saat ini"
+        
+                nama_perusahaan_lama = str(
+                    st.session_state.get(
+                        "tb_nama_perusahaan_lama",
+                        ""
+                    )
+                    or ""
+                ).strip()
+        
+                if nama_perusahaan_lama:
+                    st.caption(
+                        f"Perusahaan saat ini: "
+                        f"**{nama_perusahaan_lama}**"
+                    )
+        
+                st.radio(
+                    "Tindakan terhadap perusahaan",
+                    options=opsi_aksi_perusahaan,
+                    key="tb_aksi_perusahaan_edit",
+                )
+        
             df_perusahaan = st.session_state.get(
                 "tb_data_perusahaan"
             )
