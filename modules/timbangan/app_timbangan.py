@@ -5438,20 +5438,31 @@ def run():
             eksen_data = []
             # =====================================================
             # DATA EKSENTRISITAS LAMA
-            # Digunakan saat Mode Edit
+            # Hanya digunakan jika kapasitas TIDAK berubah
             # =====================================================
-            eksentrisitas_lama = (
-                st.session_state
-                .get(
-                    "tb_saved_data",
-                    {}
+            paksa_hitung_ulang_uji = bool(
+                st.session_state.get(
+                    "tb_paksa_hitung_ulang_uji",
+                    False
                 )
-                .get(
-                    "eksentrisitas",
-                    []
-                )
-                or []
             )
+            
+            if paksa_hitung_ulang_uji:
+                eksentrisitas_lama = []
+            
+            else:
+                eksentrisitas_lama = (
+                    st.session_state
+                    .get(
+                        "tb_saved_data",
+                        {}
+                    )
+                    .get(
+                        "eksentrisitas",
+                        []
+                    )
+                    or []
+                )
             
             penunjukan_eks_lama_kg = None
             
