@@ -3292,7 +3292,17 @@ def run():
                     "tb_edit_pengujian_id"
                 )
             )
-        
+            
+            # =====================================================
+            # DEFAULT MODE PERUSAHAAN
+            # Aman juga saat input pengujian baru
+            # =====================================================
+            aksi_perusahaan_edit = ""
+            kunci_perusahaan_lama = False
+            edit_perusahaan_lama = False
+            ganti_perusahaan_baru = False
+            
+            
             if sedang_edit_perusahaan:
         
                 opsi_aksi_perusahaan = [
@@ -3342,7 +3352,17 @@ def run():
                     and aksi_perusahaan_edit
                     == "Gunakan perusahaan saat ini"
                 )
-        
+                edit_perusahaan_lama = (
+                    sedang_edit_perusahaan
+                    and aksi_perusahaan_edit
+                    == "Edit data perusahaan saat ini"
+                )
+                
+                ganti_perusahaan_baru = (
+                    sedang_edit_perusahaan
+                    and aksi_perusahaan_edit
+                    == "Ganti / tambah perusahaan baru"
+                )
                 # Jika memilih gunakan perusahaan saat ini,
                 # kembalikan nama dan alamat asli dari riwayat.
                 if kunci_perusahaan_lama:
