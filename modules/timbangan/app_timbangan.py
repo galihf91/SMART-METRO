@@ -3402,7 +3402,38 @@ def run():
             if "tb_manual_perusahaan" not in st.session_state:
                 st.session_state.tb_manual_perusahaan = False
 
-            if (
+            # =====================================================
+            # EDIT DATA PERUSAHAAN SAAT INI
+            # =====================================================
+            if edit_perusahaan_lama:
+            
+                st.info(
+                    "✏️ Nama dan alamat di bawah ini akan "
+                    "memperbarui data perusahaan yang saat ini "
+                    "terhubung dengan alat."
+                )
+            
+                st.text_input(
+                    "Nama Pemilik / Perusahaan",
+                    key="tb_nama_perusahaan",
+                    placeholder="Contoh: PT. ABC",
+                )
+            
+                st.text_area(
+                    "Alamat",
+                    height=90,
+                    key="tb_alamat_input",
+                    help=(
+                        "Ubah alamat jika terdapat koreksi "
+                        "pada data perusahaan."
+                    ),
+                )
+            
+            
+            # =====================================================
+            # MODE NORMAL / GANTI PERUSAHAAN
+            # =====================================================
+            elif (
                 df_perusahaan is not None
                 and not df_perusahaan.empty
             ):
