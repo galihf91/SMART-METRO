@@ -3363,22 +3363,73 @@ def run():
                     and aksi_perusahaan_edit
                     == "Ganti / tambah perusahaan baru"
                 )
-                # Jika memilih gunakan perusahaan saat ini,
-                # kembalikan nama dan alamat asli dari riwayat.
-                if kunci_perusahaan_lama:
+                # =====================================================
+                # SINKRONISASI SAAT USER MENGGANTI AKSI PERUSAHAAN
+                # =====================================================
+                
+                aksi_sebelumnya = st.session_state.get(
+                    "tb_aksi_perusahaan_edit_sebelumnya"
+                )
+                
+                if aksi_sebelumnya != aksi_perusahaan_edit:
+                
+                    # -------------------------------------------------
+                    # GUNAKAN / EDIT PERUSAHAAN LAMA
+                    # -------------------------------------------------
+                    if aksi_perusahaan_edit in [
+                        "Gunakan perusahaan saat ini",
+                        "Edit data perusahaan saat ini",
+                    ]:
+                        st.session_state[
+                            "tb_nama_perusahaan"
+                        ] = st.session_state.get(
+                            "tb_nama_perusahaan_lama",
+                            ""
+                        )
+                
+                        st.session_state[
+                            "tb_alamat_input"
+                        ] = st.session_state.get(
+                            "tb_alamat_perusahaan_lama",
+                            ""
+                        )
+                
+                        st.session_state[
+                            "tb_perusahaan_select"
+                        ] = st.session_state.get(
+                            "tb_nama_perusahaan_lama",
+                            ""
+                        )
+                
+                        st.session_state[
+                            "tb_manual_perusahaan"
+                        ] = False
+                
+                    # -------------------------------------------------
+                    # GANTI / TAMBAH PERUSAHAAN BARU
+                    # -------------------------------------------------
+                    elif aksi_perusahaan_edit == (
+                        "Ganti / tambah perusahaan baru"
+                    ):
+                        st.session_state[
+                            "tb_nama_perusahaan"
+                        ] = ""
+                
+                        st.session_state[
+                            "tb_alamat_input"
+                        ] = ""
+                
+                        st.session_state[
+                            "tb_perusahaan_select"
+                        ] = ""
+                
+                        st.session_state[
+                            "tb_manual_perusahaan"
+                        ] = False
+                
                     st.session_state[
-                        "tb_nama_perusahaan"
-                    ] = st.session_state.get(
-                        "tb_nama_perusahaan_lama",
-                        ""
-                    )
-        
-                    st.session_state[
-                        "tb_alamat_input"
-                    ] = st.session_state.get(
-                        "tb_alamat_perusahaan_lama",
-                        ""
-                    )
+                        "tb_aksi_perusahaan_edit_sebelumnya"
+                    ] = aksi_perusahaan_edit
             df_perusahaan = st.session_state.get(
                 "tb_data_perusahaan"
             )
