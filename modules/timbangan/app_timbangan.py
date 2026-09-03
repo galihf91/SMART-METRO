@@ -1661,7 +1661,9 @@ def gunakan_data_lama_untuk_edit_timbangan(
     st.session_state[
         "tb_kapasitas_max_edit_asli_kg"
     ] = kapasitas_max_kg
-    
+    st.session_state[
+        "tb_kapasitas_max_edit_terakhir_kg"
+    ] = kapasitas_max_kg
     st.session_state[
         "tb_paksa_hitung_ulang_uji"
     ] = False
@@ -2331,7 +2333,16 @@ def reset_hasil_uji_jika_kapasitas_berubah():
         kapasitas_raw,
         satuan
     )
-
+    try:
+        kapasitas_terakhir_kg = float(
+            st.session_state.get(
+                "tb_kapasitas_max_edit_terakhir_kg",
+                kapasitas_baru_kg
+            )
+            or 0
+        )
+    except (TypeError, ValueError):
+        kapasitas_terakhir_kg = kapasitas_baru_kg
     try:
         kapasitas_lama_kg = float(
             st.session_state.get(
@@ -2350,10 +2361,10 @@ def reset_hasil_uji_jika_kapasitas_berubah():
     if kapasitas_baru_kg <= 0:
         return
 
-    # Tidak berubah
+    # Tidak berubah sejak proses terakhir
     if not nilai_berbeda(
         kapasitas_baru_kg,
-        kapasitas_lama_kg
+        kapasitas_terakhir_kg
     ):
         return
 
@@ -2362,6 +2373,11 @@ def reset_hasil_uji_jika_kapasitas_berubah():
     # DATA PENGUJIAN LAMA TIDAK BOLEH DIPAKAI LAGI
     # ========================================================
     # Tandai bahwa seluruh pengujian harus dihitung ulang
+    # Catat kapasitas terbaru agar reset tidak dilakukan
+    # berulang pada setiap rerun Streamlit
+    st.session_state[
+        "tb_kapasitas_max_edit_terakhir_kg"
+    ] = kapasitas_baru_kg
     st.session_state[
         "tb_paksa_hitung_ulang_uji"
     ] = True
