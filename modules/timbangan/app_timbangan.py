@@ -5667,20 +5667,31 @@ def run():
         # ======================== REPETABILITY ========================
         # =====================================================
         # DATA REPETABILITY LAMA
-        # Digunakan saat Mode Edit
+        # Hanya digunakan jika kapasitas TIDAK berubah
         # =====================================================
-        repetability_lama = (
-            st.session_state
-            .get(
-                "tb_saved_data",
-                {}
+        paksa_hitung_ulang_uji = bool(
+            st.session_state.get(
+                "tb_paksa_hitung_ulang_uji",
+                False
             )
-            .get(
-                "repetability",
-                []
-            )
-            or []
         )
+        
+        if paksa_hitung_ulang_uji:
+            repetability_lama = []
+        
+        else:
+            repetability_lama = (
+                st.session_state
+                .get(
+                    "tb_saved_data",
+                    {}
+                )
+                .get(
+                    "repetability",
+                    []
+                )
+                or []
+            )
         nama_alat_repet = (
             st.session_state.get("tb_nama_alat")
             or st.session_state.get("tb_saved_data", {}).get(
