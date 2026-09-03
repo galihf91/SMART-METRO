@@ -3330,7 +3330,35 @@ def run():
                     options=opsi_aksi_perusahaan,
                     key="tb_aksi_perusahaan_edit",
                 )
+                aksi_perusahaan_edit = (
+                    st.session_state.get(
+                        "tb_aksi_perusahaan_edit",
+                        "Gunakan perusahaan saat ini"
+                    )
+                )
         
+                kunci_perusahaan_lama = (
+                    sedang_edit_perusahaan
+                    and aksi_perusahaan_edit
+                    == "Gunakan perusahaan saat ini"
+                )
+        
+                # Jika memilih gunakan perusahaan saat ini,
+                # kembalikan nama dan alamat asli dari riwayat.
+                if kunci_perusahaan_lama:
+                    st.session_state[
+                        "tb_nama_perusahaan"
+                    ] = st.session_state.get(
+                        "tb_nama_perusahaan_lama",
+                        ""
+                    )
+        
+                    st.session_state[
+                        "tb_alamat_input"
+                    ] = st.session_state.get(
+                        "tb_alamat_perusahaan_lama",
+                        ""
+                    )
             df_perusahaan = st.session_state.get(
                 "tb_data_perusahaan"
             )
@@ -3390,6 +3418,7 @@ def run():
                     placeholder="Ketik nama perusahaan...",
                     key="tb_perusahaan_select",
                     on_change=update_perusahaan_terpilih_tb,
+                    disabled=kunci_perusahaan_lama,
                 )
 
                 st.text_area(
@@ -3400,11 +3429,13 @@ def run():
                         "Alamat otomatis muncul setelah perusahaan "
                         "dipilih dan tetap dapat diedit."
                     ),
+                    disabled=kunci_perusahaan_lama,
                 )
 
                 st.checkbox(
                     "Input manual nama perusahaan",
                     key="tb_manual_perusahaan",
+                    disabled=kunci_perusahaan_lama,
                 )
 
                 if st.session_state.tb_manual_perusahaan:
@@ -3412,6 +3443,7 @@ def run():
                         "Nama Pemilik / Perusahaan",
                         key="tb_nama_perusahaan",
                         placeholder="Contoh: PT. ABC",
+                        disabled=kunci_perusahaan_lama,
                     )
 
             else:
