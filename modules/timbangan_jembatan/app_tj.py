@@ -478,6 +478,35 @@ def tambah_satu_tahun(tanggal_obj):
             month=2,
             day=28
         )
+
+def format_tanggal_indonesia_tj(value):
+    if not value:
+        return ""
+
+    if isinstance(value, datetime):
+        value = value.date()
+
+    elif isinstance(value, str):
+        try:
+            value = datetime.strptime(
+                value,
+                "%Y-%m-%d"
+            ).date()
+        except ValueError:
+            return value
+
+    bulan = [
+        "Januari", "Februari", "Maret",
+        "April", "Mei", "Juni",
+        "Juli", "Agustus", "September",
+        "Oktober", "November", "Desember"
+    ]
+
+    return (
+        f"{value.day} "
+        f"{bulan[value.month - 1]} "
+        f"{value.year}"
+    )
 def gunakan_data_lama_untuk_edit(
     alat,
     perusahaan,
@@ -645,6 +674,32 @@ def gunakan_data_lama_untuk_edit(
 
         "tanggal": pengujian.get(
             "tanggal_pengujian"
+        ),
+        
+        "tanggal_penera": (
+            format_tanggal_indonesia_tj(
+                pengujian.get(
+                    "tanggal_pengujian"
+                )
+            )
+        ),
+        
+        "tanggal_sertifikat": (
+            pengujian.get(
+                "tanggal_sertifikat"
+            )
+            or pengujian.get(
+                "tanggal_pengujian"
+            )
+        ),
+        
+        "tanggal_tanda_tangan": (
+            pengujian.get(
+                "tanggal_sertifikat"
+            )
+            or pengujian.get(
+                "tanggal_pengujian"
+            )
         ),
 
         "keterangan": pengujian.get(
@@ -2897,7 +2952,39 @@ def run():
             # (pemilik, alamat, merek, model, no_seri, suhu, kelembaban, metode, lokasi, nama_penera, nip_penera, tanggal)
             # Pastikan variabel-variabel ini sudah didefinisikan di atas (masih dalam scope yang sama)
             # Jika ada yang belum, gunakan session state atau default.
-    
+
+            # =====================================================
+            # PERTAHANKAN NOMOR DOKUMEN SAAT MODE EDIT
+            # =====================================================
+            sedang_edit = bool(
+                st.session_state.get(
+                    "edit_pengujian_id"
+                )
+            )
+            
+            nomor_sertifikat_lama = (
+                st.session_state
+                .get(
+                    "saved_data",
+                    {}
+                )
+                .get(
+                    "nomor_sertifikat",
+                    ""
+                )
+            )
+            
+            nomor_order_lama = (
+                st.session_state
+                .get(
+                    "saved_data",
+                    {}
+                )
+                .get(
+                    "nomor_order",
+                    ""
+                )
+            )
             st.session_state.saved_data = {
                 'pemilik': pemilik,
                 'alamat': alamat,
@@ -2921,6 +3008,17 @@ def run():
                 'tanggal_penera': format_tanggal_indonesia(tanggal.strftime('%Y-%m-%d')),
                 'tanggal_sertifikat': tanggal_tanda_tangan,
                 'keterangan': keterangan_final,
+                'nomor_sertifikat': (
+                    nomor_sertifikat_lama
+                    if sedang_edit
+                    else ""
+                ),
+                
+                'nomor_order': (
+                    nomor_order_lama
+                    if sedang_edit
+                    else ""
+                ),
                 'berlaku_sampai': berlaku_sampai.strftime('%Y-%m-%d'),
                 'repetability': repet_data,      # dari bagian repetability
                 'eksentrisitas': eksen_data,     # dari bagian eksentrisitas
