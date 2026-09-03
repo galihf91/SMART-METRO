@@ -92,7 +92,47 @@ def format_tanggal_indonesia(value):
         return f"{day} {month} {year}"
 
     return value
-        
+
+def wrap_text_by_width(
+    c,
+    text,
+    font_name,
+    font_size,
+    max_width
+):
+    text = str(text or "")
+
+    # Kalau masih muat satu baris,
+    # jangan pernah dipotong.
+    if c.stringWidth(
+        text,
+        font_name,
+        font_size
+    ) <= max_width:
+        return [text]
+
+    lines = []
+    current = ""
+
+    for char in text:
+        test = current + char
+
+        if c.stringWidth(
+            test,
+            font_name,
+            font_size
+        ) <= max_width:
+            current = test
+        else:
+            if current:
+                lines.append(current)
+
+            current = char
+
+    if current:
+        lines.append(current)
+
+    return lines
 def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     width, height = A4
     c = canvas.Canvas(filename, pagesize=A4)
@@ -263,8 +303,17 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
         10,
         int(max_val_width / char_width_val)
     )
-    merek = data.get('merek', '')
-    wrapped_merek = textwrap.wrap(merek, width=chars_per_line_val)
+    merek = data.get(
+        "merek",
+        ""
+    )
+    wrapped_merek = wrap_text_by_width(
+        c,
+        merek,
+        "Helvetica",
+        12,
+        max_val_width
+    )
     if wrapped_merek:
         c.drawString(start_x_val, y_row, wrapped_merek[0])
         for i, line in enumerate(wrapped_merek[1:], start=1):
@@ -308,7 +357,13 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     c.drawString(colon_x_fixed, y_row, ":")
     start_x_val = colon_x_fixed + 0.3*cm
     model = data.get('model', '')
-    wrapped_model = textwrap.wrap(model, width=chars_per_line_val)
+    wrapped_model = wrap_text_by_width(
+        c,
+        model,
+        "Helvetica",
+        12,
+        max_val_width
+    )
     if wrapped_model:
         c.drawString(start_x_val, y_row, wrapped_model[0])
         for i, line in enumerate(wrapped_model[1:], start=1):
@@ -343,8 +398,18 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     c.setFont("Helvetica", 12)
     c.drawString(colon_x_fixed, y_row, ":")
     start_x_val = colon_x_fixed + 0.3*cm
-    no_seri = data.get('no_seri', '')
-    wrapped_seri = textwrap.wrap(no_seri, width=chars_per_line_val)
+    no_seri = data.get(
+        "no_seri",
+        ""
+    )
+    
+    wrapped_seri = wrap_text_by_width(
+        c,
+        no_seri,
+        "Helvetica",
+        12,
+        max_val_width
+    )
     if wrapped_seri:
         c.drawString(start_x_val, y_row, wrapped_seri[0])
         for i, line in enumerate(wrapped_seri[1:], start=1):
