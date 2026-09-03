@@ -511,13 +511,99 @@ def simpan_pengujian_timbangan_ke_supabase(data):
         )
 
     # =====================================================
-    # 2. CARI / BUAT PERUSAHAAN
+    # 2. TENTUKAN PERUSAHAAN
     # =====================================================
-    perusahaan_id = simpan_atau_update_perusahaan(
-        supabase,
-        pemilik,
-        alamat,
+    
+    sedang_edit = bool(
+        st.session_state.get(
+            "tb_edit_pengujian_id"
+        )
     )
+    
+    aksi_perusahaan = st.session_state.get(
+        "tb_aksi_perusahaan_edit",
+        "Gunakan perusahaan saat ini"
+    )
+    
+    
+    # -----------------------------------------------------
+    # A. INPUT DATA BARU
+    # -----------------------------------------------------
+    if not sedang_edit:
+    
+        perusahaan_id = simpan_atau_update_perusahaan(
+            supabase,
+            pemilik,
+            alamat,
+        )
+    
+    
+    # -----------------------------------------------------
+    # B. EDIT - GUNAKAN PERUSAHAAN SAAT INI
+    # -----------------------------------------------------
+    elif aksi_perusahaan == "Gunakan perusahaan saat ini":
+    
+        perusahaan_id = st.session_state.get(
+            "tb_perusahaan_id_lama"
+        )
+    
+        if not perusahaan_id:
+            raise ValueError(
+                "ID perusahaan lama tidak ditemukan."
+            )
+    
+    
+    # -----------------------------------------------------
+    # C. EDIT DATA PERUSAHAAN SAAT INI
+    # -----------------------------------------------------
+    elif aksi_perusahaan == "Edit data perusahaan saat ini":
+    
+        perusahaan_id = st.session_state.get(
+            "tb_perusahaan_id_lama"
+        )
+    
+        if not perusahaan_id:
+            raise ValueError(
+                "ID perusahaan lama tidak ditemukan."
+            )
+    
+        (
+            supabase
+            .table("perusahaan")
+            .update({
+                "nama_perusahaan": pemilik,
+                "alamat": alamat,
+            })
+            .eq(
+                "id",
+                perusahaan_id
+            )
+            .execute()
+        )
+    
+    
+    # -----------------------------------------------------
+    # D. GANTI / TAMBAH PERUSAHAAN BARU
+    # -----------------------------------------------------
+    elif aksi_perusahaan == "Ganti / tambah perusahaan baru":
+    
+        perusahaan_id = simpan_atau_update_perusahaan(
+            supabase,
+            pemilik,
+            alamat,
+        )
+    
+    
+    # -----------------------------------------------------
+    # FALLBACK
+    # -----------------------------------------------------
+    else:
+    
+        perusahaan_id = simpan_atau_update_perusahaan(
+            supabase,
+            pemilik,
+            alamat,
+        )
 
     # =====================================================
     # 3. CARI / BUAT UTTP
