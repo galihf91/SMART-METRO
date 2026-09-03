@@ -176,15 +176,15 @@ def get_or_create_uttp_timbangan(
             "No. Seri / No. Alat wajib diisi."
         )
 
-    # Cari UTTP yang sudah ada
+    # =====================================================
+    # CARI UTTP BERDASARKAN JENIS ALAT + NOMOR SERI
+    # perusahaan_id TIDAK digunakan sebagai identitas alat,
+    # karena pemilik/perusahaan dapat berubah.
+    # =====================================================
     response = (
         supabase
         .table("uttp")
         .select("*")
-        .eq(
-            "perusahaan_id",
-            perusahaan_id
-        )
         .eq(
             "jenis_uttp",
             nama_alat
@@ -205,6 +205,7 @@ def get_or_create_uttp_timbangan(
             supabase
             .table("uttp")
             .update({
+                "perusahaan_id": perusahaan_id,
                 "merk": merek,
                 "tipe": model,
                 "kapasitas": str(
