@@ -5536,9 +5536,10 @@ def run():
                                 format=format_penunjukan,
                                 key=(
                                     f"tb_eksen_penunjukan_1_"
+                                    f"{kapasitas_max}_"
                                     f"{daya_baca_kg}_"
                                     f"{satuan_tampilan}"
-                                ),
+                                )
                                 label_visibility="collapsed"
                             )
                         
