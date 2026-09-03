@@ -3150,15 +3150,17 @@ def run():
                         or default_order
                     ).strip()
                 
+                # Isi nomor hanya saat widget belum pernah dibuat.
+                # Setelah user mengubah nomor, jangan ditimpa lagi saat rerun.
+                if "nomor_sertifikat_tj" not in st.session_state:
+                    st.session_state[
+                        "nomor_sertifikat_tj"
+                    ] = nomor_sertifikat_awal
                 
-                st.session_state[
-                    "nomor_sertifikat_tj"
-                ] = nomor_sertifikat_awal
-                
-                st.session_state[
-                    "nomor_order_tj"
-                ] = nomor_order_awal
-                
+                if "nomor_order_tj" not in st.session_state:
+                    st.session_state[
+                        "nomor_order_tj"
+                    ] = nomor_order_awal
                 
                 nomor_sertifikat = st.text_input(
                     "Nomor Sertifikat",
