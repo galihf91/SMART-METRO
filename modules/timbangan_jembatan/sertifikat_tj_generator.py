@@ -2,7 +2,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import cm
 from reportlab.lib.colors import black, gray
-from datetime import datetime
+from datetime import datetime, date
 from pathlib import Path
 import textwrap
 import os
@@ -14,36 +14,84 @@ ASSETS_DIR = BASE_DIR / "assets"
 watermark_path = ASSETS_DIR / "logo_metrologi.png"
 logo_path = ASSETS_DIR / "logo.png"
 
-def format_tanggal_indonesia(tanggal_str):
-    if not tanggal_str:
+def format_tanggal_indonesia(value):
+    if not value:
         return ""
+
+    bulan = [
+        "Januari",
+        "Februari",
+        "Maret",
+        "April",
+        "Mei",
+        "Juni",
+        "Juli",
+        "Agustus",
+        "September",
+        "Oktober",
+        "November",
+        "Desember"
+    ]
+
+    # datetime -> date
+    if isinstance(value, datetime):
+        value = value.date()
+
+    # date langsung
+    if isinstance(value, date):
+        return (
+            f"{value.day} "
+            f"{bulan[value.month - 1]} "
+            f"{value.year}"
+        )
+
+    value = str(value).strip()
+
+    # Format YYYY-MM-DD
+    try:
+        t = datetime.strptime(
+            value,
+            "%Y-%m-%d"
+        )
+
+        return (
+            f"{t.day} "
+            f"{bulan[t.month - 1]} "
+            f"{t.year}"
+        )
+
+    except ValueError:
+        pass
+
+    # Format DD Month YYYY
     bulan_map = {
-        "January": "Januari", "February": "Februari", "March": "Maret",
-        "April": "April", "May": "Mei", "June": "Juni",
-        "July": "Juli", "August": "Agustus", "September": "September",
-        "October": "Oktober", "November": "November", "December": "Desember"
+        "January": "Januari",
+        "February": "Februari",
+        "March": "Maret",
+        "April": "April",
+        "May": "Mei",
+        "June": "Juni",
+        "July": "Juli",
+        "August": "Agustus",
+        "September": "September",
+        "October": "Oktober",
+        "November": "November",
+        "December": "Desember",
     }
-    # Coba parse format YYYY-MM-DD
-    try:
-        t = datetime.strptime(tanggal_str, '%Y-%m-%d')
-        bulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni",
-                 "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
-        return f"{t.day} {bulan[t.month-1]} {t.year}"
-    except:
-        pass
-    # Coba format DD Month YYYY (misal: 30 June 2026)
-    try:
-        parts = tanggal_str.split()
-        if len(parts) == 3:
-            day = parts[0]
-            month_en = parts[1]
-            year = parts[2]
-            month_id = bulan_map.get(month_en, month_en)
-            return f"{day} {month_id} {year}"
-    except:
-        pass
-    # Jika gagal, kembalikan string asli
-    return tanggal_str
+
+    parts = value.split()
+
+    if len(parts) == 3:
+        day = parts[0]
+        month = bulan_map.get(
+            parts[1],
+            parts[1]
+        )
+        year = parts[2]
+
+        return f"{day} {month} {year}"
+
+    return value
         
 def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     width, height = A4
