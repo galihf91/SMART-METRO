@@ -2964,27 +2964,34 @@ def run():
                 )
             )
             
-            nomor_sertifikat_lama = str(
-                st.session_state.get(
-                    "nomor_sertifikat_tj",
-                    st.session_state.saved_data.get(
+            if sedang_edit:
+                nomor_sertifikat_simpan = str(
+                    st.session_state.get(
+                        "nomor_sertifikat_tj",
+                        ""
+                    )
+                    or st.session_state.saved_data.get(
                         "nomor_sertifikat",
                         ""
                     )
-                )
-                or ""
-            ).strip()
+                    or ""
+                ).strip()
             
-            nomor_order_lama = str(
-                st.session_state.get(
-                    "nomor_order_tj",
-                    st.session_state.saved_data.get(
+                nomor_order_simpan = str(
+                    st.session_state.get(
+                        "nomor_order_tj",
+                        ""
+                    )
+                    or st.session_state.saved_data.get(
                         "nomor_order",
                         ""
                     )
-                )
-                or ""
-            ).strip()
+                    or ""
+                ).strip()
+            
+            else:
+                nomor_sertifikat_simpan = ""
+                nomor_order_simpan = ""
             st.session_state.saved_data = {
                 'pemilik': pemilik,
                 'alamat': alamat,
@@ -3008,17 +3015,8 @@ def run():
                 'tanggal_penera': format_tanggal_indonesia(tanggal.strftime('%Y-%m-%d')),
                 'tanggal_sertifikat': tanggal_tanda_tangan,
                 'keterangan': keterangan_final,
-                'nomor_sertifikat': (
-                    nomor_sertifikat_lama
-                    if sedang_edit
-                    else ""
-                ),
-                
-                'nomor_order': (
-                    nomor_order_lama
-                    if sedang_edit
-                    else ""
-                ),
+                'nomor_sertifikat': nomor_sertifikat_simpan,
+                'nomor_order': nomor_order_simpan,
                 'berlaku_sampai': berlaku_sampai.strftime('%Y-%m-%d'),
                 'repetability': repet_data,      # dari bagian repetability
                 'eksentrisitas': eksen_data,     # dari bagian eksentrisitas
