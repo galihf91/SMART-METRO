@@ -756,7 +756,7 @@ def simpan_pengujian_timbangan_ke_supabase(data):
             )
             .execute()
         )
-
+    
     else:
         response = (
             supabase
@@ -764,14 +764,40 @@ def simpan_pengujian_timbangan_ke_supabase(data):
             .insert(payload)
             .execute()
         )
-
+    
+    
+    # =====================================================
+    # PASTIKAN PENYIMPANAN BERHASIL
+    # =====================================================
     if not response.data:
         raise RuntimeError(
             "Data pengujian gagal disimpan ke Supabase."
         )
-
+    
+    
+    # =====================================================
+    # BERSIHKAN MODE EDIT SETELAH UPDATE BERHASIL
+    # =====================================================
+    if edit_id:
+    
+        keys_edit_perusahaan = [
+            "tb_edit_pengujian_id",
+            "tb_perusahaan_id_lama",
+            "tb_uttp_id_lama",
+            "tb_nama_perusahaan_lama",
+            "tb_alamat_perusahaan_lama",
+            "tb_aksi_perusahaan_edit",
+            "tb_aksi_perusahaan_edit_sebelumnya",
+        ]
+    
+        for key in keys_edit_perusahaan:
+            st.session_state.pop(
+                key,
+                None
+            )
+    
+    
     return response.data
-
 def gunakan_data_lama_untuk_pengujian_baru_timbangan(
     alat,
     perusahaan,
