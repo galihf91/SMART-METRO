@@ -694,11 +694,13 @@ def gunakan_data_lama_untuk_edit(
         ),
         
         "tanggal_tanda_tangan": (
-            pengujian.get(
-                "tanggal_sertifikat"
-            )
-            or pengujian.get(
-                "tanggal_pengujian"
+            format_tanggal_indonesia_tj(
+                pengujian.get(
+                    "tanggal_sertifikat"
+                )
+                or pengujian.get(
+                    "tanggal_pengujian"
+                )
             )
         ),
 
