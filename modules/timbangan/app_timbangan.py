@@ -1655,7 +1655,16 @@ def gunakan_data_lama_untuk_edit_timbangan(
         )
         or 0
     )
-
+    # =====================================================
+    # SIMPAN KAPASITAS ASLI SAAT MASUK MODE EDIT
+    # =====================================================
+    st.session_state[
+        "tb_kapasitas_max_edit_asli_kg"
+    ] = kapasitas_max_kg
+    
+    st.session_state[
+        "tb_paksa_hitung_ulang_uji"
+    ] = False
     kapasitas_min_kg = float(
         detail.get(
             "kapasitas_min",
