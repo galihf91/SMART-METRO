@@ -3099,25 +3099,55 @@ def run():
                     tanggal_data
                 )
 
+                # =====================================================
+                # NOMOR DOKUMEN
+                # Edit  -> pertahankan nomor lama
+                # Baru  -> gunakan nomor default
+                # =====================================================
+                nomor_sertifikat_awal = (
+                    data.get("nomor_sertifikat")
+                    or default_sertifikat
+                )
+                
+                nomor_order_awal = (
+                    data.get("nomor_order")
+                    or default_order
+                )
+                
+                # Jika session state belum ada / kosong,
+                # isi dari nomor lama atau nomor default.
+                if not str(
+                    st.session_state.get(
+                        "nomor_sertifikat_tj",
+                        ""
+                    )
+                ).strip():
+                    st.session_state[
+                        "nomor_sertifikat_tj"
+                    ] = nomor_sertifikat_awal
+                
+                if not str(
+                    st.session_state.get(
+                        "nomor_order_tj",
+                        ""
+                    )
+                ).strip():
+                    st.session_state[
+                        "nomor_order_tj"
+                    ] = nomor_order_awal
+                
+                
                 nomor_sertifikat = st.text_input(
                     "Nomor Sertifikat",
-                    value=data.get(
-                        "nomor_sertifikat",
-                        default_sertifikat
-                    ),
                     placeholder=(
                         "Format: "
                         "XXX.X.X.XX/XXXX/XXX-X/X/XXXX"
                     ),
                     key="nomor_sertifikat_tj",
                 )
-
+                
                 nomor_order = st.text_input(
                     "Nomor Order",
-                    value=data.get(
-                        "nomor_order",
-                        default_order
-                    ),
                     placeholder="Format nomor order",
                     key="nomor_order_tj",
                 )
