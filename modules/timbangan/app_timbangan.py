@@ -4912,20 +4912,31 @@ def run():
 
         # =====================================================
         # DATA KEBENARAN LAMA
-        # Digunakan ketika Mode Edit
+        # Hanya digunakan jika kapasitas TIDAK berubah
         # =====================================================
-        hasil_kebenaran_lama = (
-            st.session_state
-            .get(
-                "tb_saved_data",
-                {}
+        paksa_hitung_ulang_uji = bool(
+            st.session_state.get(
+                "tb_paksa_hitung_ulang_uji",
+                False
             )
-            .get(
-                "hasil_pengujian",
-                []
-            )
-            or []
         )
+        
+        if paksa_hitung_ulang_uji:
+            hasil_kebenaran_lama = []
+        
+        else:
+            hasil_kebenaran_lama = (
+                st.session_state
+                .get(
+                    "tb_saved_data",
+                    {}
+                )
+                .get(
+                    "hasil_pengujian",
+                    []
+                )
+                or []
+            )
         st.write("**Masukkan Hasil Pengujian**")
 
         cols_header = st.columns(
