@@ -1767,6 +1767,8 @@ def run():
 
             "tanggal_pengujian_tj",
             "tanggal_sertifikat_tj",
+            "nomor_sertifikat_tj",
+            "nomor_order_tj",
 
             "penera_select",
             "nama_penera",
