@@ -2125,7 +2125,139 @@ def nilai_berbeda(a, b, toleransi=1e-12):
     except (TypeError, ValueError):
         return False
 
+# ============================================================
+# RESET HASIL UJI JIKA KAPASITAS MAKSIMUM BERUBAH SAAT EDIT
+# ============================================================
+def reset_hasil_uji_jika_kapasitas_berubah():
 
+    # Hanya berlaku saat Edit Pengujian
+    if not st.session_state.get(
+        "tb_edit_pengujian_id"
+    ):
+        return
+
+    saved_data = st.session_state.get(
+        "tb_saved_data",
+        {}
+    )
+
+    if not saved_data:
+        return
+
+    nama_alat = str(
+        st.session_state.get(
+            "tb_nama_alat",
+            saved_data.get(
+                "nama_alat",
+                ""
+            )
+        )
+        or ""
+    ).strip()
+
+    satuan = st.session_state.get(
+        "tb_satuan_kapasitas_max",
+        "kg"
+    )
+
+    # ========================================================
+    # AMBIL KAPASITAS YANG SEDANG DIINPUT USER
+    # ========================================================
+    if is_neraca_name(nama_alat):
+
+        kapasitas_raw = (
+            st.session_state.get(
+                "tb_kapasitas_max_neraca_input",
+                ""
+            )
+        )
+
+    else:
+
+        kapasitas_raw = (
+            st.session_state.get(
+                "tb_kapasitas_max_input",
+                ""
+            )
+        )
+
+    kapasitas_baru_kg = convert_to_kg(
+        kapasitas_raw,
+        satuan
+    )
+
+    try:
+        kapasitas_lama_kg = float(
+            saved_data.get(
+                "kapasitas_max",
+                0
+            )
+            or 0
+        )
+    except (TypeError, ValueError):
+        kapasitas_lama_kg = 0.0
+
+    # Belum ada nilai yang valid
+    if kapasitas_baru_kg <= 0:
+        return
+
+    # Tidak berubah
+    if not nilai_berbeda(
+        kapasitas_baru_kg,
+        kapasitas_lama_kg
+    ):
+        return
+
+    # ========================================================
+    # KAPASITAS BERUBAH
+    # DATA PENGUJIAN LAMA TIDAK BOLEH DIPAKAI LAGI
+    # ========================================================
+    saved_data[
+        "kapasitas_max"
+    ] = kapasitas_baru_kg
+
+    saved_data[
+        "hasil_pengujian"
+    ] = []
+
+    saved_data[
+        "eksentrisitas"
+    ] = []
+
+    saved_data[
+        "repetability"
+    ] = []
+
+    # ========================================================
+    # HAPUS WIDGET HASIL UJI LAMA
+    # ========================================================
+    prefixes_hasil = [
+        "tb_muatan_uji_",
+        "tb_penunjukan_kebenaran_",
+        "tb_pengamatan_penunjukan_",
+        "tb_hasil_kebenaran_",
+        "tb_cek_kebenaran_",
+        "tb_neraca_muatan_disabled_",
+        "tb_neraca_penunjukan_disabled_",
+        "tb_neraca_bkd_disabled_",
+        "tb_neraca_pengamatan_disabled_",
+        "tb_neraca_hasil_disabled_",
+        "tb_neraca_cek_disabled_",
+        "tb_eksen_",
+        "tb_repet_",
+    ]
+
+    for key in list(
+        st.session_state.keys()
+    ):
+        if any(
+            key.startswith(prefix)
+            for prefix in prefixes_hasil
+        ):
+            st.session_state.pop(
+                key,
+                None
+            )
 def update_class():
     """
     Memperbarui kelas dan minimum menimbang.
@@ -2143,7 +2275,14 @@ def update_class():
         )
     )
 
-    satuan = st.session_state.get("tb_satuan_kapasitas_max", "kg")
+    satuan = st.session_state.get(
+        "tb_satuan_kapasitas_max",
+        "kg"
+    )
+    
+    # Jika sedang Edit Pengujian dan kapasitas berubah,
+    # jangan gunakan hasil pengujian lama.
+    reset_hasil_uji_jika_kapasitas_berubah()
 
     if is_neraca_name(nama_alat_aktif):
         max_raw = st.session_state.get(
