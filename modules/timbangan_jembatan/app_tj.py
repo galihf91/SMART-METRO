@@ -3097,40 +3097,65 @@ def run():
 
                 # =====================================================
                 # NOMOR DOKUMEN
-                # Edit  -> pertahankan nomor lama
-                # Baru  -> gunakan nomor default
+                # EDIT  -> nomor lama
+                # BARU  -> nomor default
                 # =====================================================
-                nomor_sertifikat_awal = (
-                    data.get("nomor_sertifikat")
-                    or default_sertifikat
+                sedang_edit = bool(
+                    st.session_state.get(
+                        "edit_pengujian_id"
+                    )
                 )
                 
-                nomor_order_awal = (
-                    data.get("nomor_order")
-                    or default_order
-                )
+                if sedang_edit:
+                    nomor_sertifikat_awal = str(
+                        data.get(
+                            "nomor_sertifikat",
+                            ""
+                        )
+                        or st.session_state.get(
+                            "nomor_sertifikat_tj",
+                            ""
+                        )
+                        or ""
+                    ).strip()
                 
-                # Jika session state belum ada / kosong,
-                # isi dari nomor lama atau nomor default.
-                if not str(
-                    st.session_state.get(
-                        "nomor_sertifikat_tj",
-                        ""
-                    )
-                ).strip():
-                    st.session_state[
-                        "nomor_sertifikat_tj"
-                    ] = nomor_sertifikat_awal
+                    nomor_order_awal = str(
+                        data.get(
+                            "nomor_order",
+                            ""
+                        )
+                        or st.session_state.get(
+                            "nomor_order_tj",
+                            ""
+                        )
+                        or ""
+                    ).strip()
                 
-                if not str(
-                    st.session_state.get(
-                        "nomor_order_tj",
-                        ""
-                    )
-                ).strip():
-                    st.session_state[
-                        "nomor_order_tj"
-                    ] = nomor_order_awal
+                else:
+                    nomor_sertifikat_awal = str(
+                        data.get(
+                            "nomor_sertifikat",
+                            ""
+                        )
+                        or default_sertifikat
+                    ).strip()
+                
+                    nomor_order_awal = str(
+                        data.get(
+                            "nomor_order",
+                            ""
+                        )
+                        or default_order
+                    ).strip()
+                
+                
+                st.session_state[
+                    "nomor_sertifikat_tj"
+                ] = nomor_sertifikat_awal
+                
+                st.session_state[
+                    "nomor_order_tj"
+                ] = nomor_order_awal
                 
                 
                 nomor_sertifikat = st.text_input(
