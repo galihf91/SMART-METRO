@@ -2939,7 +2939,7 @@ def run():
                 key="reset_form_tj",
                 on_click=reset_form_timbangan_jembatan,
             )
-    
+        
         if submit_btn:
             # Ambil semua nilai dari session state (dengan default)
             kapasitas_max_final = st.session_state.get('kapasitas_max_input', 60000)
@@ -2964,29 +2964,27 @@ def run():
                 )
             )
             
-            nomor_sertifikat_lama = (
-                st.session_state
-                .get(
-                    "saved_data",
-                    {}
+            nomor_sertifikat_lama = str(
+                st.session_state.get(
+                    "nomor_sertifikat_tj",
+                    st.session_state.saved_data.get(
+                        "nomor_sertifikat",
+                        ""
+                    )
                 )
-                .get(
-                    "nomor_sertifikat",
-                    ""
-                )
-            )
+                or ""
+            ).strip()
             
-            nomor_order_lama = (
-                st.session_state
-                .get(
-                    "saved_data",
-                    {}
+            nomor_order_lama = str(
+                st.session_state.get(
+                    "nomor_order_tj",
+                    st.session_state.saved_data.get(
+                        "nomor_order",
+                        ""
+                    )
                 )
-                .get(
-                    "nomor_order",
-                    ""
-                )
-            )
+                or ""
+            ).strip()
             st.session_state.saved_data = {
                 'pemilik': pemilik,
                 'alamat': alamat,
