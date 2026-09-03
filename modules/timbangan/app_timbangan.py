@@ -2334,9 +2334,12 @@ def reset_hasil_uji_jika_kapasitas_berubah():
 
     try:
         kapasitas_lama_kg = float(
-            saved_data.get(
-                "kapasitas_max",
-                0
+            st.session_state.get(
+                "tb_kapasitas_max_edit_asli_kg",
+                saved_data.get(
+                    "kapasitas_max",
+                    0
+                )
             )
             or 0
         )
@@ -2358,18 +2361,25 @@ def reset_hasil_uji_jika_kapasitas_berubah():
     # KAPASITAS BERUBAH
     # DATA PENGUJIAN LAMA TIDAK BOLEH DIPAKAI LAGI
     # ========================================================
+    # Tandai bahwa seluruh pengujian harus dihitung ulang
+    st.session_state[
+        "tb_paksa_hitung_ulang_uji"
+    ] = True
+    
+    # Simpan kapasitas baru sebagai data yang sedang diedit
     saved_data[
         "kapasitas_max"
     ] = kapasitas_baru_kg
-
+    
+    # Jangan gunakan hasil pengujian lama
     saved_data[
         "hasil_pengujian"
     ] = []
-
+    
     saved_data[
         "eksentrisitas"
     ] = []
-
+    
     saved_data[
         "repetability"
     ] = []
