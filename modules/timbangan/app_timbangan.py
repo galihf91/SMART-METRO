@@ -5539,7 +5539,7 @@ def run():
                                     f"{kapasitas_max}_"
                                     f"{daya_baca_kg}_"
                                     f"{satuan_tampilan}"
-                                )
+                                ),
                                 label_visibility="collapsed"
                             )
                         
