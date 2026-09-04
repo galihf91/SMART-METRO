@@ -476,7 +476,25 @@ def simpan_pengujian_tj_ke_supabase(data):
                     alamat_manual
                 )
             )
-    
+            # =================================================
+            # SETELAH PERUSAHAAN BARU BERHASIL DIBUAT
+            # UBAH MENJADI PERUSAHAAN TERPILIH
+            # =================================================
+            st.session_state[
+                "nama_perusahaan_tj"
+            ] = nama_perusahaan_manual
+            
+            st.session_state[
+                "alamat_input_tj"
+            ] = alamat_manual
+            
+            st.session_state[
+                "perusahaan_select"
+            ] = nama_perusahaan_manual
+            
+            st.session_state[
+                "input_manual_perusahaan_tj"
+            ] = False
     # =====================================================
     # FALLBACK
     # =====================================================
