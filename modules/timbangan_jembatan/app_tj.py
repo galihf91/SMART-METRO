@@ -281,13 +281,44 @@ def simpan_pengujian_tj_ke_supabase(data):
                 )
             ).strip()
     
+            # =================================================
+            # CEK APAKAH NAMA BARU SUDAH DIMILIKI PERUSAHAAN LAIN
+            # =================================================
+            cek_perusahaan = (
+                supabase
+                .table("perusahaan")
+                .select(
+                    "id, nama_perusahaan"
+                )
+                .eq(
+                    "nama_perusahaan",
+                    nama_perusahaan_baru
+                )
+                .execute()
+            )
+    
+            perusahaan_duplikat = [
+                item
+                for item in (
+                    cek_perusahaan.data
+                    or []
+                )
+                if item.get("id") != perusahaan_id
+            ]
+    
+            if perusahaan_duplikat:
+                raise ValueError(
+                    "Nama perusahaan tersebut sudah ada di database. "
+                    "Jika ingin memindahkan Timbangan Jembatan ke "
+                    "perusahaan tersebut, gunakan pilihan "
+                    "'Ganti / tambah perusahaan baru'."
+                )
+    
             (
                 supabase
                 .table("perusahaan")
                 .update({
-                    "nama_perusahaan": (
-                        nama_perusahaan_baru
-                    ),
+                    "nama_perusahaan": nama_perusahaan_baru,
                     "alamat": alamat_baru,
                 })
                 .eq(
