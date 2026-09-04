@@ -428,18 +428,52 @@ def simpan_pengujian_tj_ke_supabase(data):
         # TAMBAH PERUSAHAAN BARU SECARA MANUAL
         # =================================================
         else:
-    
+        
+            nama_perusahaan_manual = str(
+                data.get(
+                    "pemilik",
+                    ""
+                )
+            ).strip()
+        
+            alamat_manual = str(
+                data.get(
+                    "alamat",
+                    ""
+                )
+            ).strip()
+        
+            # ---------------------------------------------
+            # CEK APAKAH NAMA SUDAH ADA DI DATABASE
+            # ---------------------------------------------
+            cek_perusahaan = (
+                supabase
+                .table("perusahaan")
+                .select(
+                    "id, nama_perusahaan"
+                )
+                .ilike(
+                    "nama_perusahaan",
+                    nama_perusahaan_manual
+                )
+                .execute()
+            )
+        
+            if cek_perusahaan.data:
+                raise ValueError(
+                    "Nama perusahaan tersebut sudah ada di database. "
+                    "Silakan matikan 'Input manual nama perusahaan' "
+                    "dan pilih perusahaan tersebut dari dropdown."
+                )
+        
+            # ---------------------------------------------
+            # BENAR-BENAR PERUSAHAAN BARU
+            # ---------------------------------------------
             perusahaan_id = (
                 simpan_atau_update_perusahaan(
                     supabase,
-                    data.get(
-                        "pemilik",
-                        ""
-                    ),
-                    data.get(
-                        "alamat",
-                        ""
-                    )
+                    nama_perusahaan_manual,
+                    alamat_manual
                 )
             )
     
