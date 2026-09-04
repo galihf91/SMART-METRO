@@ -1316,10 +1316,21 @@ def gunakan_data_lama_untuk_pengujian_baru(
     # =====================================================
     # PASTIKAN BUKAN MODE EDIT
     # =====================================================
-    st.session_state.pop(
+    keys_mode_edit = [
         "edit_pengujian_id",
-        None
-    )
+        "tj_perusahaan_id_lama",
+        "tj_uttp_id_lama",
+        "tj_nama_perusahaan_lama",
+        "tj_alamat_perusahaan_lama",
+        "tj_aksi_perusahaan_edit",
+        "tj_aksi_perusahaan_edit_sebelumnya",
+    ]
+    
+    for key in keys_mode_edit:
+        st.session_state.pop(
+            key,
+            None
+        )
 
     nama_perusahaan = str(
         perusahaan.get(
