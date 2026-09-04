@@ -537,7 +537,35 @@ def gunakan_data_lama_untuk_edit(
         )
         or ""
     ).strip()
-
+    # =====================================================
+    # SIMPAN IDENTITAS ASLI UNTUK MODE EDIT PERUSAHAAN
+    # =====================================================
+    
+    st.session_state[
+        "tj_perusahaan_id_lama"
+    ] = perusahaan.get("id")
+    
+    st.session_state[
+        "tj_uttp_id_lama"
+    ] = alat.get("id")
+    
+    st.session_state[
+        "tj_nama_perusahaan_lama"
+    ] = nama_perusahaan
+    
+    st.session_state[
+        "tj_alamat_perusahaan_lama"
+    ] = alamat
+    
+    # Default saat pertama masuk mode Edit
+    st.session_state[
+        "tj_aksi_perusahaan_edit"
+    ] = "Gunakan perusahaan saat ini"
+    
+    st.session_state.pop(
+        "tj_aksi_perusahaan_edit_sebelumnya",
+        None
+    )
     nama_penera = str(
         pengujian.get(
             "penera_1"
