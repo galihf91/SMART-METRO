@@ -190,11 +190,124 @@ def simpan_pengujian_tj_ke_supabase(data):
     # =========================================
     # 1. PERUSAHAAN
     # =========================================
-    perusahaan_id = simpan_atau_update_perusahaan(
-        supabase,
-        data.get("pemilik", ""),
-        data.get("alamat", "")
+    sedang_edit = bool(
+        st.session_state.get(
+            "edit_pengujian_id"
+        )
     )
+    
+    aksi_perusahaan_edit = str(
+        st.session_state.get(
+            "tj_aksi_perusahaan_edit",
+            ""
+        )
+    ).strip()
+    
+    # =====================================================
+    # INPUT PENGUJIAN BARU
+    # =====================================================
+    if not sedang_edit:
+    
+        perusahaan_id = simpan_atau_update_perusahaan(
+            supabase,
+            data.get("pemilik", ""),
+            data.get("alamat", "")
+        )
+    
+    # =====================================================
+    # EDIT — GUNAKAN PERUSAHAAN SAAT INI
+    # =====================================================
+    elif (
+        aksi_perusahaan_edit
+        == "Gunakan perusahaan saat ini"
+    ):
+    
+        perusahaan_id = st.session_state.get(
+            "tj_perusahaan_id_lama"
+        )
+    
+        if not perusahaan_id:
+            perusahaan_id = simpan_atau_update_perusahaan(
+                supabase,
+                data.get("pemilik", ""),
+                data.get("alamat", "")
+            )
+    
+    # =====================================================
+    # EDIT — UBAH DATA PERUSAHAAN SAAT INI
+    # =====================================================
+    elif (
+        aksi_perusahaan_edit
+        == "Edit data perusahaan saat ini"
+    ):
+    
+        perusahaan_id = st.session_state.get(
+            "tj_perusahaan_id_lama"
+        )
+    
+        if perusahaan_id:
+    
+            nama_perusahaan_baru = str(
+                data.get(
+                    "pemilik",
+                    ""
+                )
+            ).strip()
+    
+            alamat_baru = str(
+                data.get(
+                    "alamat",
+                    ""
+                )
+            ).strip()
+    
+            (
+                supabase
+                .table("perusahaan")
+                .update({
+                    "nama_perusahaan": (
+                        nama_perusahaan_baru
+                    ),
+                    "alamat": alamat_baru,
+                })
+                .eq(
+                    "id",
+                    perusahaan_id
+                )
+                .execute()
+            )
+    
+        else:
+            perusahaan_id = simpan_atau_update_perusahaan(
+                supabase,
+                data.get("pemilik", ""),
+                data.get("alamat", "")
+            )
+    
+    # =====================================================
+    # EDIT — GANTI / TAMBAH PERUSAHAAN BARU
+    # =====================================================
+    elif (
+        aksi_perusahaan_edit
+        == "Ganti / tambah perusahaan baru"
+    ):
+    
+        perusahaan_id = simpan_atau_update_perusahaan(
+            supabase,
+            data.get("pemilik", ""),
+            data.get("alamat", "")
+        )
+    
+    # =====================================================
+    # FALLBACK
+    # =====================================================
+    else:
+    
+        perusahaan_id = simpan_atau_update_perusahaan(
+            supabase,
+            data.get("pemilik", ""),
+            data.get("alamat", "")
+        )
 
     # =========================================
     # 2. UTTP
