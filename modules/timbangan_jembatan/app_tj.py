@@ -675,24 +675,11 @@ def simpan_pengujian_tj_ke_supabase(data):
         )
     
         # =====================================================
-        # BERSIHKAN STATE MODE EDIT PERUSAHAAN
+        # MODE EDIT TETAP DIPERTAHANKAN
         # =====================================================
-        keys_edit_perusahaan = [
-            "edit_pengujian_id",
-            "tj_perusahaan_id_lama",
-            "tj_uttp_id_lama",
-            "tj_nama_perusahaan_lama",
-            "tj_alamat_perusahaan_lama",
-            "tj_aksi_perusahaan_edit",
-            "tj_aksi_perusahaan_edit_sebelumnya",
-        ]
-    
-        for key in keys_edit_perusahaan:
-            st.session_state.pop(
-                key,
-                None
-            )
-
+        # Jangan hapus edit_pengujian_id di sini.
+        # Jika user Generate ulang, data yang sama tetap UPDATE
+        # dan tidak berubah menjadi INSERT pengujian baru.
     else:
         response = (
             supabase
