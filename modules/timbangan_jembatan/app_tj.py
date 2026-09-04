@@ -2359,13 +2359,41 @@ def run():
                     height=90,
                     key="alamat_input_tj",
                 )
-            pemilik = str(
+            # =====================================================
+            # NILAI FINAL PERUSAHAAN
+            # =====================================================
+            input_manual_perusahaan = bool(
+                st.session_state.get(
+                    "input_manual_perusahaan_tj",
+                    False
+                )
+            )
+            
+            perusahaan_dipilih = str(
+                st.session_state.get(
+                    "perusahaan_select",
+                    ""
+                )
+            ).strip()
+            
+            nama_perusahaan_input = str(
                 st.session_state.get(
                     "nama_perusahaan_tj",
                     ""
                 )
             ).strip()
-
+            
+            # Jika input manual aktif, gunakan nama yang diketik.
+            # Jika tidak, gunakan perusahaan dari dropdown.
+            if input_manual_perusahaan:
+                pemilik = nama_perusahaan_input
+            
+            elif perusahaan_dipilih:
+                pemilik = perusahaan_dipilih
+            
+            else:
+                pemilik = nama_perusahaan_input
+            
             alamat = str(
                 st.session_state.get(
                     "alamat_input_tj",
