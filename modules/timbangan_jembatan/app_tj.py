@@ -186,7 +186,27 @@ def get_or_create_uttp_tj(
 
 def simpan_pengujian_tj_ke_supabase(data):
     supabase = get_supabase()
-
+    # =========================================
+    # VALIDASI DATA PERUSAHAAN
+    # =========================================
+    nama_perusahaan = str(
+        data.get(
+            "pemilik",
+            ""
+        )
+    ).strip()
+    
+    alamat_perusahaan = str(
+        data.get(
+            "alamat",
+            ""
+        )
+    ).strip()
+    
+    if not nama_perusahaan:
+        raise ValueError(
+            "Nama perusahaan belum diisi."
+        )
     # =========================================
     # 1. PERUSAHAAN
     # =========================================
