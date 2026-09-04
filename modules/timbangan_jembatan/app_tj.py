@@ -2107,10 +2107,37 @@ def run():
             if "input_manual_perusahaan_tj" not in st.session_state:
                 st.session_state.input_manual_perusahaan_tj = False
 
-            if (
+            # =====================================================
+            # EDIT DATA PERUSAHAAN SAAT INI
+            # =====================================================
+            if edit_perusahaan_lama:
+            
+                st.text_input(
+                    "Nama Pemilik / Perusahaan",
+                    key="nama_perusahaan_tj",
+                    placeholder="Nama perusahaan",
+                )
+            
+                st.text_area(
+                    "Alamat",
+                    height=90,
+                    key="alamat_input_tj",
+                    help=(
+                        "Perubahan nama dan alamat akan memperbarui "
+                        "data perusahaan yang saat ini digunakan."
+                    ),
+                )
+            
+            # =====================================================
+            # GUNAKAN PERUSAHAAN SAAT INI
+            # / GANTI ATAU TAMBAH PERUSAHAAN BARU
+            # / INPUT BARU BIASA
+            # =====================================================
+            elif (
                 df_perusahaan is not None
                 and not df_perusahaan.empty
             ):
+            
                 all_names = (
                     df_perusahaan["Nama Perusahaan"]
                     .dropna()
@@ -2118,73 +2145,74 @@ def run():
                     .str.strip()
                     .tolist()
                 )
-
+            
                 if "perusahaan_select" not in st.session_state:
                     nama_tersimpan = (
                         st.session_state.nama_perusahaan_tj
                     )
-
+            
                     if nama_tersimpan in all_names:
                         st.session_state.perusahaan_select = (
                             nama_tersimpan
                         )
                     else:
                         st.session_state.perusahaan_select = ""
-
+            
                         if nama_tersimpan:
                             st.session_state[
                                 "input_manual_perusahaan_tj"
                             ] = True
-
+            
                 st.selectbox(
                     "Cari & Pilih Nama Perusahaan",
                     options=[""] + all_names,
                     placeholder="Ketik nama perusahaan...",
                     key="perusahaan_select",
                     on_change=update_perusahaan_terpilih_tj,
+                    disabled=kunci_perusahaan_lama,
                 )
-
+            
                 st.text_area(
                     "Alamat",
                     height=90,
                     key="alamat_input_tj",
+                    disabled=kunci_perusahaan_lama,
                     help=(
                         "Alamat otomatis muncul setelah perusahaan "
-                        "dipilih dan tetap dapat diedit."
+                        "dipilih."
                     ),
                 )
-
-                st.checkbox(
-                    "Input manual nama perusahaan",
-                    key="input_manual_perusahaan_tj",
-                )
-
-                if st.session_state.input_manual_perusahaan_tj:
-                    st.text_input(
-                        "Nama Pemilik / Perusahaan",
-                        key="nama_perusahaan_tj",
-                        placeholder=(
-                            "Contoh: PT. MULTI WELINDO"
-                        ),
+            
+                if not kunci_perusahaan_lama:
+            
+                    st.checkbox(
+                        "Input manual nama perusahaan",
+                        key="input_manual_perusahaan_tj",
                     )
-
+            
+                    if st.session_state.input_manual_perusahaan_tj:
+                        st.text_input(
+                            "Nama Pemilik / Perusahaan",
+                            key="nama_perusahaan_tj",
+                            placeholder="Contoh: PT. MULTI WELINDO",
+                        )
+            
             else:
                 st.info(
-                    "📂 File data perusahaan tidak ditemukan. "
+                    "📂 Data perusahaan tidak ditemukan. "
                     "Silakan input manual."
                 )
-
+            
                 st.text_input(
                     "Nama Pemilik / Perusahaan",
                     key="nama_perusahaan_tj",
                 )
-
+            
                 st.text_area(
                     "Alamat",
                     height=90,
                     key="alamat_input_tj",
                 )
-
             pemilik = str(
                 st.session_state.get(
                     "nama_perusahaan_tj",
