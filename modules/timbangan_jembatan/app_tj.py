@@ -494,11 +494,25 @@ def simpan_pengujian_tj_ke_supabase(data):
             )
             .execute()
         )
-
-        st.session_state.pop(
+    
+        # =====================================================
+        # BERSIHKAN STATE MODE EDIT PERUSAHAAN
+        # =====================================================
+        keys_edit_perusahaan = [
             "edit_pengujian_id",
-            None
-        )
+            "tj_perusahaan_id_lama",
+            "tj_uttp_id_lama",
+            "tj_nama_perusahaan_lama",
+            "tj_alamat_perusahaan_lama",
+            "tj_aksi_perusahaan_edit",
+            "tj_aksi_perusahaan_edit_sebelumnya",
+        ]
+    
+        for key in keys_edit_perusahaan:
+            st.session_state.pop(
+                key,
+                None
+            )
 
     else:
         response = (
