@@ -1902,7 +1902,15 @@ def run():
             "saved_data",
             "test_results",
             "generated_files",
-             "edit_pengujian_id",
+            "edit_pengujian_id",
+            # Mode edit perusahaan
+            "tj_perusahaan_id_lama",
+            "tj_uttp_id_lama",
+            "tj_nama_perusahaan_lama",
+            "tj_alamat_perusahaan_lama",
+            "tj_aksi_perusahaan_edit",
+            "tj_aksi_perusahaan_edit_sebelumnya",
+
             "merek_tj",
             "model_tj",
             "no_seri_tj",
