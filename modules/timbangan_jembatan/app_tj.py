@@ -360,11 +360,88 @@ def simpan_pengujian_tj_ke_supabase(data):
         == "Ganti / tambah perusahaan baru"
     ):
     
-        perusahaan_id = simpan_atau_update_perusahaan(
-            supabase,
-            data.get("pemilik", ""),
-            data.get("alamat", "")
+        input_manual = bool(
+            st.session_state.get(
+                "input_manual_perusahaan_tj",
+                False
+            )
         )
+    
+        perusahaan_dipilih = str(
+            st.session_state.get(
+                "perusahaan_select",
+                ""
+            )
+        ).strip()
+    
+        # =================================================
+        # PILIH PERUSAHAAN YANG SUDAH ADA
+        # =================================================
+        if (
+            not input_manual
+            and perusahaan_dipilih
+        ):
+    
+            df_perusahaan = st.session_state.get(
+                "data_perusahaan"
+            )
+    
+            perusahaan_id = None
+    
+            if (
+                df_perusahaan is not None
+                and not df_perusahaan.empty
+            ):
+                row = df_perusahaan[
+                    df_perusahaan[
+                        "Nama Perusahaan"
+                    ]
+                    .astype(str)
+                    .str.strip()
+                    == perusahaan_dipilih
+                ]
+    
+                if not row.empty:
+                    perusahaan_id = (
+                        row.iloc[0].get(
+                            "ID"
+                        )
+                    )
+    
+            # Fallback jika ID tidak ditemukan
+            if not perusahaan_id:
+                perusahaan_id = (
+                    simpan_atau_update_perusahaan(
+                        supabase,
+                        data.get(
+                            "pemilik",
+                            ""
+                        ),
+                        data.get(
+                            "alamat",
+                            ""
+                        )
+                    )
+                )
+    
+        # =================================================
+        # TAMBAH PERUSAHAAN BARU SECARA MANUAL
+        # =================================================
+        else:
+    
+            perusahaan_id = (
+                simpan_atau_update_perusahaan(
+                    supabase,
+                    data.get(
+                        "pemilik",
+                        ""
+                    ),
+                    data.get(
+                        "alamat",
+                        ""
+                    )
+                )
+            )
     
     # =====================================================
     # FALLBACK
