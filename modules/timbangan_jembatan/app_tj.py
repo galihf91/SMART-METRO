@@ -1993,6 +1993,97 @@ def run():
                     aksi_perusahaan_edit
                     == "Ganti / tambah perusahaan baru"
                 )
+                # =====================================================
+                # SINKRONKAN FORM SAAT AKSI PERUSAHAAN BERUBAH
+                # =====================================================
+                if sedang_edit_perusahaan:
+                
+                    aksi_sebelumnya = st.session_state.get(
+                        "tj_aksi_perusahaan_edit_sebelumnya",
+                        ""
+                    )
+                
+                    if aksi_sebelumnya != aksi_perusahaan_edit:
+                
+                        # ---------------------------------------------
+                        # GUNAKAN PERUSAHAAN LAMA
+                        # ---------------------------------------------
+                        if (
+                            aksi_perusahaan_edit
+                            == "Gunakan perusahaan saat ini"
+                        ):
+                            st.session_state[
+                                "nama_perusahaan_tj"
+                            ] = st.session_state.get(
+                                "tj_nama_perusahaan_lama",
+                                ""
+                            )
+                
+                            st.session_state[
+                                "alamat_input_tj"
+                            ] = st.session_state.get(
+                                "tj_alamat_perusahaan_lama",
+                                ""
+                            )
+                
+                            st.session_state[
+                                "perusahaan_select"
+                            ] = st.session_state.get(
+                                "tj_nama_perusahaan_lama",
+                                ""
+                            )
+                
+                            st.session_state[
+                                "input_manual_perusahaan_tj"
+                            ] = False
+                
+                        # ---------------------------------------------
+                        # EDIT PERUSAHAAN LAMA
+                        # ---------------------------------------------
+                        elif (
+                            aksi_perusahaan_edit
+                            == "Edit data perusahaan saat ini"
+                        ):
+                            st.session_state[
+                                "nama_perusahaan_tj"
+                            ] = st.session_state.get(
+                                "tj_nama_perusahaan_lama",
+                                ""
+                            )
+                
+                            st.session_state[
+                                "alamat_input_tj"
+                            ] = st.session_state.get(
+                                "tj_alamat_perusahaan_lama",
+                                ""
+                            )
+                
+                        # ---------------------------------------------
+                        # GANTI / TAMBAH PERUSAHAAN BARU
+                        # ---------------------------------------------
+                        elif (
+                            aksi_perusahaan_edit
+                            == "Ganti / tambah perusahaan baru"
+                        ):
+                            st.session_state[
+                                "nama_perusahaan_tj"
+                            ] = ""
+                
+                            st.session_state[
+                                "alamat_input_tj"
+                            ] = ""
+                
+                            st.session_state[
+                                "perusahaan_select"
+                            ] = ""
+                
+                            st.session_state[
+                                "input_manual_perusahaan_tj"
+                            ] = False
+                
+                        st.session_state[
+                            "tj_aksi_perusahaan_edit_sebelumnya"
+                        ] = aksi_perusahaan_edit
             df_perusahaan = st.session_state.get(
                 "data_perusahaan"
             )
