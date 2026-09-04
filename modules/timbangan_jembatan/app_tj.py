@@ -3584,7 +3584,13 @@ def run():
                 ),
             }
             st.session_state.test_results = test_results
-            st.success("✅ Data berhasil disimpan!")
+
+            st.success(
+                "✅ Data pengujian berhasil disiapkan. "
+                "Lanjutkan ke menu Generate Dokumen "
+                "untuk menyimpan data ke database."
+            )
+            
             st.balloons()
     
     
