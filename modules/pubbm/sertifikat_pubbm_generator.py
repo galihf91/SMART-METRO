@@ -1104,18 +1104,32 @@ def generate_sertifikat_pubbm(data, output_path="sertifikat_pubbm.pdf"):
 
 
     def wrap_merk(text):
-        text = "" if text is None else str(text)
-        parts = text.split()
-
-        if len(parts) <= 1:
-            return text
-
-        # Contoh: "TOMINAGA JEPANG" menjadi 2 baris
-        if len(text) > 12:
-            tengah = len(parts) // 2
-            return " ".join(parts[:tengah]) + "\n" + " ".join(parts[tengah:])
-
-        return text
+        """
+        Membungkus teks MEREK agar tidak keluar
+        dari lebar kolom tabel.
+    
+        Berlaku untuk:
+        - satu kata panjang
+        - beberapa kata
+        - merek dengan tanda hubung
+        """
+        text = (
+            ""
+            if text is None
+            else str(text).strip()
+        )
+    
+        if not text:
+            return ""
+    
+        wrapped = textwrap.wrap(
+            text,
+            width=12,
+            break_long_words=True,
+            break_on_hyphens=True,
+        )
+    
+        return "\n".join(wrapped)
 
     def wrap_teks_kolom(text, max_chars):
         text = "" if text is None else str(text).strip()
