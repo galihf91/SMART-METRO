@@ -1588,6 +1588,8 @@ def run():
             "jumlah_alat_standar_pubbm",
             "jumlah_dispenser_pubbm",
             "mode_pubbm",
+            "pubbm_edit_pengujian_id",
+            "pubbm_next_mode",
         }
 
         for key in list(st.session_state.keys()):
@@ -2365,7 +2367,30 @@ def run():
     if mode == "📝 Input Data Pengujian":
     
         st.header("Masukkan Data Pengujian PU BBM")
-    
+        # =========================================================
+        # INFORMASI MODE EDIT
+        # =========================================================
+        if st.session_state.get(
+            "pubbm_edit_pengujian_id"
+        ):
+            st.warning(
+                "✏️ Anda sedang mengedit pengujian yang sudah "
+                "tersimpan. Generate Sertifikat akan memperbarui "
+                "data pengujian lama."
+            )
+        
+            if st.button(
+                "❌ Batal Edit",
+                use_container_width=True,
+                key="pubbm_batal_edit"
+            ):
+                reset_form_pubbm()
+        
+                st.session_state[
+                    "pubbm_next_mode"
+                ] = "📝 Input Data Pengujian"
+        
+                st.rerun()
         # ======================== KOLOM 1-2 ========================
         col1, col2= st.columns(2)
     
