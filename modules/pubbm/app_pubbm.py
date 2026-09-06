@@ -215,7 +215,7 @@ def get_or_create_uttp_pubbm(
             "merk": "",
             "tipe": "",
 
-            "kapasitas": "",
+            "kapasitas": None,
             "lokasi": "SPBU",
             "status": "aktif",
         })
@@ -441,6 +441,302 @@ def build_data_pengujian_pubbm(data):
             ""
         ),
     }
+# =========================================================
+# NORMALISASI TANGGAL PUBBM
+# =========================================================
+def tanggal_iso_pubbm(nilai):
+    """
+    Mengubah date/datetime/string menjadi YYYY-MM-DD.
+    """
+
+    if not nilai:
+        return None
+
+    if isinstance(nilai, datetime):
+        return nilai.date().isoformat()
+
+    if isinstance(nilai, date):
+        return nilai.isoformat()
+
+    nilai = str(nilai).strip()
+
+    try:
+        return datetime.strptime(
+            nilai,
+            "%Y-%m-%d"
+        ).date().isoformat()
+
+    except ValueError:
+        return nilai
+# =========================================================
+# BERLAKU SAMPAI PUBBM
+# =========================================================
+def berlaku_sampai_pubbm(tanggal_pengujian):
+    if not tanggal_pengujian:
+        return None
+
+    if isinstance(
+        tanggal_pengujian,
+        datetime
+    ):
+        tanggal_obj = (
+            tanggal_pengujian.date()
+        )
+
+    elif isinstance(
+        tanggal_pengujian,
+        date
+    ):
+        tanggal_obj = (
+            tanggal_pengujian
+        )
+
+    else:
+        tanggal_obj = datetime.strptime(
+            str(tanggal_pengujian),
+            "%Y-%m-%d"
+        ).date()
+
+    try:
+        tanggal_berlaku = (
+            tanggal_obj.replace(
+                year=tanggal_obj.year + 1
+            )
+        )
+
+    except ValueError:
+        # Kasus 29 Februari
+        tanggal_berlaku = (
+            tanggal_obj.replace(
+                year=tanggal_obj.year + 1,
+                month=2,
+                day=28
+            )
+        )
+
+    return tanggal_berlaku.isoformat()
+# =========================================================
+# SIMPAN PENGUJIAN PUBBM KE SUPABASE
+# =========================================================
+def simpan_pengujian_pubbm_ke_supabase(
+    data
+):
+    """
+    Menyimpan satu kegiatan pengujian PUBBM.
+
+    Konsep:
+    - 1 perusahaan = pemilik / SPBU
+    - 1 UTTP = 1 SPBU
+    - 1 row pengujian = 1 sertifikat
+    - dispenser/nozzle disimpan di data_pengujian JSONB
+    """
+
+    if not data:
+        raise ValueError(
+            "Data PUBBM belum tersedia."
+        )
+
+    # =====================================================
+    # VALIDASI DASAR
+    # =====================================================
+    pemilik = str(
+        data.get(
+            "pemilik",
+            ""
+        )
+        or ""
+    ).strip()
+
+    alamat = str(
+        data.get(
+            "alamat",
+            ""
+        )
+        or ""
+    ).strip()
+
+    nomor_spbu = str(
+        data.get(
+            "nama_spbu",
+            ""
+        )
+        or ""
+    ).strip()
+
+    nomor_order = str(
+        data.get(
+            "nomor_order",
+            ""
+        )
+        or ""
+    ).strip()
+
+    nomor_sertifikat = str(
+        data.get(
+            "nomor_sertifikat",
+            ""
+        )
+        or ""
+    ).strip()
+
+    penera_1 = str(
+        data.get(
+            "penera_1",
+            ""
+        )
+        or ""
+    ).strip()
+
+    penera_2 = str(
+        data.get(
+            "penera_2",
+            ""
+        )
+        or ""
+    ).strip()
+
+    if not pemilik:
+        raise ValueError(
+            "Nama SPBU / perusahaan belum diisi."
+        )
+
+    if not nomor_order:
+        raise ValueError(
+            "Nomor order belum diisi."
+        )
+
+    if not nomor_sertifikat:
+        raise ValueError(
+            "Nomor sertifikat belum diisi."
+        )
+
+    if not penera_1:
+        raise ValueError(
+            "Penera 1 belum dipilih."
+        )
+
+    # =====================================================
+    # KONEKSI SUPABASE
+    # =====================================================
+    supabase = get_supabase_pubbm()
+
+    # =====================================================
+    # 1. CARI / BUAT PERUSAHAAN
+    # =====================================================
+    perusahaan_id = (
+        simpan_atau_update_perusahaan_pubbm(
+            supabase=supabase,
+            nama_perusahaan=pemilik,
+            alamat=alamat,
+        )
+    )
+
+    # =====================================================
+    # 2. CARI / BUAT UTTP SPBU
+    # =====================================================
+    uttp_id = get_or_create_uttp_pubbm(
+        supabase=supabase,
+        perusahaan_id=perusahaan_id,
+        nomor_spbu=nomor_spbu,
+        pemilik=pemilik,
+    )
+
+    # =====================================================
+    # 3. BUILD JSONB DATA PENGUJIAN
+    # =====================================================
+    detail_pengujian = (
+        build_data_pengujian_pubbm(
+            data
+        )
+    )
+
+    # =====================================================
+    # 4. NORMALISASI TANGGAL
+    # =====================================================
+    tanggal_pengujian = (
+        tanggal_iso_pubbm(
+            data.get(
+                "tanggal_pengujian"
+            )
+        )
+    )
+
+    tanggal_sertifikat = (
+        tanggal_iso_pubbm(
+            data.get(
+                "tanggal_cetak"
+            )
+        )
+    )
+
+    berlaku_sampai = (
+        berlaku_sampai_pubbm(
+            data.get(
+                "tanggal_pengujian"
+            )
+        )
+    )
+
+    # =====================================================
+    # 5. PAYLOAD TABEL PENGUJIAN
+    # =====================================================
+    payload = {
+        "uttp_id": uttp_id,
+
+        "tanggal_pengujian": (
+            tanggal_pengujian
+        ),
+
+        "jenis_pengujian": str(
+            data.get(
+                "jenis_pengujian",
+                "Tera Ulang"
+            )
+            or "Tera Ulang"
+        ).strip(),
+
+        # Hasil PUBBM selalu SAH
+        "hasil": "SAH",
+
+        "nomor_order": nomor_order,
+
+        "nomor_sertifikat": (
+            nomor_sertifikat
+        ),
+
+        "penera_1": penera_1,
+
+        "penera_2": penera_2,
+
+        "berlaku_sampai": (
+            berlaku_sampai
+        ),
+
+        "tanggal_sertifikat": (
+            tanggal_sertifikat
+        ),
+
+        "data_pengujian": (
+            detail_pengujian
+        ),
+    }
+
+    # =====================================================
+    # 6. INSERT PENGUJIAN
+    # =====================================================
+    response = (
+        supabase
+        .table("pengujian")
+        .insert(payload)
+        .execute()
+    )
+
+    if not response.data:
+        raise RuntimeError(
+            "Data pengujian PUBBM gagal disimpan."
+        )
+
+    return response.data[0]
 def bulan_singkat_id(tanggal):
     bulan = {
         1: "JAN", 2: "FEB", 3: "MAR", 4: "APR",
