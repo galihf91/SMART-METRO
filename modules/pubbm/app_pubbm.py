@@ -1197,16 +1197,80 @@ def run():
         if not data:
             return
     
-        # Identitas SPBU
-        st.session_state["nama_perusahaan"] = data.get(
-            "pemilik",
-            ""
+        # =====================================================
+        # IDENTITAS SPBU
+        # =====================================================
+        nama_spbu_restore = str(
+            data.get(
+                "pemilik",
+                ""
+            )
+            or ""
+        ).strip()
+        
+        alamat_spbu_restore = str(
+            data.get(
+                "alamat",
+                ""
+            )
+            or ""
+        ).strip()
+        
+        st.session_state[
+            "nama_perusahaan"
+        ] = nama_spbu_restore
+        
+        st.session_state[
+            "alamat_input_pubbm"
+        ] = alamat_spbu_restore
+
+        # =====================================================
+        # PULIHKAN PILIHAN SPBU
+        # =====================================================
+        df_spbu = st.session_state.get(
+            "data_spbu"
         )
-    
-        st.session_state["alamat_input_pubbm"] = data.get(
-            "alamat",
-            ""
-        )
+        
+        spbu_ditemukan = False
+        
+        if (
+            df_spbu is not None
+            and not df_spbu.empty
+            and nama_spbu_restore
+        ):
+            daftar_spbu = (
+                df_spbu["Nama SPBU"]
+                .dropna()
+                .astype(str)
+                .str.strip()
+                .tolist()
+            )
+        
+            if nama_spbu_restore in daftar_spbu:
+                st.session_state[
+                    "spbu_select"
+                ] = nama_spbu_restore
+        
+                st.session_state[
+                    "input_manual_spbu"
+                ] = False
+        
+                spbu_ditemukan = True
+        
+        
+        # Jika nama SPBU tidak ada pada master,
+        # tampilkan sebagai input manual
+        if (
+            nama_spbu_restore
+            and not spbu_ditemukan
+        ):
+            st.session_state[
+                "spbu_select"
+            ] = ""
+        
+            st.session_state[
+                "input_manual_spbu"
+            ] = True
     
         # Sertifikat
         st.session_state["jenis_pengujian_pubbm"] = data.get(
