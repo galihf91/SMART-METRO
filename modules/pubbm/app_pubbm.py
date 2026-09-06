@@ -125,9 +125,9 @@ def get_or_create_uttp_pubbm(
     Konsep PUBBM:
     1 UTTP = 1 SPBU.
 
-    Detail dispenser/nozzle tidak disimpan
-    sebagai UTTP terpisah, tetapi sebagai
-    snapshot pada data_pengujian.
+    Prioritas identitas:
+    1. Nomor SPBU jika tersedia
+    2. Nama pemilik/SPBU jika nomor tidak tersedia
     """
 
     nomor_spbu = str(
@@ -139,7 +139,7 @@ def get_or_create_uttp_pubbm(
     ).strip()
 
     # =====================================================
-    # IDENTITAS UTTP
+    # IDENTITAS UTAMA
     # =====================================================
     identifier = (
         nomor_spbu
@@ -152,8 +152,14 @@ def get_or_create_uttp_pubbm(
             "Identitas SPBU belum tersedia."
         )
 
+    identifier_normal = (
+        normalisasi_identitas_spbu(
+            identifier
+        )
+    )
+
     # =====================================================
-    # CARI UTTP SPBU YANG SUDAH ADA
+    # CARI SEMUA UTTP PUBBM MILIK PERUSAHAAN INI
     # =====================================================
     response = (
         supabase
@@ -167,55 +173,80 @@ def get_or_create_uttp_pubbm(
             "jenis_uttp",
             "Pompa Ukur BBM"
         )
-        .eq(
-            "nomor_seri",
-            identifier
-        )
         .execute()
     )
 
-    if response.data:
-        uttp = response.data[0]
-
-        uttp_id = uttp["id"]
-
-        # Pastikan status tetap aktif
-        (
-            supabase
-            .table("uttp")
-            .update({
-                "lokasi": "SPBU",
-                "status": "aktif",
-            })
-            .eq(
-                "id",
-                uttp_id
-            )
-            .execute()
-        )
-
-        return uttp_id
+    daftar_uttp = (
+        response.data
+        or []
+    )
 
     # =====================================================
-    # BUAT UTTP SPBU BARU
+    # BANDINGKAN SETELAH NORMALISASI
+    # =====================================================
+    for uttp in daftar_uttp:
+
+        nomor_seri_lama = str(
+            uttp.get(
+                "nomor_seri",
+                ""
+            )
+            or ""
+        ).strip()
+
+        nomor_seri_normal = (
+            normalisasi_identitas_spbu(
+                nomor_seri_lama
+            )
+        )
+
+        if (
+            nomor_seri_normal
+            == identifier_normal
+        ):
+            uttp_id = uttp[
+                "id"
+            ]
+
+            # Pastikan data master tetap aktif
+            (
+                supabase
+                .table("uttp")
+                .update({
+                    "lokasi": "SPBU",
+                    "status": "aktif",
+                })
+                .eq(
+                    "id",
+                    uttp_id
+                )
+                .execute()
+            )
+
+            return uttp_id
+
+    # =====================================================
+    # BELUM ADA → BUAT UTTP BARU
     # =====================================================
     response = (
         supabase
         .table("uttp")
         .insert({
-            "perusahaan_id": perusahaan_id,
-            "jenis_uttp": "Pompa Ukur BBM",
+            "perusahaan_id": (
+                perusahaan_id
+            ),
 
-            # Untuk PUBBM nomor_seri kita gunakan
-            # sebagai identitas SPBU
+            "jenis_uttp": (
+                "Pompa Ukur BBM"
+            ),
+
+            # Tetap simpan bentuk aslinya agar enak dibaca
             "nomor_seri": identifier,
 
-            # Satu SPBU bisa memiliki banyak
-            # merk/type dispenser
             "merk": "",
             "tipe": "",
-
             "kapasitas": None,
+
             "lokasi": "SPBU",
             "status": "aktif",
         })
@@ -227,7 +258,9 @@ def get_or_create_uttp_pubbm(
             "UTTP SPBU gagal disimpan."
         )
 
-    return response.data[0]["id"]
+    return response.data[0][
+        "id"
+    ]
 # =========================================================
 # KONVERSI DATAFRAME PUBBM KE JSON
 # =========================================================
@@ -774,6 +807,31 @@ def simpan_pengujian_pubbm_ke_supabase(
             )
     
     return response.data[0]
+# =========================================================
+# NORMALISASI IDENTITAS SPBU
+# =========================================================
+def normalisasi_identitas_spbu(text):
+    """
+    Normalisasi untuk membandingkan identitas SPBU.
+
+    Contoh:
+    SPBU 34-15717
+    SPBU 34.15717
+    spbu 34 15717
+
+    semuanya menjadi:
+    SPBU3415717
+    """
+
+    text = str(
+        text or ""
+    ).upper().strip()
+
+    return re.sub(
+        r"[^A-Z0-9]",
+        "",
+        text
+    )
 def bulan_singkat_id(tanggal):
     bulan = {
         1: "JAN", 2: "FEB", 3: "MAR", 4: "APR",
