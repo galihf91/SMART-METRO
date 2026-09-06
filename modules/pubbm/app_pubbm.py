@@ -1023,18 +1023,114 @@ def run():
         ]
     
         return media_list
-    @st.cache_data
+    @st.cache_data(ttl=60)
     def load_data_bejana():
+        """
+        Prioritas data:
+        1. Supabase table 'bejana'
+        2. data/data_bejana.xlsx sebagai fallback
+        """
+    
+        kolom_target = [
+            "Standar Volume",
+            "Merk",
+            "Tipe",
+            "Nomor Seri",
+            "Kelas",
+            "Kapasitas",
+            "Daya Baca",
+            "Telusuran",
+        ]
+    
+        # =====================================================
+        # 1. COBA BACA DARI SUPABASE
+        # =====================================================
         try:
-            df = pd.read_excel("data/data_bejana.xlsx")
-            df.columns = df.columns.str.strip()
-            return df
+            supabase = get_supabase_pubbm()
+    
+            response = (
+                supabase
+                .table("bejana")
+                .select("*")
+                .execute()
+            )
+    
+            data = response.data or []
+    
+            if data:
+                df = pd.DataFrame(
+                    data
+                )
+    
+                # =============================================
+                # SAMAKAN NAMA KOLOM SUPABASE DENGAN UI
+                # =============================================
+                rename_map = {
+                    "standar_volume": "Standar Volume",
+                    "merk": "Merk",
+                    "tipe": "Tipe",
+                    "nomor_seri": "Nomor Seri",
+                    "kelas": "Kelas",
+                    "kapasitas": "Kapasitas",
+                    "daya_baca": "Daya Baca",
+                    "telusuran": "Telusuran",
+                }
+    
+                df = df.rename(
+                    columns=rename_map
+                )
+    
+                # =============================================
+                # PASTIKAN SEMUA KOLOM TERSEDIA
+                # =============================================
+                for kolom in kolom_target:
+                    if kolom not in df.columns:
+                        df[kolom] = ""
+    
+                df = df[
+                    kolom_target
+                ].copy()
+    
+                # =============================================
+                # BERSIHKAN NILAI
+                # =============================================
+                for kolom in kolom_target:
+                    df[kolom] = (
+                        df[kolom]
+                        .fillna("")
+                    )
+    
+                return df
+    
+        except Exception:
+            # Kalau tabel belum ada / koneksi gagal,
+            # lanjut baca Excel.
+            pass
+    
+        # =====================================================
+        # 2. FALLBACK KE EXCEL
+        # =====================================================
+        try:
+            df = pd.read_excel(
+                "data/data_bejana.xlsx"
+            )
+    
+            df.columns = (
+                df.columns
+                .str.strip()
+            )
+    
+            for kolom in kolom_target:
+                if kolom not in df.columns:
+                    df[kolom] = ""
+    
+            return df[
+                kolom_target
+            ]
+    
         except FileNotFoundError:
             return pd.DataFrame(
-                columns=[
-                    "Standar Volume", "Merk", "Tipe", "Nomor Seri",
-                    "Kelas", "Kapasitas", "Daya Baca", "Telusuran"
-                ]
+                columns=kolom_target
             )
     
     def bulan_ke_romawi(bulan):
