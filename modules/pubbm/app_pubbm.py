@@ -4867,7 +4867,7 @@ def run():
             # 6. TABEL RINGKAS RIWAYAT
             # =====================================================
             data_ringkas = []
-    
+
             for pengujian in daftar_pengujian_filter:
                 detail = (
                     pengujian.get(
@@ -4875,7 +4875,10 @@ def run():
                     )
                     or {}
                 )
-    
+            
+                # =================================================
+                # POSISI NOZZLE
+                # =================================================
                 posisi_nozzle = (
                     detail.get(
                         "posisi_nozzle",
@@ -4883,48 +4886,94 @@ def run():
                     )
                     or []
                 )
-    
+            
                 if isinstance(
                     posisi_nozzle,
                     list
                 ):
-                    posisi_text = ", ".join(
-                        str(x)
+                    posisi_bersih = [
+                        str(x).strip()
                         for x in posisi_nozzle
+                        if str(x).strip()
+                    ]
+            
+                    posisi_text = ", ".join(
+                        posisi_bersih
                     )
+            
                 else:
                     posisi_text = str(
                         posisi_nozzle
+                        or ""
+                    ).strip()
+            
+                # Jika tidak ada posisi
+                if not posisi_text:
+                    posisi_text = "-"
+            
+                # =================================================
+                # MEDIA
+                # =================================================
+                daftar_media = (
+                    detail.get(
+                        "media",
+                        []
                     )
-    
+                    or []
+                )
+            
+                if isinstance(
+                    daftar_media,
+                    list
+                ):
+                    media_text = ", ".join(
+                        str(x).strip()
+                        for x in daftar_media
+                        if str(x).strip()
+                    )
+            
+                else:
+                    media_text = str(
+                        daftar_media
+                        or ""
+                    ).strip()
+            
+                if not media_text:
+                    media_text = "-"
+            
+                # =================================================
+                # DATA RINGKAS
+                # =================================================
                 data_ringkas.append({
                     "Tanggal": pengujian.get(
                         "tanggal_pengujian",
                         ""
                     ),
-    
+            
                     "Jenis": pengujian.get(
                         "jenis_pengujian",
                         ""
                     ),
-    
+            
                     "Nomor Sertifikat": pengujian.get(
                         "nomor_sertifikat",
                         ""
                     ),
-    
+            
                     "Nomor Order": pengujian.get(
                         "nomor_order",
                         ""
                     ),
-    
+            
                     "Jumlah Nozzle": detail.get(
                         "jumlah_nozzle",
                         0
                     ),
-    
-                    "Posisi Nozzle": posisi_text,
-    
+            
+                    "Posisi": posisi_text,
+            
+                    "Media": media_text,
+            
                     "Penera": pengujian.get(
                         "penera_1",
                         ""
