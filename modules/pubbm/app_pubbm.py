@@ -4488,13 +4488,96 @@ def run():
                     "untuk SPBU ini."
                 )
                 st.stop()
-    
+            # =====================================================
+            # FILTER TAHUN
+            # =====================================================
+            daftar_tahun = sorted(
+                {
+                    str(
+                        pengujian.get(
+                            "tanggal_pengujian",
+                            ""
+                        )
+                    )[:4]
+                    for pengujian in daftar_pengujian
+                    if pengujian.get(
+                        "tanggal_pengujian"
+                    )
+                },
+                reverse=True
+            )
+            
+            pilihan_tahun = st.selectbox(
+                "Filter Tahun",
+                options=[
+                    "Semua Tahun"
+                ] + daftar_tahun,
+                key="pubbm_filter_tahun",
+            )
+            
+            if pilihan_tahun == "Semua Tahun":
+                daftar_pengujian_filter = (
+                    daftar_pengujian
+                )
+            else:
+                daftar_pengujian_filter = [
+                    pengujian
+                    for pengujian in daftar_pengujian
+                    if str(
+                        pengujian.get(
+                            "tanggal_pengujian",
+                            ""
+                        )
+                    ).startswith(
+                        pilihan_tahun
+                    )
+                ]
+            # =====================================================
+            # RINGKASAN RIWAYAT
+            # =====================================================
+            jumlah_kegiatan = len(
+                daftar_pengujian_filter
+            )
+            
+            total_nozzle = 0
+            
+            for pengujian in daftar_pengujian_filter:
+                detail = (
+                    pengujian.get(
+                        "data_pengujian"
+                    )
+                    or {}
+                )
+            
+                total_nozzle += int(
+                    detail.get(
+                        "jumlah_nozzle",
+                        0
+                    )
+                    or 0
+                )
+            
+            col_ringkas1, col_ringkas2 = (
+                st.columns(2)
+            )
+            
+            with col_ringkas1:
+                st.metric(
+                    "Jumlah Kegiatan Tera / Tera Ulang",
+                    jumlah_kegiatan
+                )
+            
+            with col_ringkas2:
+                st.metric(
+                    "Total Nozzle yang Diuji",
+                    total_nozzle
+                )
             # =====================================================
             # 6. TABEL RINGKAS RIWAYAT
             # =====================================================
             data_ringkas = []
     
-            for pengujian in daftar_pengujian:
+            for pengujian in daftar_pengujian_filter:
                 detail = (
                     pengujian.get(
                         "data_pengujian"
@@ -4575,7 +4658,7 @@ def run():
             # =====================================================
             opsi_riwayat = {}
     
-            for pengujian in daftar_pengujian:
+            for pengujian in daftar_pengujian_filter:
     
                 detail = (
                     pengujian.get(
