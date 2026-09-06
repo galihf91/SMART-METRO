@@ -3238,45 +3238,94 @@ def run():
                     key="pubbm_generate_sertifikat",
                 ):
                     try:
+                        # =================================================
+                        # 1. SIAPKAN FOLDER OUTPUT
+                        # =================================================
                         output_dir_sertifikat = Path(
                             "output/pubbm/sertifikat"
                         )
-
+                
                         output_dir_sertifikat.mkdir(
                             parents=True,
                             exist_ok=True,
                         )
-
+                
+                        # =================================================
+                        # 2. NAMA FILE
+                        # =================================================
                         nama_file = format_nama_file_pubbm(
                             data_pubbm
                         )
-
+                
                         output_file = (
                             output_dir_sertifikat
                             / f"{nama_file}.pdf"
                         )
-
+                
+                        # =================================================
+                        # 3. GENERATE PDF
+                        # =================================================
                         generate_sertifikat_pubbm(
                             data_pubbm,
                             str(output_file),
                         )
-
+                
+                        # =================================================
+                        # 4. SIMPAN KE SUPABASE
+                        # =================================================
+                        hasil_simpan = (
+                            simpan_pengujian_pubbm_ke_supabase(
+                                data_pubbm
+                            )
+                        )
+                
+                        # =================================================
+                        # 5. SIMPAN FILE KE SESSION STATE
+                        # Hanya dilakukan jika Supabase berhasil
+                        # =================================================
                         st.session_state.pubbm_generated_files[
                             "sertifikat"
-                        ] = str(output_file)
-
+                        ] = str(
+                            output_file
+                        )
+                
                         st.success(
-                            "✅ Sertifikat berhasil dibuat."
+                            "✅ Sertifikat berhasil dibuat "
+                            "dan data pengujian berhasil "
+                            "disimpan ke Supabase."
                         )
-
+                
                     except Exception as exc:
-                        st.error(
-                            f"Gagal membuat sertifikat: {exc}"
-                        )
-
-                        import traceback
-                        st.code(traceback.format_exc())
-
+                        pesan_error = str(exc)
+                
+                        # =================================================
+                        # NOMOR SERTIFIKAT DUPLIKAT
+                        # =================================================
+                        if (
+                            "pengujian_nomor_sertifikat_unique"
+                            in pesan_error
+                            or "duplicate key"
+                            in pesan_error.lower()
+                            or "23505" in pesan_error
+                        ):
+                            st.error(
+                                "❌ Nomor sertifikat sudah pernah "
+                                "digunakan.\n\n"
+                                "Silakan gunakan nomor sertifikat "
+                                "yang berbeda."
+                            )
+                
+                        else:
+                            st.error(
+                                "Gagal membuat atau menyimpan "
+                                f"sertifikat: {exc}"
+                            )
+                
+                            import traceback
+                
+                            st.code(
+                                traceback.format_exc()
+                            )
                 sertifikat_path = (
                     st.session_state.pubbm_generated_files.get(
                         "sertifikat"
