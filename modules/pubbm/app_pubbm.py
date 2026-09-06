@@ -1206,14 +1206,227 @@ def run():
         except FileNotFoundError:
             return pd.DataFrame(columns=["Nama", "NIP", "Golongan"])
     
-    @st.cache_data
+    @st.cache_data(ttl=60)
     def load_data_spbu():
+        """
+        Prioritas:
+        1. Master perusahaan dari Supabase
+           yang teridentifikasi sebagai SPBU/PUBBM.
+        2. data_spbu.csv sebagai data fallback/legacy.
+    
+        Hasil akhir tetap menggunakan kolom:
+        - Nama SPBU
+        - Alamat
+        """
+    
+        daftar_data = []
+    
+        # =====================================================
+        # 1. AMBIL DATA DARI SUPABASE
+        # =====================================================
         try:
-            df = pd.read_csv("data/data_spbu.csv", sep=";", encoding="utf-8-sig")
-            df.columns = df.columns.str.strip()
-            return df
+            supabase = get_supabase_pubbm()
+    
+            # Ambil UTTP PUBBM yang sudah dikenal
+            response_uttp = (
+                supabase
+                .table("uttp")
+                .select(
+                    "perusahaan_id"
+                )
+                .eq(
+                    "jenis_uttp",
+                    "Pompa Ukur BBM"
+                )
+                .execute()
+            )
+    
+            perusahaan_ids_pubbm = {
+                row.get("perusahaan_id")
+                for row in (
+                    response_uttp.data
+                    or []
+                )
+                if row.get(
+                    "perusahaan_id"
+                ) is not None
+            }
+    
+            # Ambil master perusahaan
+            response_perusahaan = (
+                supabase
+                .table("perusahaan")
+                .select(
+                    "id, nama_perusahaan, alamat"
+                )
+                .execute()
+            )
+    
+            for row in (
+                response_perusahaan.data
+                or []
+            ):
+                perusahaan_id = row.get(
+                    "id"
+                )
+    
+                nama = str(
+                    row.get(
+                        "nama_perusahaan",
+                        ""
+                    )
+                    or ""
+                ).strip()
+    
+                alamat = str(
+                    row.get(
+                        "alamat",
+                        ""
+                    )
+                    or ""
+                ).strip()
+    
+                nama_upper = nama.upper()
+    
+                # =============================================
+                # PERUSAHAAN DIANGGAP SPBU JIKA:
+                # 1. Sudah punya UTTP Pompa Ukur BBM
+                # ATAU
+                # 2. Nama menunjukkan SPBU/Pertashop/Shell/BP/Vivo
+                # =============================================
+                merupakan_pubbm = (
+                    perusahaan_id
+                    in perusahaan_ids_pubbm
+                    or "SPBU" in nama_upper
+                    or "PERTASHOP" in nama_upper
+                    or "SHELL" in nama_upper
+                    or "BP AKR" in nama_upper
+                    or "VIVO" in nama_upper
+                )
+    
+                if (
+                    merupakan_pubbm
+                    and nama
+                ):
+                    daftar_data.append({
+                        "Nama SPBU": nama,
+                        "Alamat": alamat,
+                    })
+    
+        except Exception:
+            # Jika Supabase bermasalah,
+            # aplikasi tetap bisa memakai CSV.
+            pass
+    
+        # =====================================================
+        # 2. TAMBAHKAN DATA LEGACY DARI CSV
+        # =====================================================
+        try:
+            df_csv = pd.read_csv(
+                "data/data_spbu.csv",
+                sep=";",
+                encoding="utf-8-sig"
+            )
+    
+            df_csv.columns = (
+                df_csv.columns
+                .str.strip()
+            )
+    
+            if (
+                "Nama SPBU"
+                in df_csv.columns
+            ):
+                for _, row in (
+                    df_csv.iterrows()
+                ):
+                    nama = str(
+                        row.get(
+                            "Nama SPBU",
+                            ""
+                        )
+                        or ""
+                    ).strip()
+    
+                    alamat = str(
+                        row.get(
+                            "Alamat",
+                            ""
+                        )
+                        or ""
+                    ).strip()
+    
+                    if (
+                        nama
+                        and nama.lower()
+                        != "nan"
+                    ):
+                        daftar_data.append({
+                            "Nama SPBU": nama,
+                            "Alamat": (
+                                ""
+                                if alamat.lower()
+                                == "nan"
+                                else alamat
+                            ),
+                        })
+    
         except FileNotFoundError:
-            return pd.DataFrame(columns=["Nama SPBU", "Alamat"])
+            pass
+    
+        # =====================================================
+        # 3. SUSUN DATAFRAME
+        # =====================================================
+        if not daftar_data:
+            return pd.DataFrame(
+                columns=[
+                    "Nama SPBU",
+                    "Alamat"
+                ]
+            )
+    
+        df = pd.DataFrame(
+            daftar_data
+        )
+    
+        # =====================================================
+        # 4. HAPUS DUPLIKAT
+        # =====================================================
+        df["Nama SPBU"] = (
+            df["Nama SPBU"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+        )
+    
+        df["Alamat"] = (
+            df["Alamat"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+        )
+    
+        df = df[
+            df["Nama SPBU"] != ""
+        ]
+    
+        df = (
+            df
+            .drop_duplicates(
+                subset=[
+                    "Nama SPBU"
+                ],
+                keep="first"
+            )
+            .sort_values(
+                "Nama SPBU"
+            )
+            .reset_index(
+                drop=True
+            )
+        )
+    
+        return df
     
     # =========================
     # SESSION STATE AWAL
