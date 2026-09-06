@@ -1197,14 +1197,119 @@ def run():
         ] = str(
             data_penera.get("Golongan", "")
         ).strip()
-    @st.cache_data
+    @st.cache_data(ttl=60)
     def load_data_penera():
+        """
+        Membaca master Penera aktif dari Supabase.
+        """
+    
         try:
-            df = pd.read_excel("data/data_penera.xlsx")
-            df.columns = df.columns.str.strip()
+            supabase = get_supabase_pubbm()
+    
+            response = (
+                supabase
+                .table("penera")
+                .select(
+                    "id, nama, nip, golongan, status"
+                )
+                .eq(
+                    "status",
+                    "aktif"
+                )
+                .order(
+                    "nama"
+                )
+                .execute()
+            )
+    
+            data = response.data or []
+    
+            if not data:
+                return pd.DataFrame(
+                    columns=[
+                        "ID",
+                        "Nama",
+                        "NIP",
+                        "Golongan",
+                        "Status",
+                    ]
+                )
+    
+            df = pd.DataFrame(
+                data
+            )
+    
+            # =================================================
+            # SAMAKAN NAMA KOLOM DENGAN UI PUBBM
+            # =================================================
+            df = df.rename(
+                columns={
+                    "id": "ID",
+                    "nama": "Nama",
+                    "nip": "NIP",
+                    "golongan": "Golongan",
+                    "status": "Status",
+                }
+            )
+    
+            # =================================================
+            # BERSIHKAN DATA
+            # =================================================
+            for kolom in [
+                "Nama",
+                "NIP",
+                "Golongan",
+                "Status",
+            ]:
+                if kolom not in df.columns:
+                    df[kolom] = ""
+    
+                df[kolom] = (
+                    df[kolom]
+                    .fillna("")
+                    .astype(str)
+                    .str.strip()
+                )
+    
+            # Jangan tampilkan penera tanpa nama
+            df = df[
+                df["Nama"] != ""
+            ].copy()
+    
+            # Hindari duplikat
+            df = (
+                df
+                .drop_duplicates(
+                    subset=[
+                        "Nama",
+                        "NIP",
+                    ]
+                )
+                .sort_values(
+                    "Nama"
+                )
+                .reset_index(
+                    drop=True
+                )
+            )
+    
             return df
-        except FileNotFoundError:
-            return pd.DataFrame(columns=["Nama", "NIP", "Golongan"])
+    
+        except Exception as exc:
+            st.warning(
+                "Data Penera dari Supabase "
+                f"tidak dapat dibaca: {exc}"
+            )
+    
+            return pd.DataFrame(
+                columns=[
+                    "ID",
+                    "Nama",
+                    "NIP",
+                    "Golongan",
+                    "Status",
+                ]
+            )
     
     @st.cache_data(ttl=60)
     def load_data_spbu():
