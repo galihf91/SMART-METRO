@@ -228,6 +228,219 @@ def get_or_create_uttp_pubbm(
         )
 
     return response.data[0]["id"]
+# =========================================================
+# KONVERSI DATAFRAME PUBBM KE JSON
+# =========================================================
+def dataframe_to_records_pubbm(df):
+    """
+    Mengubah DataFrame menjadi list of dict
+    agar aman disimpan ke JSONB Supabase.
+    """
+
+    if (
+        df is None
+        or not isinstance(df, pd.DataFrame)
+        or df.empty
+    ):
+        return []
+
+    df_clean = df.copy()
+
+    # Ubah NaN / NaT menjadi None
+    df_clean = df_clean.where(
+        pd.notna(df_clean),
+        None
+    )
+
+    return df_clean.to_dict(
+        orient="records"
+    )
+# =========================================================
+# BUILD DATA PENGUJIAN PUBBM
+# =========================================================
+def build_data_pengujian_pubbm(data):
+    """
+    Menyusun detail pengujian PUBBM
+    untuk disimpan ke kolom data_pengujian JSONB.
+
+    Konsep:
+    1 UTTP = 1 SPBU
+    Detail dispenser/nozzle disimpan per pengujian.
+    """
+
+    if not data:
+        return {}
+
+    # =====================================================
+    # DISPENSER / NOZZLE
+    # =====================================================
+    dispenser_records = (
+        dataframe_to_records_pubbm(
+            data.get("dispenser")
+        )
+    )
+
+    # =====================================================
+    # BEJANA UKUR STANDAR
+    # =====================================================
+    alat_standar_records = (
+        dataframe_to_records_pubbm(
+            data.get("alat_standar")
+        )
+    )
+
+    # =====================================================
+    # JUMLAH NOZZLE YANG DIUJI
+    # =====================================================
+    jumlah_nozzle = len(
+        dispenser_records
+    )
+
+    # =====================================================
+    # DAFTAR POSISI NOZZLE
+    # =====================================================
+    posisi_nozzle = []
+
+    for item in dispenser_records:
+        posisi = str(
+            item.get(
+                "Posisi",
+                ""
+            )
+            or ""
+        ).strip()
+
+        if posisi:
+            posisi_nozzle.append(
+                posisi
+            )
+
+    # =====================================================
+    # DAFTAR MEDIA
+    # =====================================================
+    daftar_media = []
+
+    for item in dispenser_records:
+        media = str(
+            item.get(
+                "Media",
+                ""
+            )
+            or ""
+        ).strip()
+
+        if (
+            media
+            and media not in daftar_media
+        ):
+            daftar_media.append(
+                media
+            )
+
+    # =====================================================
+    # HASIL JSONB
+    # =====================================================
+    return {
+
+        # -------------------------------------------------
+        # IDENTITAS SPBU
+        # -------------------------------------------------
+        "nama_alat": data.get(
+            "nama_alat",
+            "Pompa Ukur BBM (Dispenser)"
+        ),
+
+        "nama_spbu": data.get(
+            "nama_spbu",
+            ""
+        ),
+
+        "pemilik": data.get(
+            "pemilik",
+            ""
+        ),
+
+        "alamat": data.get(
+            "alamat",
+            ""
+        ),
+
+        # -------------------------------------------------
+        # RINGKASAN PENGUJIAN
+        # -------------------------------------------------
+        "jumlah_dispenser": int(
+            data.get(
+                "jumlah_dispenser",
+                0
+            )
+            or 0
+        ),
+
+        "jumlah_nozzle": jumlah_nozzle,
+
+        "posisi_nozzle": posisi_nozzle,
+
+        "media": daftar_media,
+
+        # -------------------------------------------------
+        # DETAIL DISPENSER / NOZZLE
+        # -------------------------------------------------
+        "dispenser": dispenser_records,
+
+        # -------------------------------------------------
+        # ALAT STANDAR
+        # -------------------------------------------------
+        "jumlah_alat_standar": int(
+            data.get(
+                "jumlah_alat_standar",
+                0
+            )
+            or 0
+        ),
+
+        "alat_standar": alat_standar_records,
+
+        # -------------------------------------------------
+        # DATA PENERA
+        # -------------------------------------------------
+        "jumlah_penera": int(
+            data.get(
+                "jumlah_penera",
+                1
+            )
+            or 1
+        ),
+
+        "penera_1": data.get(
+            "penera_1",
+            ""
+        ),
+
+        "nip_penera_1": data.get(
+            "nip_penera_1",
+            ""
+        ),
+
+        "golongan_penera_1": data.get(
+            "golongan_penera_1",
+            ""
+        ),
+
+        "penera_2": data.get(
+            "penera_2",
+            ""
+        ),
+
+        "nip_penera_2": data.get(
+            "nip_penera_2",
+            ""
+        ),
+
+        "golongan_penera_2": data.get(
+            "golongan_penera_2",
+            ""
+        ),
+    }
 def bulan_singkat_id(tanggal):
     bulan = {
         1: "JAN", 2: "FEB", 3: "MAR", 4: "APR",
