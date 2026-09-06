@@ -4533,7 +4533,188 @@ def run():
                     )
                 ]
             # =====================================================
+            # DAFTAR NOZZLE / MEDIA DARI RIWAYAT
+            # =====================================================
+            opsi_nozzle = {}
+            
+            for pengujian in daftar_pengujian_filter:
+                detail = (
+                    pengujian.get(
+                        "data_pengujian"
+                    )
+                    or {}
+                )
+            
+                dispenser_records = (
+                    detail.get(
+                        "dispenser",
+                        []
+                    )
+                    or []
+                )
+            
+                for item in dispenser_records:
+                    nomor_dispenser = str(
+                        item.get(
+                            "No",
+                            ""
+                        )
+                        or ""
+                    ).strip()
+            
+                    posisi = str(
+                        item.get(
+                            "Posisi",
+                            ""
+                        )
+                        or ""
+                    ).strip()
+            
+                    media = str(
+                        item.get(
+                            "Media",
+                            ""
+                        )
+                        or ""
+                    ).strip()
+            
+                    # =============================================
+                    # LABEL NOZZLE
+                    # =============================================
+                    if posisi:
+                        label_nozzle = (
+                            f"Dispenser {nomor_dispenser}"
+                            f" | Posisi {posisi}"
+                            f" | {media}"
+                        )
+                    else:
+                        label_nozzle = (
+                            f"Dispenser {nomor_dispenser}"
+                            f" | {media}"
+                        )
+            
+                    # Key untuk pencarian
+                    key_nozzle = (
+                        nomor_dispenser,
+                        posisi,
+                        media,
+                    )
+            
+                    opsi_nozzle[
+                        label_nozzle
+                    ] = key_nozzle
+            # =====================================================
+            # FILTER NOZZLE / MEDIA
+            # =====================================================
+            pilihan_nozzle = st.selectbox(
+                "Filter Nozzle / Media",
+                options=[
+                    "Semua Nozzle"
+                ] + sorted(
+                    opsi_nozzle.keys()
+                ),
+                key="pubbm_filter_nozzle",
+            )
+            # =====================================================
+            # FILTER RIWAYAT BERDASARKAN NOZZLE / MEDIA
+            # =====================================================
+            if pilihan_nozzle != "Semua Nozzle":
+            
+                (
+                    filter_dispenser,
+                    filter_posisi,
+                    filter_media,
+                ) = opsi_nozzle[
+                    pilihan_nozzle
+                ]
+            
+                hasil_filter_nozzle = []
+            
+                for pengujian in daftar_pengujian_filter:
+            
+                    detail = (
+                        pengujian.get(
+                            "data_pengujian"
+                        )
+                        or {}
+                    )
+            
+                    dispenser_records = (
+                        detail.get(
+                            "dispenser",
+                            []
+                        )
+                        or []
+                    )
+            
+                    ditemukan = False
+            
+                    for item in dispenser_records:
+            
+                        nomor_dispenser = str(
+                            item.get(
+                                "No",
+                                ""
+                            )
+                            or ""
+                        ).strip()
+            
+                        posisi = str(
+                            item.get(
+                                "Posisi",
+                                ""
+                            )
+                            or ""
+                        ).strip()
+            
+                        media = str(
+                            item.get(
+                                "Media",
+                                ""
+                            )
+                            or ""
+                        ).strip()
+            
+                        # =========================================
+                        # JIKA POSISI TERSEDIA
+                        # =========================================
+                        if filter_posisi:
+                            if (
+                                nomor_dispenser
+                                == filter_dispenser
+                                and posisi
+                                == filter_posisi
+                                and media
+                                == filter_media
+                            ):
+                                ditemukan = True
+                                break
+            
+                        # =========================================
+                        # JIKA POSISI KOSONG
+                        # gunakan nomor dispenser + media
+                        # =========================================
+                        else:
+                            if (
+                                nomor_dispenser
+                                == filter_dispenser
+                                and media
+                                == filter_media
+                            ):
+                                ditemukan = True
+                                break
+            
+                    if ditemukan:
+                        hasil_filter_nozzle.append(
+                            pengujian
+                        )
+            
+                daftar_pengujian_filter = (
+                    hasil_filter_nozzle
+                )
+            # =====================================================
             # RINGKASAN RIWAYAT
+            # Dihitung setelah seluruh filter selesai
             # =====================================================
             jumlah_kegiatan = len(
                 daftar_pengujian_filter
@@ -4556,22 +4737,132 @@ def run():
                     )
                     or 0
                 )
+            # =====================================================
+            # HITUNG KEMUNCULAN NOZZLE / MEDIA TERPILIH
+            # =====================================================
+            jumlah_nozzle_terpilih = 0
             
-            col_ringkas1, col_ringkas2 = (
-                st.columns(2)
-            )
+            if pilihan_nozzle != "Semua Nozzle":
             
-            with col_ringkas1:
-                st.metric(
-                    "Jumlah Kegiatan Tera / Tera Ulang",
-                    jumlah_kegiatan
+                (
+                    filter_dispenser,
+                    filter_posisi,
+                    filter_media,
+                ) = opsi_nozzle[
+                    pilihan_nozzle
+                ]
+            
+                for pengujian in daftar_pengujian_filter:
+            
+                    detail = (
+                        pengujian.get(
+                            "data_pengujian"
+                        )
+                        or {}
+                    )
+            
+                    dispenser_records = (
+                        detail.get(
+                            "dispenser",
+                            []
+                        )
+                        or []
+                    )
+            
+                    for item in dispenser_records:
+            
+                        nomor_dispenser = str(
+                            item.get(
+                                "No",
+                                ""
+                            )
+                            or ""
+                        ).strip()
+            
+                        posisi = str(
+                            item.get(
+                                "Posisi",
+                                ""
+                            )
+                            or ""
+                        ).strip()
+            
+                        media = str(
+                            item.get(
+                                "Media",
+                                ""
+                            )
+                            or ""
+                        ).strip()
+            
+                        # =========================================
+                        # POSISI TERSEDIA
+                        # =========================================
+                        if filter_posisi:
+            
+                            if (
+                                nomor_dispenser
+                                == filter_dispenser
+                                and posisi
+                                == filter_posisi
+                                and media
+                                == filter_media
+                            ):
+                                jumlah_nozzle_terpilih += 1
+            
+                        # =========================================
+                        # POSISI KOSONG
+                        # Gunakan dispenser + media
+                        # =========================================
+                        else:
+            
+                            if (
+                                nomor_dispenser
+                                == filter_dispenser
+                                and media
+                                == filter_media
+                            ):
+                                jumlah_nozzle_terpilih += 1
+            if pilihan_nozzle == "Semua Nozzle":
+
+                col_ringkas1, col_ringkas2 = (
+                    st.columns(2)
                 )
             
-            with col_ringkas2:
-                st.metric(
-                    "Total Nozzle yang Diuji",
-                    total_nozzle
+                with col_ringkas1:
+                    st.metric(
+                        "Jumlah Kegiatan Tera / Tera Ulang",
+                        jumlah_kegiatan
+                    )
+            
+                with col_ringkas2:
+                    st.metric(
+                        "Total Nozzle yang Diuji",
+                        total_nozzle
+                    )
+            else:
+
+                col_ringkas1, col_ringkas2, col_ringkas3 = (
+                    st.columns(3)
                 )
+            
+                with col_ringkas1:
+                    st.metric(
+                        "Jumlah Kegiatan",
+                        jumlah_kegiatan
+                    )
+            
+                with col_ringkas2:
+                    st.metric(
+                        "Nozzle/Media Terpilih Diuji",
+                        jumlah_nozzle_terpilih
+                    )
+            
+                with col_ringkas3:
+                    st.metric(
+                        "Total Nozzle pada Kegiatan Tersebut",
+                        total_nozzle
+                    )
             # =====================================================
             # 6. TABEL RINGKAS RIWAYAT
             # =====================================================
