@@ -722,20 +722,57 @@ def simpan_pengujian_pubbm_ke_supabase(
     }
 
     # =====================================================
-    # 6. INSERT PENGUJIAN
+    # 6. INSERT / UPDATE PENGUJIAN
     # =====================================================
-    response = (
-        supabase
-        .table("pengujian")
-        .insert(payload)
-        .execute()
+    edit_id = st.session_state.get(
+        "pubbm_edit_pengujian_id"
     )
-
-    if not response.data:
-        raise RuntimeError(
-            "Data pengujian PUBBM gagal disimpan."
+    
+    if edit_id:
+    
+        # ==============================================
+        # MODE EDIT
+        # ==============================================
+        response = (
+            supabase
+            .table("pengujian")
+            .update(payload)
+            .eq(
+                "id",
+                edit_id
+            )
+            .execute()
         )
-
+    
+        if not response.data:
+            raise RuntimeError(
+                "Data pengujian PUBBM gagal diperbarui."
+            )
+    
+        # Setelah UPDATE berhasil,
+        # keluar dari mode edit
+        st.session_state.pop(
+            "pubbm_edit_pengujian_id",
+            None
+        )
+    
+    else:
+    
+        # ==============================================
+        # PENGUJIAN BARU
+        # ==============================================
+        response = (
+            supabase
+            .table("pengujian")
+            .insert(payload)
+            .execute()
+        )
+    
+        if not response.data:
+            raise RuntimeError(
+                "Data pengujian PUBBM gagal disimpan."
+            )
+    
     return response.data[0]
 def bulan_singkat_id(tanggal):
     bulan = {
@@ -1565,6 +1602,260 @@ def run():
                     key,
                     None
                 )
+    def gunakan_data_lama_untuk_edit_pubbm(
+        alat,
+        perusahaan,
+        pengujian
+    ):
+        """
+        Memuat satu riwayat PUBBM kembali ke form
+        untuk diedit.
+    
+        Data JSONB dari Supabase dikembalikan
+        menjadi DataFrame karena form PUBBM
+        masih menggunakan DataFrame.
+        """
+    
+        detail = (
+            pengujian.get(
+                "data_pengujian"
+            )
+            or {}
+        )
+    
+        # =====================================================
+        # ID PENGUJIAN YANG AKAN DI-UPDATE
+        # =====================================================
+        st.session_state[
+            "pubbm_edit_pengujian_id"
+        ] = pengujian.get(
+            "id"
+        )
+    
+        # =====================================================
+        # DISPENSER DARI JSON -> DATAFRAME
+        # =====================================================
+        dispenser_records = (
+            detail.get(
+                "dispenser",
+                []
+            )
+            or []
+        )
+    
+        dispenser_df = pd.DataFrame(
+            dispenser_records,
+            columns=[
+                "No",
+                "Posisi",
+                "Merk",
+                "Tipe",
+                "No. Seri",
+                "Media",
+            ]
+        )
+    
+        # =====================================================
+        # ALAT STANDAR DARI JSON -> DATAFRAME
+        # =====================================================
+        alat_standar_records = (
+            detail.get(
+                "alat_standar",
+                []
+            )
+            or []
+        )
+    
+        alat_standar_df = pd.DataFrame(
+            alat_standar_records,
+            columns=[
+                "No",
+                "Merk",
+                "Nomor Seri",
+                "Telusuran",
+            ]
+        )
+    
+        # =====================================================
+        # SUSUN DATA UNTUK FORM
+        # =====================================================
+        data_edit = {
+            "nomor_sertifikat": (
+                pengujian.get(
+                    "nomor_sertifikat",
+                    ""
+                )
+            ),
+    
+            "nomor_order": (
+                pengujian.get(
+                    "nomor_order",
+                    ""
+                )
+            ),
+    
+            "tanggal_pengujian": (
+                pengujian.get(
+                    "tanggal_pengujian",
+                    ""
+                )
+            ),
+    
+            "tanggal_cetak": (
+                pengujian.get(
+                    "tanggal_sertifikat",
+                    ""
+                )
+            ),
+    
+            "nama_alat": detail.get(
+                "nama_alat",
+                "Pompa Ukur BBM (Dispenser)"
+            ),
+    
+            "pemilik": perusahaan.get(
+                "nama_perusahaan",
+                detail.get(
+                    "pemilik",
+                    ""
+                )
+            ),
+    
+            "nama_spbu": detail.get(
+                "nama_spbu",
+                alat.get(
+                    "nomor_seri",
+                    ""
+                )
+            ),
+    
+            "alamat": perusahaan.get(
+                "alamat",
+                detail.get(
+                    "alamat",
+                    ""
+                )
+            ),
+    
+            "jenis_pengujian": (
+                pengujian.get(
+                    "jenis_pengujian",
+                    "Tera Ulang"
+                )
+            ),
+    
+            # =============================================
+            # PENERA
+            # =============================================
+            "penera_1": pengujian.get(
+                "penera_1",
+                detail.get(
+                    "penera_1",
+                    ""
+                )
+            ),
+    
+            "nip_penera_1": detail.get(
+                "nip_penera_1",
+                ""
+            ),
+    
+            "golongan_penera_1": detail.get(
+                "golongan_penera_1",
+                ""
+            ),
+    
+            "penera_2": pengujian.get(
+                "penera_2",
+                detail.get(
+                    "penera_2",
+                    ""
+                )
+            ),
+    
+            "nip_penera_2": detail.get(
+                "nip_penera_2",
+                ""
+            ),
+    
+            "golongan_penera_2": detail.get(
+                "golongan_penera_2",
+                ""
+            ),
+    
+            "jumlah_penera": int(
+                detail.get(
+                    "jumlah_penera",
+                    1
+                )
+                or 1
+            ),
+    
+            # =============================================
+            # ALAT STANDAR
+            # =============================================
+            "jumlah_alat_standar": int(
+                detail.get(
+                    "jumlah_alat_standar",
+                    len(alat_standar_df)
+                    if not alat_standar_df.empty
+                    else 1
+                )
+                or 1
+            ),
+    
+            "alat_standar": alat_standar_df,
+    
+            # =============================================
+            # DISPENSER
+            # =============================================
+            "jumlah_dispenser": int(
+                detail.get(
+                    "jumlah_dispenser",
+                    (
+                        dispenser_df["No"]
+                        .nunique()
+                        if not dispenser_df.empty
+                        else 1
+                    )
+                )
+                or 1
+            ),
+    
+            "dispenser": dispenser_df,
+        }
+    
+        # =====================================================
+        # SIMPAN SEBAGAI DATA AKTIF
+        # =====================================================
+        st.session_state[
+            "data_pubbm"
+        ] = data_edit
+    
+        st.session_state[
+            "saved_data"
+        ] = dict(
+            data_edit
+        )
+    
+        # =====================================================
+        # PULIHKAN SELURUH WIDGET FORM
+        # =====================================================
+        pulihkan_data_pubbm()
+    
+        # =====================================================
+        # HAPUS FILE HASIL GENERATE LAMA
+        # =====================================================
+        st.session_state[
+            "pubbm_generated_files"
+        ] = {}
+    
+        # =====================================================
+        # PINDAH KE INPUT DATA
+        # =====================================================
+        st.session_state[
+            "pubbm_next_mode"
+        ] = "📝 Input Data Pengujian"
     def validasi_data_pubbm(
         pemilik,
         alamat,
@@ -1725,6 +2016,15 @@ def run():
                         )
 
         return errors
+    # =========================================================
+    # PINDAH MODE PUBBM SETELAH RERUN
+    # =========================================================
+    if "pubbm_next_mode" in st.session_state:
+        st.session_state[
+            "mode_pubbm"
+        ] = st.session_state.pop(
+            "pubbm_next_mode"
+        )
     # =========================
     # SIDEBAR
     # =========================
@@ -4010,7 +4310,25 @@ def run():
                     st.info(
                         "Detail nozzle tidak tersedia."
                     )
-    
+                st.markdown("---")
+
+                if st.button(
+                    "✏️ Edit Pengujian",
+                    type="primary",
+                    use_container_width=True,
+                    key=(
+                        "pubbm_edit_riwayat_"
+                        f"{pengujian_terpilih.get('id')}"
+                    )
+                ):
+                    gunakan_data_lama_untuk_edit_pubbm(
+                        alat=alat,
+                        perusahaan=perusahaan,
+                        pengujian=pengujian_terpilih,
+                    )
+                
+                    st.rerun()
+
         except Exception as exc:
             st.error(
                 "Gagal membaca riwayat PUBBM: "
@@ -4022,3 +4340,4 @@ def run():
             st.code(
                 traceback.format_exc()
             )
+            
