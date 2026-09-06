@@ -1733,10 +1733,10 @@ def run():
         [
             "📝 Input Data Pengujian",
             "📄 Preview & Generate Data",
+            "📚 Riwayat PU BBM",
         ],
         key="mode_pubbm",
     )
-    
     
     # =========================
     # TITLE
@@ -3562,3 +3562,463 @@ def run():
                     st.caption(
                         "Form CTT belum digenerate."
                     )
+    # =========================================================
+    # MODE RIWAYAT PUBBM
+    # =========================================================
+    elif mode == "📚 Riwayat PU BBM":
+    
+        st.header("📚 Riwayat Pengujian PU BBM")
+    
+        try:
+            supabase = get_supabase_pubbm()
+    
+            # =====================================================
+            # 1. AMBIL MASTER UTTP PUBBM
+            # =====================================================
+            response_uttp = (
+                supabase
+                .table("uttp")
+                .select("*")
+                .eq(
+                    "jenis_uttp",
+                    "Pompa Ukur BBM"
+                )
+                .order(
+                    "id",
+                    desc=True
+                )
+                .execute()
+            )
+    
+            daftar_uttp = (
+                response_uttp.data
+                or []
+            )
+    
+            if not daftar_uttp:
+                st.info(
+                    "Belum ada data PU BBM "
+                    "yang tersimpan di Supabase."
+                )
+                st.stop()
+    
+            # =====================================================
+            # 2. AMBIL DATA PERUSAHAAN
+            # =====================================================
+            perusahaan_ids = list({
+                row.get("perusahaan_id")
+                for row in daftar_uttp
+                if row.get("perusahaan_id") is not None
+            })
+    
+            daftar_perusahaan = []
+    
+            if perusahaan_ids:
+                response_perusahaan = (
+                    supabase
+                    .table("perusahaan")
+                    .select(
+                        "id, nama_perusahaan, alamat"
+                    )
+                    .in_(
+                        "id",
+                        perusahaan_ids
+                    )
+                    .execute()
+                )
+    
+                daftar_perusahaan = (
+                    response_perusahaan.data
+                    or []
+                )
+    
+            perusahaan_map = {
+                row["id"]: row
+                for row in daftar_perusahaan
+            }
+    
+            # =====================================================
+            # 3. SUSUN PILIHAN SPBU
+            # =====================================================
+            opsi_spbu = {}
+    
+            for alat in daftar_uttp:
+                perusahaan = perusahaan_map.get(
+                    alat.get("perusahaan_id"),
+                    {}
+                )
+    
+                nama_perusahaan = str(
+                    perusahaan.get(
+                        "nama_perusahaan",
+                        ""
+                    )
+                    or ""
+                ).strip()
+    
+                identitas_spbu = str(
+                    alat.get(
+                        "nomor_seri",
+                        ""
+                    )
+                    or ""
+                ).strip()
+    
+                label = (
+                    f"{nama_perusahaan}"
+                    f" | {identitas_spbu}"
+                    f" | ID {alat.get('id')}"
+                )
+    
+                opsi_spbu[label] = {
+                    "uttp": alat,
+                    "perusahaan": perusahaan,
+                }
+    
+            pilihan_spbu = st.selectbox(
+                "Pilih SPBU",
+                options=[""] + list(
+                    opsi_spbu.keys()
+                ),
+                key="pubbm_riwayat_spbu",
+            )
+    
+            if not pilihan_spbu:
+                st.info(
+                    "Pilih SPBU untuk melihat "
+                    "riwayat tera / tera ulang."
+                )
+                st.stop()
+    
+            data_pilihan = opsi_spbu[
+                pilihan_spbu
+            ]
+    
+            alat = data_pilihan[
+                "uttp"
+            ]
+    
+            perusahaan = data_pilihan[
+                "perusahaan"
+            ]
+    
+            uttp_id = alat[
+                "id"
+            ]
+    
+            # =====================================================
+            # 4. IDENTITAS SPBU
+            # =====================================================
+            st.markdown("---")
+    
+            col_a, col_b = st.columns(2)
+    
+            with col_a:
+                st.write(
+                    "**Nama SPBU / Perusahaan:**"
+                )
+                st.write(
+                    perusahaan.get(
+                        "nama_perusahaan",
+                        ""
+                    )
+                )
+    
+            with col_b:
+                st.write(
+                    "**Identitas SPBU:**"
+                )
+                st.write(
+                    alat.get(
+                        "nomor_seri",
+                        ""
+                    )
+                )
+    
+            st.write(
+                "**Alamat:**"
+            )
+    
+            st.write(
+                perusahaan.get(
+                    "alamat",
+                    ""
+                )
+            )
+    
+            # =====================================================
+            # 5. AMBIL RIWAYAT PENGUJIAN
+            # =====================================================
+            response_pengujian = (
+                supabase
+                .table("pengujian")
+                .select("*")
+                .eq(
+                    "uttp_id",
+                    uttp_id
+                )
+                .order(
+                    "tanggal_pengujian",
+                    desc=True
+                )
+                .execute()
+            )
+    
+            daftar_pengujian = (
+                response_pengujian.data
+                or []
+            )
+    
+            if not daftar_pengujian:
+                st.info(
+                    "Belum ada riwayat pengujian "
+                    "untuk SPBU ini."
+                )
+                st.stop()
+    
+            # =====================================================
+            # 6. TABEL RINGKAS RIWAYAT
+            # =====================================================
+            data_ringkas = []
+    
+            for pengujian in daftar_pengujian:
+                detail = (
+                    pengujian.get(
+                        "data_pengujian"
+                    )
+                    or {}
+                )
+    
+                posisi_nozzle = (
+                    detail.get(
+                        "posisi_nozzle",
+                        []
+                    )
+                    or []
+                )
+    
+                if isinstance(
+                    posisi_nozzle,
+                    list
+                ):
+                    posisi_text = ", ".join(
+                        str(x)
+                        for x in posisi_nozzle
+                    )
+                else:
+                    posisi_text = str(
+                        posisi_nozzle
+                    )
+    
+                data_ringkas.append({
+                    "Tanggal": pengujian.get(
+                        "tanggal_pengujian",
+                        ""
+                    ),
+    
+                    "Jenis": pengujian.get(
+                        "jenis_pengujian",
+                        ""
+                    ),
+    
+                    "Nomor Sertifikat": pengujian.get(
+                        "nomor_sertifikat",
+                        ""
+                    ),
+    
+                    "Nomor Order": pengujian.get(
+                        "nomor_order",
+                        ""
+                    ),
+    
+                    "Jumlah Nozzle": detail.get(
+                        "jumlah_nozzle",
+                        0
+                    ),
+    
+                    "Posisi Nozzle": posisi_text,
+    
+                    "Penera": pengujian.get(
+                        "penera_1",
+                        ""
+                    ),
+                })
+    
+            st.markdown("---")
+            st.subheader(
+                "Riwayat Tera / Tera Ulang"
+            )
+    
+            st.dataframe(
+                pd.DataFrame(
+                    data_ringkas
+                ),
+                use_container_width=True,
+                hide_index=True,
+            )
+    
+            # =====================================================
+            # 7. PILIH SALAH SATU RIWAYAT
+            # =====================================================
+            opsi_riwayat = {}
+    
+            for pengujian in daftar_pengujian:
+    
+                detail = (
+                    pengujian.get(
+                        "data_pengujian"
+                    )
+                    or {}
+                )
+    
+                jumlah_nozzle = detail.get(
+                    "jumlah_nozzle",
+                    0
+                )
+    
+                label = (
+                    f"{pengujian.get('tanggal_pengujian', '')}"
+                    f" | {pengujian.get('jenis_pengujian', '')}"
+                    f" | {jumlah_nozzle} nozzle"
+                    f" | {pengujian.get('nomor_sertifikat', '')}"
+                )
+    
+                opsi_riwayat[
+                    label
+                ] = pengujian
+    
+            pilihan_riwayat = st.selectbox(
+                "Lihat Detail Pengujian",
+                options=[""] + list(
+                    opsi_riwayat.keys()
+                ),
+                key="pubbm_detail_riwayat",
+            )
+    
+            if pilihan_riwayat:
+    
+                pengujian_terpilih = (
+                    opsi_riwayat[
+                        pilihan_riwayat
+                    ]
+                )
+    
+                detail = (
+                    pengujian_terpilih.get(
+                        "data_pengujian"
+                    )
+                    or {}
+                )
+    
+                st.markdown("---")
+                st.subheader(
+                    "Detail Pengujian"
+                )
+    
+                col1, col2, col3 = (
+                    st.columns(3)
+                )
+    
+                with col1:
+                    st.write(
+                        "**Tanggal Pengujian:**"
+                    )
+                    st.write(
+                        pengujian_terpilih.get(
+                            "tanggal_pengujian",
+                            ""
+                        )
+                    )
+    
+                    st.write(
+                        "**Jenis Pengujian:**"
+                    )
+                    st.write(
+                        pengujian_terpilih.get(
+                            "jenis_pengujian",
+                            ""
+                        )
+                    )
+    
+                with col2:
+                    st.write(
+                        "**Nomor Sertifikat:**"
+                    )
+                    st.write(
+                        pengujian_terpilih.get(
+                            "nomor_sertifikat",
+                            ""
+                        )
+                    )
+    
+                    st.write(
+                        "**Nomor Order:**"
+                    )
+                    st.write(
+                        pengujian_terpilih.get(
+                            "nomor_order",
+                            ""
+                        )
+                    )
+    
+                with col3:
+                    st.write(
+                        "**Jumlah Nozzle:**"
+                    )
+                    st.write(
+                        detail.get(
+                            "jumlah_nozzle",
+                            0
+                        )
+                    )
+    
+                    st.write(
+                        "**Penera:**"
+                    )
+                    st.write(
+                        pengujian_terpilih.get(
+                            "penera_1",
+                            ""
+                        )
+                    )
+    
+                # =================================================
+                # DETAIL NOZZLE
+                # =================================================
+                dispenser_records = (
+                    detail.get(
+                        "dispenser",
+                        []
+                    )
+                    or []
+                )
+    
+                st.subheader(
+                    "Nozzle yang Diuji"
+                )
+    
+                if dispenser_records:
+                    st.dataframe(
+                        pd.DataFrame(
+                            dispenser_records
+                        ),
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+    
+                else:
+                    st.info(
+                        "Detail nozzle tidak tersedia."
+                    )
+    
+        except Exception as exc:
+            st.error(
+                "Gagal membaca riwayat PUBBM: "
+                f"{exc}"
+            )
+    
+            import traceback
+    
+            st.code(
+                traceback.format_exc()
+            )
