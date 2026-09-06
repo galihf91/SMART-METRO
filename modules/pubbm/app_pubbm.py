@@ -1856,6 +1856,320 @@ def run():
         st.session_state[
             "pubbm_next_mode"
         ] = "📝 Input Data Pengujian"
+    def gunakan_data_lama_untuk_pengujian_baru_pubbm(
+        alat,
+        perusahaan,
+        pengujian
+    ):
+        """
+        Menggunakan riwayat PUBBM sebagai dasar
+        pengujian baru.
+    
+        Identitas SPBU, dispenser/nozzle,
+        alat standar, dan penera dapat digunakan kembali.
+    
+        Nomor dokumen dan tanggal dibuat baru.
+        """
+    
+        detail = (
+            pengujian.get(
+                "data_pengujian"
+            )
+            or {}
+        )
+    
+        # =====================================================
+        # PASTIKAN BUKAN MODE EDIT
+        # =====================================================
+        st.session_state.pop(
+            "pubbm_edit_pengujian_id",
+            None
+        )
+    
+        # =====================================================
+        # DATA DISPENSER JSON -> DATAFRAME
+        # =====================================================
+        dispenser_records = (
+            detail.get(
+                "dispenser",
+                []
+            )
+            or []
+        )
+    
+        dispenser_df = pd.DataFrame(
+            dispenser_records,
+            columns=[
+                "No",
+                "Posisi",
+                "Merk",
+                "Tipe",
+                "No. Seri",
+                "Media",
+            ]
+        )
+    
+        # =====================================================
+        # ALAT STANDAR JSON -> DATAFRAME
+        # =====================================================
+        alat_standar_records = (
+            detail.get(
+                "alat_standar",
+                []
+            )
+            or []
+        )
+    
+        alat_standar_df = pd.DataFrame(
+            alat_standar_records,
+            columns=[
+                "No",
+                "Merk",
+                "Nomor Seri",
+                "Telusuran",
+            ]
+        )
+    
+        # =====================================================
+        # TANGGAL BARU
+        # =====================================================
+        hari_ini = date.today()
+    
+        nomor_sertifikat_baru = (
+            generate_nomor_sertifikat(
+                hari_ini
+            )
+        )
+    
+        nomor_order_baru = (
+            generate_nomor_order(
+                hari_ini
+            )
+        )
+    
+        # =====================================================
+        # SUSUN DATA PENGUJIAN BARU
+        # =====================================================
+        data_baru = {
+    
+            # =============================================
+            # NOMOR DOKUMEN BARU
+            # =============================================
+            "nomor_sertifikat": (
+                nomor_sertifikat_baru
+            ),
+    
+            "nomor_order": (
+                nomor_order_baru
+            ),
+    
+            # =============================================
+            # TANGGAL BARU
+            # =============================================
+            "tanggal_pengujian": (
+                hari_ini
+            ),
+    
+            "tanggal_cetak": (
+                hari_ini
+            ),
+    
+            # =============================================
+            # IDENTITAS SPBU
+            # =============================================
+            "nama_alat": detail.get(
+                "nama_alat",
+                "Pompa Ukur BBM (Dispenser)"
+            ),
+    
+            "pemilik": perusahaan.get(
+                "nama_perusahaan",
+                detail.get(
+                    "pemilik",
+                    ""
+                )
+            ),
+    
+            "nama_spbu": detail.get(
+                "nama_spbu",
+                alat.get(
+                    "nomor_seri",
+                    ""
+                )
+            ),
+    
+            "alamat": perusahaan.get(
+                "alamat",
+                detail.get(
+                    "alamat",
+                    ""
+                )
+            ),
+    
+            # =============================================
+            # DEFAULT PENGUJIAN BARU
+            # =============================================
+            "jenis_pengujian": (
+                "Tera Ulang"
+            ),
+    
+            # =============================================
+            # PENERA
+            # =============================================
+            "penera_1": detail.get(
+                "penera_1",
+                pengujian.get(
+                    "penera_1",
+                    ""
+                )
+            ),
+    
+            "nip_penera_1": detail.get(
+                "nip_penera_1",
+                ""
+            ),
+    
+            "golongan_penera_1": detail.get(
+                "golongan_penera_1",
+                ""
+            ),
+    
+            "penera_2": detail.get(
+                "penera_2",
+                pengujian.get(
+                    "penera_2",
+                    ""
+                )
+            ),
+    
+            "nip_penera_2": detail.get(
+                "nip_penera_2",
+                ""
+            ),
+    
+            "golongan_penera_2": detail.get(
+                "golongan_penera_2",
+                ""
+            ),
+    
+            "jumlah_penera": int(
+                detail.get(
+                    "jumlah_penera",
+                    1
+                )
+                or 1
+            ),
+    
+            # =============================================
+            # ALAT STANDAR
+            # =============================================
+            "jumlah_alat_standar": int(
+                detail.get(
+                    "jumlah_alat_standar",
+                    (
+                        len(alat_standar_df)
+                        if not alat_standar_df.empty
+                        else 1
+                    )
+                )
+                or 1
+            ),
+    
+            "alat_standar": (
+                alat_standar_df
+            ),
+    
+            # =============================================
+            # DISPENSER / NOZZLE
+            # =============================================
+            "jumlah_dispenser": int(
+                detail.get(
+                    "jumlah_dispenser",
+                    (
+                        dispenser_df["No"].nunique()
+                        if not dispenser_df.empty
+                        else 1
+                    )
+                )
+                or 1
+            ),
+    
+            "dispenser": (
+                dispenser_df
+            ),
+        }
+    
+        # =====================================================
+        # DATA AKTIF
+        # =====================================================
+        st.session_state[
+            "data_pubbm"
+        ] = data_baru
+    
+        st.session_state[
+            "saved_data"
+        ] = dict(
+            data_baru
+        )
+    
+        # =====================================================
+        # BERSIHKAN WIDGET DINAMIS LAMA
+        # =====================================================
+        prefix_hapus = (
+            "merk_",
+            "tipe_",
+            "no_seri_",
+            "posisi_",
+            "media_",
+            "media_manual_",
+            "media_restore_",
+            "jumlah_posisi_",
+            "bejana_select_",
+        )
+    
+        for key in list(
+            st.session_state.keys()
+        ):
+            if key.startswith(
+                prefix_hapus
+            ):
+                st.session_state.pop(
+                    key,
+                    None
+                )
+    
+        # =====================================================
+        # BERSIHKAN NOMOR / TANGGAL WIDGET LAMA
+        # =====================================================
+        for key in [
+            "nomor_sertifikat_pubbm",
+            "nomor_order_pubbm",
+            "tanggal_pengujian_pubbm",
+            "tanggal_cetak_pubbm",
+        ]:
+            st.session_state.pop(
+                key,
+                None
+            )
+    
+        # =====================================================
+        # PULIHKAN DATA KE FORM
+        # =====================================================
+        pulihkan_data_pubbm()
+    
+        # =====================================================
+        # FILE GENERATED LAMA DIHAPUS
+        # =====================================================
+        st.session_state[
+            "pubbm_generated_files"
+        ] = {}
+    
+        # =====================================================
+        # MASUK KE INPUT
+        # =====================================================
+        st.session_state[
+            "pubbm_next_mode"
+        ] = "📝 Input Data Pengujian"
     def validasi_data_pubbm(
         pemilik,
         alamat,
@@ -4312,22 +4626,49 @@ def run():
                     )
                 st.markdown("---")
 
-                if st.button(
-                    "✏️ Edit Pengujian",
-                    type="primary",
-                    use_container_width=True,
-                    key=(
-                        "pubbm_edit_riwayat_"
-                        f"{pengujian_terpilih.get('id')}"
-                    )
-                ):
-                    gunakan_data_lama_untuk_edit_pubbm(
-                        alat=alat,
-                        perusahaan=perusahaan,
-                        pengujian=pengujian_terpilih,
-                    )
+                # =================================================
+                # AKSI RIWAYAT
+                # =================================================
+                st.markdown("---")
                 
-                    st.rerun()
+                col_edit, col_baru = st.columns(2)
+                
+                
+                with col_edit:
+                    if st.button(
+                        "✏️ Edit Pengujian",
+                        type="primary",
+                        use_container_width=True,
+                        key=(
+                            "pubbm_edit_riwayat_"
+                            f"{pengujian_terpilih.get('id')}"
+                        )
+                    ):
+                        gunakan_data_lama_untuk_edit_pubbm(
+                            alat=alat,
+                            perusahaan=perusahaan,
+                            pengujian=pengujian_terpilih,
+                        )
+                
+                        st.rerun()
+                
+                
+                with col_baru:
+                    if st.button(
+                        "➕ Tambah Pengujian Baru",
+                        use_container_width=True,
+                        key=(
+                            "pubbm_baru_riwayat_"
+                            f"{pengujian_terpilih.get('id')}"
+                        )
+                    ):
+                        gunakan_data_lama_untuk_pengujian_baru_pubbm(
+                            alat=alat,
+                            perusahaan=perusahaan,
+                            pengujian=pengujian_terpilih,
+                        )
+                
+                        st.rerun()
 
         except Exception as exc:
             st.error(
