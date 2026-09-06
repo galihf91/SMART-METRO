@@ -3976,6 +3976,11 @@ def run():
                         # =================================================
                         # 4. SIMPAN KE SUPABASE
                         # =================================================
+                        sedang_edit = bool(
+                            st.session_state.get(
+                                "pubbm_edit_pengujian_id"
+                            )
+                        )
                         hasil_simpan = (
                             simpan_pengujian_pubbm_ke_supabase(
                                 data_pubbm
@@ -3992,11 +3997,16 @@ def run():
                             output_file
                         )
                 
-                        st.success(
-                            "✅ Sertifikat berhasil dibuat "
-                            "dan data pengujian berhasil "
-                            "disimpan ke Supabase."
-                        )
+                        if sedang_edit:
+                            st.success(
+                                "✅ Sertifikat berhasil dibuat dan "
+                                "data pengujian lama berhasil diperbarui."
+                            )
+                        else:
+                            st.success(
+                                "✅ Sertifikat berhasil dibuat dan "
+                                "pengujian baru berhasil disimpan."
+                            )
                 
                     except Exception as exc:
                         pesan_error = str(exc)
