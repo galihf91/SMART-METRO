@@ -4533,6 +4533,32 @@ def run():
                     )
                 ]
             # =====================================================
+            # FILTER JENIS PENGUJIAN
+            # =====================================================
+            pilihan_jenis = st.selectbox(
+                "Filter Jenis Pengujian",
+                options=[
+                    "Semua",
+                    "Tera",
+                    "Tera Ulang",
+                ],
+                key="pubbm_filter_jenis_pengujian",
+            )
+            
+            if pilihan_jenis != "Semua":
+                daftar_pengujian_filter = [
+                    pengujian
+                    for pengujian in daftar_pengujian_filter
+                    if str(
+                        pengujian.get(
+                            "jenis_pengujian",
+                            ""
+                        )
+                        or ""
+                    ).strip()
+                    == pilihan_jenis
+                ]
+            # =====================================================
             # DAFTAR NOZZLE / MEDIA DARI RIWAYAT
             # =====================================================
             opsi_nozzle = {}
@@ -4578,18 +4604,18 @@ def run():
                         or ""
                     ).strip()
             
-                    # =============================================
-                    # LABEL NOZZLE
-                    # =============================================
+                    # =================================================
+                    # LABEL FILTER YANG LEBIH RINGKAS
+                    # =================================================
                     if posisi:
                         label_nozzle = (
-                            f"Dispenser {nomor_dispenser}"
-                            f" | Posisi {posisi}"
+                            f"D{nomor_dispenser}"
+                            f" | {posisi}"
                             f" | {media}"
                         )
                     else:
                         label_nozzle = (
-                            f"Dispenser {nomor_dispenser}"
+                            f"D{nomor_dispenser}"
                             f" | {media}"
                         )
             
@@ -4607,7 +4633,7 @@ def run():
             # FILTER NOZZLE / MEDIA
             # =====================================================
             pilihan_nozzle = st.selectbox(
-                "Filter Nozzle / Media",
+                "Filter Posisi / Media",
                 options=[
                     "Semua Nozzle"
                 ] + sorted(
