@@ -4997,28 +4997,115 @@ def run():
             # 7. PILIH SALAH SATU RIWAYAT
             # =====================================================
             opsi_riwayat = {}
-    
+
             for pengujian in daftar_pengujian_filter:
-    
+            
                 detail = (
                     pengujian.get(
                         "data_pengujian"
                     )
                     or {}
                 )
-    
-                jumlah_nozzle = detail.get(
-                    "jumlah_nozzle",
-                    0
+            
+                jumlah_nozzle = int(
+                    detail.get(
+                        "jumlah_nozzle",
+                        0
+                    )
+                    or 0
                 )
-    
+            
+                # =================================================
+                # POSISI
+                # =================================================
+                posisi_nozzle = (
+                    detail.get(
+                        "posisi_nozzle",
+                        []
+                    )
+                    or []
+                )
+            
+                if isinstance(
+                    posisi_nozzle,
+                    list
+                ):
+                    posisi_bersih = [
+                        str(x).strip()
+                        for x in posisi_nozzle
+                        if str(x).strip()
+                    ]
+            
+                    posisi_text = ", ".join(
+                        posisi_bersih
+                    )
+                else:
+                    posisi_text = str(
+                        posisi_nozzle
+                        or ""
+                    ).strip()
+            
+                # =================================================
+                # MEDIA
+                # =================================================
+                daftar_media = (
+                    detail.get(
+                        "media",
+                        []
+                    )
+                    or []
+                )
+            
+                if isinstance(
+                    daftar_media,
+                    list
+                ):
+                    media_text = ", ".join(
+                        str(x).strip()
+                        for x in daftar_media
+                        if str(x).strip()
+                    )
+                else:
+                    media_text = str(
+                        daftar_media
+                        or ""
+                    ).strip()
+            
+                # =================================================
+                # LABEL TAMBAHAN
+                # =================================================
+                if posisi_text and media_text:
+                    detail_label = (
+                        f"Posisi {posisi_text}"
+                        f" | {media_text}"
+                    )
+            
+                elif media_text:
+                    detail_label = (
+                        media_text
+                    )
+            
+                elif posisi_text:
+                    detail_label = (
+                        f"Posisi {posisi_text}"
+                    )
+            
+                else:
+                    detail_label = (
+                        "Tanpa detail posisi/media"
+                    )
+            
+                # =================================================
+                # LABEL RIWAYAT
+                # =================================================
                 label = (
                     f"{pengujian.get('tanggal_pengujian', '')}"
                     f" | {pengujian.get('jenis_pengujian', '')}"
                     f" | {jumlah_nozzle} nozzle"
+                    f" | {detail_label}"
                     f" | {pengujian.get('nomor_sertifikat', '')}"
                 )
-    
+            
                 opsi_riwayat[
                     label
                 ] = pengujian
