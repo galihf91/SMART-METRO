@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from supabase import create_client
 from modules.pubbm.sertifikat_pubbm_generator import generate_sertifikat_pubbm
 from modules.timbangan_jembatan.form_peminjaman_standar_generator import (
     generate_form_peminjaman_standar_pdf,
@@ -12,6 +13,221 @@ import re
 from pathlib import Path
 
 OPSI_MEDIA_MANUAL = "✍️ Input Media Manual"
+# =========================================================
+# SUPABASE PUBBM
+# =========================================================
+def get_supabase_pubbm():
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_KEY"]
+
+    return create_client(
+        url,
+        key
+    )
+def simpan_atau_update_perusahaan_pubbm(
+    supabase,
+    nama_perusahaan,
+    alamat,
+):
+    nama_perusahaan = str(
+        nama_perusahaan or ""
+    ).strip()
+
+    alamat = str(
+        alamat or ""
+    ).strip()
+
+    if not nama_perusahaan:
+        raise ValueError(
+            "Nama SPBU / perusahaan belum diisi."
+        )
+
+    # =====================================================
+    # CARI PERUSAHAAN BERDASARKAN NAMA
+    # =====================================================
+    response = (
+        supabase
+        .table("perusahaan")
+        .select(
+            "id, nama_perusahaan, alamat"
+        )
+        .eq(
+            "nama_perusahaan",
+            nama_perusahaan
+        )
+        .execute()
+    )
+
+    # =====================================================
+    # PERUSAHAAN SUDAH ADA
+    # =====================================================
+    if response.data:
+        perusahaan = response.data[0]
+
+        perusahaan_id = perusahaan[
+            "id"
+        ]
+
+        alamat_lama = str(
+            perusahaan.get(
+                "alamat",
+                ""
+            )
+            or ""
+        ).strip()
+
+        # Update alamat jika berubah
+        if (
+            alamat
+            and alamat != alamat_lama
+        ):
+            (
+                supabase
+                .table("perusahaan")
+                .update({
+                    "alamat": alamat
+                })
+                .eq(
+                    "id",
+                    perusahaan_id
+                )
+                .execute()
+            )
+
+        return perusahaan_id
+
+    # =====================================================
+    # PERUSAHAAN BARU
+    # =====================================================
+    response = (
+        supabase
+        .table("perusahaan")
+        .insert({
+            "nama_perusahaan": nama_perusahaan,
+            "alamat": alamat,
+        })
+        .execute()
+    )
+
+    if not response.data:
+        raise RuntimeError(
+            "Data SPBU / perusahaan gagal disimpan."
+        )
+
+    return response.data[0]["id"]
+def get_or_create_uttp_pubbm(
+    supabase,
+    perusahaan_id,
+    nomor_spbu,
+    pemilik,
+):
+    """
+    Konsep PUBBM:
+    1 UTTP = 1 SPBU.
+
+    Detail dispenser/nozzle tidak disimpan
+    sebagai UTTP terpisah, tetapi sebagai
+    snapshot pada data_pengujian.
+    """
+
+    nomor_spbu = str(
+        nomor_spbu or ""
+    ).strip()
+
+    pemilik = str(
+        pemilik or ""
+    ).strip()
+
+    # =====================================================
+    # IDENTITAS UTTP
+    # =====================================================
+    identifier = (
+        nomor_spbu
+        if nomor_spbu
+        else pemilik
+    )
+
+    if not identifier:
+        raise ValueError(
+            "Identitas SPBU belum tersedia."
+        )
+
+    # =====================================================
+    # CARI UTTP SPBU YANG SUDAH ADA
+    # =====================================================
+    response = (
+        supabase
+        .table("uttp")
+        .select("*")
+        .eq(
+            "perusahaan_id",
+            perusahaan_id
+        )
+        .eq(
+            "jenis_uttp",
+            "Pompa Ukur BBM"
+        )
+        .eq(
+            "nomor_seri",
+            identifier
+        )
+        .execute()
+    )
+
+    if response.data:
+        uttp = response.data[0]
+
+        uttp_id = uttp["id"]
+
+        # Pastikan status tetap aktif
+        (
+            supabase
+            .table("uttp")
+            .update({
+                "lokasi": "SPBU",
+                "status": "aktif",
+            })
+            .eq(
+                "id",
+                uttp_id
+            )
+            .execute()
+        )
+
+        return uttp_id
+
+    # =====================================================
+    # BUAT UTTP SPBU BARU
+    # =====================================================
+    response = (
+        supabase
+        .table("uttp")
+        .insert({
+            "perusahaan_id": perusahaan_id,
+            "jenis_uttp": "Pompa Ukur BBM",
+
+            # Untuk PUBBM nomor_seri kita gunakan
+            # sebagai identitas SPBU
+            "nomor_seri": identifier,
+
+            # Satu SPBU bisa memiliki banyak
+            # merk/type dispenser
+            "merk": "",
+            "tipe": "",
+
+            "kapasitas": "",
+            "lokasi": "SPBU",
+            "status": "aktif",
+        })
+        .execute()
+    )
+
+    if not response.data:
+        raise RuntimeError(
+            "UTTP SPBU gagal disimpan."
+        )
+
+    return response.data[0]["id"]
 def bulan_singkat_id(tanggal):
     bulan = {
         1: "JAN", 2: "FEB", 3: "MAR", 4: "APR",
