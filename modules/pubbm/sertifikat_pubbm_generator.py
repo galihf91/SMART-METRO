@@ -1190,12 +1190,12 @@ def generate_sertifikat_pubbm(data, output_path="sertifikat_pubbm.pdf"):
 
             tipe_text = wrap_teks_kolom(
                 tipe,
-                11
+                12
             )
 
             no_seri_text = wrap_teks_kolom(
                 no_seri,
-                14
+                15
             )
 
             jumlah_baris = max(
