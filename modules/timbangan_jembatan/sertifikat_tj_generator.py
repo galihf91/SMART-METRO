@@ -295,13 +295,31 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     c.setFont("Helvetica", 12)
     c.drawString(colon_x_fixed, y_row, ":")
     start_x_val = colon_x_fixed + 0.3*cm
-    # Batas sebelum kolom kanan
-    safe_right = right_col_x - 0.5*cm
-    max_val_width = safe_right - start_x_val
-    char_width_val = c.stringWidth("A", "Helvetica", 12)
-    chars_per_line_val = max(
+    # ============================================================
+    # BATAS LEBAR NILAI KOLOM KIRI
+    # Dipakai untuk Merek, Model, dan Nomor Seri
+    # Mengikuti Sertifikat Timbangan
+    # ============================================================
+    
+    safe_right_left_value = right_col_x + 2.0 * cm
+    
+    max_left_value_width = (
+        safe_right_left_value
+        - start_x_val
+    )
+    
+    char_width_left_value = c.stringWidth(
+        "A",
+        "Helvetica",
+        12
+    )
+    
+    chars_per_line_left = max(
         10,
-        int(max_val_width / char_width_val)
+        int(
+            max_left_value_width
+            / char_width_left_value
+        )
     )
     merek = data.get(
         "merek",
@@ -437,17 +455,114 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     special_offset = 1.2*cm   # sesuaikan
     colon_fixed_shifted = colon_x_fixed + special_offset
 
-    # Pemilik
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(left_col_x, y, "Pemilik")
-    bold_width = c.stringWidth("Pemilik", "Helvetica-Bold", 12)
-    c.line(left_col_x, y - 0.08*cm, left_col_x + bold_width, y - 0.08*cm)
-    c.setFont("Helvetica-BoldOblique", 12)
-    c.drawString(left_col_x, y - line_spacing, "User")
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(colon_fixed_shifted, y, ":")
-    c.drawString(colon_fixed_shifted + 0.3*cm, y, data.get('pemilik', ''))
-    y -= 1.0*cm
+    # ======================== PEMILIK ========================
+    c.setFont(
+        "Helvetica-Bold",
+        12
+    )
+    
+    c.drawString(
+        left_col_x,
+        y,
+        "Pemilik"
+    )
+    
+    bold_width = c.stringWidth(
+        "Pemilik",
+        "Helvetica-Bold",
+        12
+    )
+    
+    c.line(
+        left_col_x,
+        y - 0.08 * cm,
+        left_col_x + bold_width,
+        y - 0.08 * cm
+    )
+    
+    c.setFont(
+        "Helvetica-BoldOblique",
+        12
+    )
+    
+    c.drawString(
+        left_col_x,
+        y - line_spacing,
+        "User"
+    )
+    
+    c.setFont(
+        "Helvetica-Bold",
+        12
+    )
+    
+    c.drawString(
+        colon_fixed_shifted,
+        y,
+        ":"
+    )
+    
+    start_x_pemilik = (
+        colon_fixed_shifted
+        + 0.3 * cm
+    )
+    
+    max_width_pemilik = (
+        right_limit_content
+        - start_x_pemilik
+    )
+    
+    char_width_pemilik = c.stringWidth(
+        "A",
+        "Helvetica-Bold",
+        12
+    )
+    
+    chars_per_line_pemilik = max(
+        10,
+        int(
+            max_width_pemilik
+            / char_width_pemilik
+        )
+    )
+    
+    pemilik_text = str(
+        data.get(
+            "pemilik",
+            ""
+        )
+    )
+    
+    wrapped_pemilik = textwrap.wrap(
+        pemilik_text,
+        width=chars_per_line_pemilik
+    )
+    
+    if wrapped_pemilik:
+    
+        c.drawString(
+            start_x_pemilik,
+            y,
+            wrapped_pemilik[0]
+        )
+    
+        for i, line in enumerate(
+            wrapped_pemilik[1:],
+            start=1
+        ):
+            c.drawString(
+                start_x_pemilik,
+                y - i * 0.45 * cm,
+                line
+            )
+    
+        y -= (
+            0.45 * cm
+            * (len(wrapped_pemilik) - 1)
+        )
+    
+    # Jarak ke Alamat
+    y -= 1.0 * cm
 
     # Alamat
     c.setFont("Helvetica", 12)
