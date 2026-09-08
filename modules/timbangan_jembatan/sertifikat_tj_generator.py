@@ -356,8 +356,7 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     )
 
     # Update y berdasarkan posisi terendah (kiri bisa wrap)
-    # Turun minimal 1.3 cm agar tidak menabrak baris berikutnya
-    y = min(y_row_kiri - 0.5*cm, y_row - 1.3*cm)
+    y = min(y_row_kiri - 0.5*cm, y_row - 1.5*cm)
 
     # --------------------- BARIS 4: MODEL / TIPE (KIRI) & INTERVAL SKALA (KANAN) ---------------------
     y_row = y
@@ -395,8 +394,21 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     c.drawString(colon_right_fixed, y_row, ":")
     c.drawString(colon_right_fixed + 0.3*cm, y_row, f"{data.get('interval_skala', '')} kg")
 
-    # Turun minimal 1.3 cm agar baris berikutnya tetap stabil
-    y = min(y_row_kiri - 0.5*cm, y_row - 1.3*cm)
+    jumlah_baris_kiri = max(
+        1,
+        len(wrapped_model)
+    )
+    
+    tambahan_turun = (
+        (jumlah_baris_kiri - 1)
+        * 0.25 * cm
+    )
+    
+    y = (
+        y_row
+        - 1.0 * cm
+        - tambahan_turun
+    )
 
     # --------------------- BARIS 5: NOMOR SERI (KIRI) & KELAS (KANAN) ---------------------
     y_row = y
