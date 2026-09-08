@@ -1458,27 +1458,40 @@ def gunakan_data_lama_untuk_edit(
         "tanggal_sertifikat_tj"
     ] = tanggal_sertifikat_lama
     # =====================================================
-    # NOMOR DOKUMEN
+    # NOMOR DOKUMEN LAMA — MODE EDIT
     # =====================================================
-    st.session_state[
-        "nomor_sertifikat_tj"
-    ] = str(
+    
+    nomor_sertifikat_lama = str(
         pengujian.get(
             "nomor_sertifikat"
         )
         or ""
-    )
-
-    st.session_state[
-        "nomor_order_tj"
-    ] = str(
+    ).strip()
+    
+    nomor_order_lama = str(
         pengujian.get(
             "nomor_order"
         )
         or ""
-    )
-
-    st.session_state.generated_files = {}
+    ).strip()
+    
+    # Simpan permanen selama mode edit
+    st.session_state[
+        "tj_nomor_sertifikat_edit_lama"
+    ] = nomor_sertifikat_lama
+    
+    st.session_state[
+        "tj_nomor_order_edit_lama"
+    ] = nomor_order_lama
+    
+    # Isi juga key widget
+    st.session_state[
+        "nomor_sertifikat_tj"
+    ] = nomor_sertifikat_lama
+    
+    st.session_state[
+        "nomor_order_tj"
+    ] = nomor_order_lama
 
     # =====================================================
     # PINDAH KE INPUT
