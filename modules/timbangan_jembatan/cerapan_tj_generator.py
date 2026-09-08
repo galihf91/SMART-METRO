@@ -761,7 +761,7 @@ def generate_cerapan_pdf(data, filename):
     x1 = x0 + 0.8*cm
     x2 = x1 + 4.5*cm
     x3 = x2 + 1.5*cm
-    x4 = x3 + 2.5*cm
+    x4 = x3 + 3.2*cm
     x5 = x4 + 4.0*cm
 
     y_header1_bottom = y_start_penera - tinggi_header1
