@@ -1521,6 +1521,8 @@ def gunakan_data_lama_untuk_pengujian_baru(
         "tj_alamat_perusahaan_lama",
         "tj_aksi_perusahaan_edit",
         "tj_aksi_perusahaan_edit_sebelumnya",
+        "tj_nomor_sertifikat_edit_lama",
+        "tj_nomor_order_edit_lama",
     ]
     
     for key in keys_mode_edit:
@@ -3675,7 +3677,11 @@ def run():
                 
                 if sedang_edit:
                     nomor_sertifikat_awal = str(
-                        data.get(
+                        st.session_state.get(
+                            "tj_nomor_sertifikat_edit_lama",
+                            ""
+                        )
+                        or data.get(
                             "nomor_sertifikat",
                             ""
                         )
@@ -3687,7 +3693,11 @@ def run():
                     ).strip()
                 
                     nomor_order_awal = str(
-                        data.get(
+                        st.session_state.get(
+                            "tj_nomor_order_edit_lama",
+                            ""
+                        )
+                        or data.get(
                             "nomor_order",
                             ""
                         )
@@ -3715,17 +3725,46 @@ def run():
                         or default_order
                     ).strip()
                 
-                # Isi nomor hanya saat widget belum pernah dibuat.
-                # Setelah user mengubah nomor, jangan ditimpa lagi saat rerun.
-                if "nomor_sertifikat_tj" not in st.session_state:
-                    st.session_state[
-                        "nomor_sertifikat_tj"
-                    ] = nomor_sertifikat_awal
+                # =====================================================
+                # ISI NOMOR DOKUMEN KE WIDGET
+                # =====================================================
                 
-                if "nomor_order_tj" not in st.session_state:
-                    st.session_state[
-                        "nomor_order_tj"
-                    ] = nomor_order_awal
+                if sedang_edit:
+                
+                    # Saat edit, jika widget kosong,
+                    # pulihkan nomor dokumen lama
+                    if not str(
+                        st.session_state.get(
+                            "nomor_sertifikat_tj",
+                            ""
+                        )
+                    ).strip():
+                        st.session_state[
+                            "nomor_sertifikat_tj"
+                        ] = nomor_sertifikat_awal
+                
+                    if not str(
+                        st.session_state.get(
+                            "nomor_order_tj",
+                            ""
+                        )
+                    ).strip():
+                        st.session_state[
+                            "nomor_order_tj"
+                        ] = nomor_order_awal
+                
+                else:
+                
+                    # Pengujian baru
+                    if "nomor_sertifikat_tj" not in st.session_state:
+                        st.session_state[
+                            "nomor_sertifikat_tj"
+                        ] = nomor_sertifikat_awal
+                
+                    if "nomor_order_tj" not in st.session_state:
+                        st.session_state[
+                            "nomor_order_tj"
+                        ] = nomor_order_awal
                 
                 nomor_sertifikat = st.text_input(
                     "Nomor Sertifikat",
