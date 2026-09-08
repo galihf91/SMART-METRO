@@ -779,6 +779,8 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     # Tentukan posisi titik dua yang digeser untuk bagian ini (sama dengan baris 1&2)
     special_offset = 1.2*cm   # sesuaikan
     colon_fixed_shifted = colon_x_fixed + special_offset
+    # Tambahan jarak dari Nomor Seri / Nomor Alat ke Pemilik
+    y -= 0.10 * cm
 
     # ======================== PEMILIK ========================
     c.setFont(
