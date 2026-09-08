@@ -431,19 +431,12 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
 
     y_row = y
 
-    # ---------------- KOLOM KIRI ----------------
-    if is_timbangan_elektronik:
-        label_kiri = "Model / Tipe"
-        label_kiri_en = "Model / Type"
-        nilai_kiri = str(
-            data.get("model", "")
-        )
-    else:
-        label_kiri = "Nomor Seri"
-        label_kiri_en = "Serial Number"
-        nilai_kiri = str(
-            data.get("no_seri", "")
-        )
+    # ---------------- KOLOM KIRI: MODEL / TIPE ----------------
+    label_kiri = "Model / Tipe"
+    label_kiri_en = "Model / Type"
+    nilai_kiri = str(
+        data.get("model", "")
+    )
 
     c.setFont("Helvetica", 12)
 
