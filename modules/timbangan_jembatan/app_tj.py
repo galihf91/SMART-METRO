@@ -3528,8 +3528,16 @@ def run():
             )
             
             if sedang_edit:
+
+                # =====================================================
+                # PERTAHANKAN NOMOR DOKUMEN ASLI SAAT EDIT
+                # =====================================================
                 nomor_sertifikat_simpan = str(
                     st.session_state.get(
+                        "tj_nomor_sertifikat_edit_lama",
+                        ""
+                    )
+                    or st.session_state.get(
                         "nomor_sertifikat_tj",
                         ""
                     )
@@ -3542,6 +3550,10 @@ def run():
             
                 nomor_order_simpan = str(
                     st.session_state.get(
+                        "tj_nomor_order_edit_lama",
+                        ""
+                    )
+                    or st.session_state.get(
                         "nomor_order_tj",
                         ""
                     )
