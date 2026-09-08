@@ -1536,15 +1536,31 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     test_results = list(
         data.get("hasil_pengujian", []) or []
     )
-
+    
     c.setFont("Helvetica", 12)
-
-    # Neraca Obat hanya memiliki satu baris pengujian aktif
+    
+    # ============================================================
+    # BARIS HASIL PENGUJIAN YANG AKTIF
+    # ============================================================
+    
+    hasil_aktif = [
+        item
+        for item in test_results
+        if item.get("aktif", True)
+    ]
+    
+    # Fallback untuk data lama yang belum mempunyai field "aktif"
+    if not hasil_aktif and test_results:
+        hasil_aktif = test_results
+    
+    # Neraca Obat dan Timbangan Meja hanya 1 titik
     if is_neraca_obat or is_timbangan_meja:
-        indeks_yang_ditampilkan = [0]
-    else:
-        indeks_yang_ditampilkan = [0, 1, 2, 3, 4]
-
+        hasil_aktif = hasil_aktif[:1]
+    
+    indeks_yang_ditampilkan = list(
+        range(len(hasil_aktif))
+    )
+    
     jumlah_baris = len(
         indeks_yang_ditampilkan
     )
@@ -1581,8 +1597,8 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
         indeks_yang_ditampilkan,
         start=1
     ):
-        if idx < len(test_results):
-            res = test_results[idx] or {}
+        if idx < len(hasil_aktif):
+            res = hasil_aktif[idx] or {}
 
             # Prioritas pengambilan nilai Penunjukan:
             # 1. penunjukan_text
