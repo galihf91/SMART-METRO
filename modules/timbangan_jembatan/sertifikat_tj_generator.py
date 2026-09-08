@@ -602,14 +602,47 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     alamat = data.get('alamat', '')
     wrapped_lines = textwrap.wrap(alamat, width=chars_per_line)
     if wrapped_lines:
-        start_x = colon_fixed_shifted + 0.3*cm
-        line_height = 0.45*cm
-        c.drawString(start_x, y, wrapped_lines[0])
-        for i, line in enumerate(wrapped_lines[1:], start=1):
-            c.drawString(start_x, y - i*line_height, line)
-        y -= (line_height * (len(wrapped_lines) - 1)) + 0.9*cm
+        start_x = colon_fixed_shifted + 0.3 * cm
+        line_height = 0.45 * cm
+    
+        # Baris pertama
+        c.drawString(
+            start_x,
+            y,
+            wrapped_lines[0]
+        )
+    
+        # Baris berikutnya
+        for i, line in enumerate(
+            wrapped_lines[1:],
+            start=1
+        ):
+            c.drawString(
+                start_x,
+                y - i * line_height,
+                line
+            )
+    
+        # ============================================================
+        # ATUR JARAK KE PENERA
+        # ============================================================
+    
+        if len(wrapped_lines) == 1:
+            # Alamat pendek
+            y -= 0.9 * cm
+    
+        else:
+            # Posisi baris alamat terakhir
+            y_alamat_terakhir = (
+                y
+                - line_height * (len(wrapped_lines) - 1)
+            )
+    
+            # Jarak dari baris terakhir alamat ke Penera
+            y = y_alamat_terakhir - 0.5 * cm
+    
     else:
-        y -= 0.6*cm
+        y -= 0.9 * cm
 
     # ======================== PENERA ========================
     c.setFont(
