@@ -7,25 +7,21 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 from supabase import create_client
-try:
-    from modules.timbangan.cerapan_timbangan_generator import generate_cerapan_pdf
-    from modules.timbangan.sertifikat_timbangan_generator import generate_sertifikat_pdf
-    from modules.timbangan.form_peminjaman_standar_timbangan_generator import (
-        generate_form_peminjaman_standar_timbangan_pdf
-    )
-    from modules.timbangan.form_peminjaman_ctt_timbangan_generator import (
-        generate_form_peminjaman_ctt_timbangan_pdf
-    )
-except ModuleNotFoundError:
-    # Fallback agar file tetap bisa diuji secara mandiri.
-    from cerapan_generator import generate_cerapan_pdf
-    from sertifikat_generator import generate_sertifikat_pdf
-    from form_peminjaman_standar_timbangan_generator import (
-        generate_form_peminjaman_standar_timbangan_pdf
-    )
-    from form_peminjaman_ctt_timbangan_generator import (
-        generate_form_peminjaman_ctt_timbangan_pdf
-    )
+from modules.timbangan.cerapan_timbangan_generator import (
+    generate_cerapan_pdf
+)
+
+from modules.timbangan.sertifikat_timbangan_generator import (
+    generate_sertifikat_pdf
+)
+
+from modules.timbangan.form_peminjaman_standar_timbangan_generator import (
+    generate_form_peminjaman_standar_timbangan_pdf
+)
+
+from modules.timbangan.form_peminjaman_ctt_timbangan_generator import (
+    generate_form_peminjaman_ctt_timbangan_pdf
+)
 
 
 def find_project_root():
