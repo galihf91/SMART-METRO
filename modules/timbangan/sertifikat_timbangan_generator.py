@@ -720,7 +720,10 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
         y_row_seri = y_row
     
     
-    # ---------------- KOLOM KANAN: KELAS ----------------
+    # ============================================================
+    # KOLOM KANAN: KELAS
+    # ============================================================
+    
     c.setFont("Helvetica", 12)
     
     c.drawString(
@@ -767,6 +770,7 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     
     # ============================================================
     # POSISI BARIS BERIKUTNYA
+    # SAMA DENGAN VERSI LOKAL
     # ============================================================
     
     y = min(
