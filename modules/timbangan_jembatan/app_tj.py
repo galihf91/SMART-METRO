@@ -2289,6 +2289,68 @@ def run():
                 f"ID Pengujian: {edit_id}"
             )
         
+            # =====================================================
+            # NOMOR DOKUMEN LAMA SAAT MODE EDIT
+            # =====================================================
+        
+            nomor_sertifikat_edit = str(
+                st.session_state.get(
+                    "tj_nomor_sertifikat_edit_lama",
+                    ""
+                )
+                or st.session_state.saved_data.get(
+                    "nomor_sertifikat",
+                    ""
+                )
+                or ""
+            ).strip()
+        
+            nomor_order_edit = str(
+                st.session_state.get(
+                    "tj_nomor_order_edit_lama",
+                    ""
+                )
+                or st.session_state.saved_data.get(
+                    "nomor_order",
+                    ""
+                )
+                or ""
+            ).strip()
+        
+            if not str(
+                st.session_state.get(
+                    "nomor_sertifikat_tj",
+                    ""
+                )
+            ).strip():
+                st.session_state[
+                    "nomor_sertifikat_tj"
+                ] = nomor_sertifikat_edit
+        
+            if not str(
+                st.session_state.get(
+                    "nomor_order_tj",
+                    ""
+                )
+            ).strip():
+                st.session_state[
+                    "nomor_order_tj"
+                ] = nomor_order_edit
+        
+            col_nomor1, col_nomor2 = st.columns(2)
+        
+            with col_nomor1:
+                st.text_input(
+                    "Nomor Sertifikat",
+                    key="nomor_sertifikat_tj",
+                )
+        
+            with col_nomor2:
+                st.text_input(
+                    "Nomor Order",
+                    key="nomor_order_tj",
+                )
+        
             if st.button(
                 "❌ Batal Edit",
                 use_container_width=True,
