@@ -290,27 +290,37 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     c.setFont("Helvetica", 12)
     c.drawString(colon_x_fixed, y_row, ":")
     start_x_val = colon_x_fixed + 0.3*cm
-    safe_right = right_col_x - 0.2 * cm
 
-    max_val_width = (
-        safe_right
+    # ============================================================
+    # BATAS LEBAR NILAI KOLOM KIRI
+    # Dipakai untuk Merk, Model, dan Nomor Seri
+    # ============================================================
+    
+    safe_right_left_value = right_col_x + 1.0 * cm
+    
+    max_left_value_width = (
+        safe_right_left_value
         - start_x_val
     )
-    char_width_val = c.stringWidth(
+    
+    char_width_left_value = c.stringWidth(
         "A",
         "Helvetica",
         12
     )
-
-    chars_per_line_val = max(
+    
+    chars_per_line_left = max(
         10,
         int(
-            max_val_width
-            / char_width_val
+            max_left_value_width
+            / char_width_left_value
         )
     )
     merek = data.get('merek', '')
-    wrapped_merek = textwrap.wrap(merek, width=chars_per_line_val)
+    wrapped_merek = textwrap.wrap(
+        merek,
+        width=chars_per_line_left
+    )
     if wrapped_merek:
         c.drawString(start_x_val, y_row, wrapped_merek[0])
         for i, line in enumerate(wrapped_merek[1:], start=1):
