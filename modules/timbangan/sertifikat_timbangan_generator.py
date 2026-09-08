@@ -569,146 +569,209 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
 
     # ============================================================
     # BARIS 5
-    # Timbangan Elektronik : Nomor Seri + Kelas
-    # Alat lain            : Kelas saja
     # ============================================================
-
-    # Posisi BARIS 5 mengikuti posisi baru hasil BARIS 4
+    # BARIS NOMOR SERI / NOMOR ALAT
+    # ============================================================
+    
     y_row = y
-    y_row_kiri = y_row
-
-    # Nomor Seri belum dicetak pada Timbangan Elektronik
-    wrapped_seri = []
-
-    if is_timbangan_elektronik:
+    
+    # ============================================================
+    # 1. NOMOR SERI /
+    # ============================================================
+    
+    c.setFont("Helvetica", 12)
+    
+    teks_nomor_seri = "Nomor Seri"
+    
+    c.drawString(
+        left_col_x,
+        y_row,
+        teks_nomor_seri
+    )
+    
+    lebar_nomor_seri = c.stringWidth(
+        teks_nomor_seri,
+        "Helvetica",
+        12
+    )
+    
+    c.drawString(
+        left_col_x + lebar_nomor_seri + 0.08 * cm,
+        y_row,
+        "/"
+    )
+    
+    
+    # ============================================================
+    # 2. NOMOR ALAT + GARIS BAWAH
+    # ============================================================
+    
+    teks_nomor_alat = "Nomor Alat"
+    
+    c.drawString(
+        left_col_x,
+        y_row - 0.45 * cm,
+        teks_nomor_alat
+    )
+    
+    lebar_nomor_alat = c.stringWidth(
+        teks_nomor_alat,
+        "Helvetica",
+        12
+    )
+    
+    c.line(
+        left_col_x,
+        y_row - 0.53 * cm,
+        left_col_x + lebar_nomor_alat,
+        y_row - 0.53 * cm
+    )
+    
+    
+    # ============================================================
+    # 3. SERIAL NUMBER /
+    # ============================================================
+    
+    c.setFont("Helvetica-Oblique", 12)
+    
+    teks_serial_number = "Serial Number"
+    
+    c.drawString(
+        left_col_x,
+        y_row - 0.90 * cm,
+        teks_serial_number
+    )
+    
+    lebar_serial_number = c.stringWidth(
+        teks_serial_number,
+        "Helvetica-Oblique",
+        12
+    )
+    
+    c.drawString(
+        left_col_x + lebar_serial_number + 0.08 * cm,
+        y_row - 0.90 * cm,
+        "/"
+    )
+    
+    
+    # ============================================================
+    # 4. TOOL NUMBER
+    # ============================================================
+    
+    c.drawString(
+        left_col_x,
+        y_row - 1.35 * cm,
+        "Tool Number"
+    )
+    
+    
+    # ============================================================
+    # TITIK DUA
+    # ============================================================
+    
+    c.setFont("Helvetica", 12)
+    
+    c.drawString(
+        colon_x_fixed,
+        y_row,
+        ":"
+    )
+    
+    
+    # ============================================================
+    # NILAI NOMOR SERI / NOMOR ALAT
+    # ============================================================
+    
+    no_seri = str(
+        data.get("no_seri", "")
+    ).strip()
+    
+    wrapped_seri = textwrap.wrap(
+        no_seri,
+        width=chars_per_line_left
+    )
+    
+    if wrapped_seri:
         c.setFont("Helvetica", 12)
+    
         c.drawString(
-            left_col_x,
+            start_x_val,
             y_row,
-            "Nomor Seri"
+            wrapped_seri[0]
         )
-
-        bold_width_left = c.stringWidth(
-            "Nomor Seri",
-            "Helvetica",
-            12
-        )
-
-        c.line(
-            left_col_x,
-            y_row - 0.08 * cm,
-            left_col_x + bold_width_left,
-            y_row - 0.08 * cm
-        )
-
-        c.setFont("Helvetica-Oblique", 12)
-        c.drawString(
-            left_col_x,
-            y_row - 0.45 * cm,
-            "Serial Number"
-        )
-
-        c.setFont("Helvetica", 12)
-        c.drawString(
-            colon_x_fixed,
-            y_row,
-            ":"
-        )
-
-        no_seri = str(
-            data.get("no_seri", "")
-        )
-
-        wrapped_seri = textwrap.wrap(
-            no_seri,
-            width=chars_per_line_left
-        )
-
-        if wrapped_seri:
-
+    
+        for i, line in enumerate(
+            wrapped_seri[1:],
+            start=1
+        ):
             c.drawString(
                 start_x_val,
-                y_row,
-                wrapped_seri[0]
+                y_row - i * 0.45 * cm,
+                line
             )
-
-            for i, line in enumerate(
-                wrapped_seri[1:],
-                start=1
-            ):
-                c.drawString(
-                    start_x_val,
-                    y_row - i * 0.45 * cm,
-                    line
-                )
-
-            y_row_kiri = (
-                y_row
-                - (
-                    0.45 * cm
-                    * (len(wrapped_seri) - 1)
-                )
-            )
-
-
+    
+        y_row_seri = (
+            y_row
+            - 0.45 * cm * (len(wrapped_seri) - 1)
+        )
+    
+    else:
+        y_row_seri = y_row
+    
+    
     # ---------------- KOLOM KANAN: KELAS ----------------
     c.setFont("Helvetica", 12)
+    
     c.drawString(
         right_col_x,
         y_row,
         "Kelas"
     )
-
+    
     bold_width_right = c.stringWidth(
         "Kelas",
         "Helvetica",
         12
     )
-
+    
     c.line(
         right_col_x,
         y_row - 0.08 * cm,
         right_col_x + bold_width_right,
         y_row - 0.08 * cm
     )
-
+    
     c.setFont("Helvetica-Oblique", 12)
+    
     c.drawString(
         right_col_x,
         y_row - 0.45 * cm,
         "Class"
     )
-
+    
     c.setFont("Helvetica", 12)
+    
     c.drawString(
         colon_right_fixed,
         y_row,
         ":"
     )
-
+    
     c.drawString(
         colon_right_fixed + 0.3 * cm,
         y_row,
         str(data.get("kelas", ""))
     )
-
-    if is_timbangan_elektronik:
-        jumlah_baris_seri = max(
-            1,
-            len(wrapped_seri)
-        )
-
-        tambahan_turun_seri = (
-            (jumlah_baris_seri - 1)
-            * 0.45 * cm
-        )
-    else:
-        tambahan_turun_seri = 0
-
-    y = (
-        y_row
-        - 1.3 * cm
-        - tambahan_turun_seri
+    
+    
+    # ============================================================
+    # POSISI BARIS BERIKUTNYA
+    # ============================================================
+    
+    y = min(
+        y_row_seri - 0.5 * cm,
+        y_row - 1.80 * cm
     )
 
         # ======================== PEMILIK, ALAMAT, PENERA, DLL ========================
