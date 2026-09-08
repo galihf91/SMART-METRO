@@ -1492,7 +1492,17 @@ def gunakan_data_lama_untuk_edit(
     st.session_state[
         "nomor_order_tj"
     ] = nomor_order_lama
-
+    # =====================================================
+    # SINKRONKAN JUGA KE SAVED DATA
+    # =====================================================
+    
+    st.session_state.saved_data[
+        "nomor_sertifikat"
+    ] = nomor_sertifikat_lama
+    
+    st.session_state.saved_data[
+        "nomor_order"
+    ] = nomor_order_lama
     # =====================================================
     # PINDAH KE INPUT
     # =====================================================
@@ -4640,7 +4650,10 @@ def run():
                         f"**Nomor Sertifikat:** "
                         f"{riwayat_terpilih.get('nomor_sertifikat', '-')}"
                     )
-    
+                    st.write(
+                        f"**Nomor Order:** "
+                        f"{riwayat_terpilih.get('nomor_order', '-')}"
+                    )
                     st.write(
                         f"**Penera:** "
                         f"{riwayat_terpilih.get('penera_1', '-')}"
