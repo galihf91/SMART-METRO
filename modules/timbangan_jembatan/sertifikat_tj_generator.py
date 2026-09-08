@@ -325,12 +325,9 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
         "merek",
         ""
     )
-    wrapped_merek = wrap_text_by_width(
-        c,
-        merek,
-        "Helvetica",
-        12,
-        max_val_width
+    wrapped_merek = textwrap.wrap(
+        str(merek),
+        width=chars_per_line_left
     )
     if wrapped_merek:
         c.drawString(start_x_val, y_row, wrapped_merek[0])
@@ -375,12 +372,9 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     c.drawString(colon_x_fixed, y_row, ":")
     start_x_val = colon_x_fixed + 0.3*cm
     model = data.get('model', '')
-    wrapped_model = wrap_text_by_width(
-        c,
-        model,
-        "Helvetica",
-        12,
-        max_val_width
+    wrapped_model = textwrap.wrap(
+        str(model),
+        width=chars_per_line_left
     )
     if wrapped_model:
         c.drawString(start_x_val, y_row, wrapped_model[0])
@@ -421,12 +415,9 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
         ""
     )
     
-    wrapped_seri = wrap_text_by_width(
-        c,
-        no_seri,
-        "Helvetica",
-        12,
-        max_val_width
+    wrapped_seri = textwrap.wrap(
+        str(no_seri),
+        width=chars_per_line_left
     )
     if wrapped_seri:
         c.drawString(start_x_val, y_row, wrapped_seri[0])
