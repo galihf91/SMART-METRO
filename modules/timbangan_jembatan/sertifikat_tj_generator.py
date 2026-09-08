@@ -645,10 +645,7 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
         y -= 0.9 * cm
 
     # ======================== PENERA ========================
-    c.setFont(
-        "Helvetica",
-        12
-    )
+    c.setFont("Helvetica", 12)
     
     c.drawString(
         left_col_x,
@@ -691,64 +688,17 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
         ":"
     )
     
-    start_x_penera = (
-        colon_fixed_shifted
-        + 0.3 * cm
-    )
-    
-    max_width_penera = (
-        right_limit_content
-        - start_x_penera
-    )
-    
-    char_width_penera = c.stringWidth(
-        "A",
-        "Helvetica",
-        12
-    )
-    
-    chars_per_line_penera = max(
-        10,
-        int(
-            max_width_penera
-            / char_width_penera
-        )
-    )
-    
     penera_text = (
         f"{data.get('nama_penera', '')} / "
         f"NIP. {data.get('nip_penera', '')}"
     )
     
-    wrapped_penera = textwrap.wrap(
-        penera_text,
-        width=chars_per_line_penera
+    c.drawString(
+        colon_fixed_shifted + 0.3 * cm,
+        y,
+        penera_text
     )
     
-    if wrapped_penera:
-    
-        c.drawString(
-            start_x_penera,
-            y,
-            wrapped_penera[0]
-        )
-    
-        for i, line in enumerate(
-            wrapped_penera[1:],
-            start=1
-        ):
-            c.drawString(
-                start_x_penera,
-                y - i * 0.45 * cm,
-                line
-            )
-    
-        y -= (
-            0.45 * cm
-            * (len(wrapped_penera) - 1)
-        )
-    
-    # Jarak ke Hasil
     y -= 1.0 * cm
 
     # Hasil
