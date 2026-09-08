@@ -215,10 +215,18 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
 
     # Hitung posisi titik dua yang konsisten untuk kiri (berdasarkan label terpanjang)
     label_left = [
-        "Nomor Order", "Nama Alat", "Merk / Buatan",
-        "Model / Tipe", "Nomor Seri",
-        "Pemilik", "Alamat", "Penera", "Hasil",
-        "Berlaku sampai", "Catatan"
+        "Nomor Order",
+        "Nama Alat",
+        "Merk / Buatan",
+        "Model / Tipe",
+        "Nomor Seri",
+        "Nomor Alat",
+        "Pemilik",
+        "Alamat",
+        "Penera",
+        "Hasil",
+        "Berlaku sampai",
+        "Catatan",
     ]
     max_width_left = max(c.stringWidth(lbl, "Helvetica", 12) for lbl in label_left)
     colon_x_fixed = left_col_x + max_width_left + 0.5*cm
