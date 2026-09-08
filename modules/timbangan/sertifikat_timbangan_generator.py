@@ -770,19 +770,23 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     
     # ============================================================
     # POSISI BARIS BERIKUTNYA
-    # SAMA DENGAN VERSI LOKAL
+    # Mengikuti pola Merk / Buatan
     # ============================================================
     
     y = min(
         y_row_seri - 0.5 * cm,
         y_row - 1.80 * cm
     )
-
-        # ======================== PEMILIK, ALAMAT, PENERA, DLL ========================
+    
+    # ======================== PEMILIK, ALAMAT, PENERA, DLL ========================
     # Semua menggunakan margin kiri content
-    # Tentukan posisi titik dua yang digeser untuk bagian ini (sama dengan baris 1&2)
-    special_offset = 1.2*cm   # sesuaikan
-    colon_fixed_shifted = colon_x_fixed + special_offset
+    # Tentukan posisi titik dua yang digeser untuk bagian ini
+    special_offset = 1.2 * cm
+    colon_fixed_shifted = (
+        colon_x_fixed
+        + special_offset
+    )
+    
     # Tambahan jarak dari Nomor Seri / Nomor Alat ke Pemilik
     y -= 0.10 * cm
 
