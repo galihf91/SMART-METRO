@@ -3802,7 +3802,23 @@ def run():
                     placeholder="Format nomor order",
                     key="nomor_order_tj",
                 )
-
+                # =====================================================
+                # SINKRONKAN NOMOR DOKUMEN SELAMA MODE EDIT
+                # =====================================================
+                if sedang_edit:
+                    st.session_state[
+                        "tj_nomor_sertifikat_edit_lama"
+                    ] = str(
+                        nomor_sertifikat
+                        or ""
+                    ).strip()
+                
+                    st.session_state[
+                        "tj_nomor_order_edit_lama"
+                    ] = str(
+                        nomor_order
+                        or ""
+                    ).strip()
                 st.session_state.saved_data[
                     "nomor_sertifikat"
                 ] = nomor_sertifikat
