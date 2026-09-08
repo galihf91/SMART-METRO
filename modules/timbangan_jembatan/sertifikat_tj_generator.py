@@ -589,18 +589,112 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     else:
         y -= 0.6*cm
 
-    # Penera
-    c.setFont("Helvetica", 12)
-    c.drawString(left_col_x, y, "Penera")
-    bold_width_penera = c.stringWidth("Penera", "Helvetica", 12)
-    c.line(left_col_x, y - 0.08*cm, left_col_x + bold_width_penera, y - 0.08*cm)
-    c.setFont("Helvetica-Oblique", 12)
-    c.drawString(left_col_x, y - line_spacing, "Calibration Technician")
-    c.setFont("Helvetica", 12)
-    c.drawString(colon_fixed_shifted, y, ":")
-    penera_text = f"{data.get('nama_penera', '')} / NIP. {data.get('nip_penera', '')}"
-    c.drawString(colon_fixed_shifted + 0.3*cm, y, penera_text)
-    y -= 1.0*cm
+    # ======================== PENERA ========================
+    c.setFont(
+        "Helvetica",
+        12
+    )
+    
+    c.drawString(
+        left_col_x,
+        y,
+        "Penera"
+    )
+    
+    bold_width_penera = c.stringWidth(
+        "Penera",
+        "Helvetica",
+        12
+    )
+    
+    c.line(
+        left_col_x,
+        y - 0.08 * cm,
+        left_col_x + bold_width_penera,
+        y - 0.08 * cm
+    )
+    
+    c.setFont(
+        "Helvetica-Oblique",
+        12
+    )
+    
+    c.drawString(
+        left_col_x,
+        y - line_spacing,
+        "Calibration Technician"
+    )
+    
+    c.setFont(
+        "Helvetica",
+        12
+    )
+    
+    c.drawString(
+        colon_fixed_shifted,
+        y,
+        ":"
+    )
+    
+    start_x_penera = (
+        colon_fixed_shifted
+        + 0.3 * cm
+    )
+    
+    max_width_penera = (
+        right_limit_content
+        - start_x_penera
+    )
+    
+    char_width_penera = c.stringWidth(
+        "A",
+        "Helvetica",
+        12
+    )
+    
+    chars_per_line_penera = max(
+        10,
+        int(
+            max_width_penera
+            / char_width_penera
+        )
+    )
+    
+    penera_text = (
+        f"{data.get('nama_penera', '')} / "
+        f"NIP. {data.get('nip_penera', '')}"
+    )
+    
+    wrapped_penera = textwrap.wrap(
+        penera_text,
+        width=chars_per_line_penera
+    )
+    
+    if wrapped_penera:
+    
+        c.drawString(
+            start_x_penera,
+            y,
+            wrapped_penera[0]
+        )
+    
+        for i, line in enumerate(
+            wrapped_penera[1:],
+            start=1
+        ):
+            c.drawString(
+                start_x_penera,
+                y - i * 0.45 * cm,
+                line
+            )
+    
+        y -= (
+            0.45 * cm
+            * (len(wrapped_penera) - 1)
+        )
+    
+    # Jarak ke Hasil
+    y -= 1.0 * cm
 
     # Hasil
     c.setFont("Helvetica", 12)
