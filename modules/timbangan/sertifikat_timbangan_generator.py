@@ -909,12 +909,46 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     if wrapped_lines:
         start_x = colon_fixed_shifted + 0.3*cm
         line_height = 0.45*cm
-        c.drawString(start_x, y, wrapped_lines[0])
-        for i, line in enumerate(wrapped_lines[1:], start=1):
-            c.drawString(start_x, y - i*line_height, line)
-        y -= (line_height * (len(wrapped_lines) - 1)) + 0.9*cm
+    
+        # Baris pertama
+        c.drawString(
+            start_x,
+            y,
+            wrapped_lines[0]
+        )
+    
+        # Baris berikutnya
+        for i, line in enumerate(
+            wrapped_lines[1:],
+            start=1
+        ):
+            c.drawString(
+                start_x,
+                y - i * line_height,
+                line
+            )
+    
+        # ============================================================
+        # ATUR JARAK KE PENERA
+        # ============================================================
+    
+        if len(wrapped_lines) == 1:
+            # Alamat pendek
+            y -= 0.9 * cm
+    
+        else:
+            # Alamat panjang:
+            # hitung dari baris alamat terakhir
+            y_alamat_terakhir = (
+                y
+                - line_height * (len(wrapped_lines) - 1)
+            )
+    
+            # Jarak setelah baris terakhir dibuat lebih rapat
+            y = y_alamat_terakhir - 0.5 * cm
+    
     else:
-        y -= 0.6*cm
+        y -= 0.9 * cm
 
     # Penera
     c.setFont("Helvetica", 12)
