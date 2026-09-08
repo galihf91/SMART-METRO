@@ -432,12 +432,30 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
         width=chars_per_line_left
     )
     if wrapped_seri:
-        c.drawString(start_x_val, y_row, wrapped_seri[0])
-        for i, line in enumerate(wrapped_seri[1:], start=1):
-            c.drawString(start_x_val, y_row - i*0.45*cm, line)
-        y_row_kiri = y_row - (0.45*cm * (len(wrapped_seri)-1))
+        c.drawString(
+            start_x_val,
+            y_row,
+            wrapped_seri[0]
+        )
+    
+        for i, line in enumerate(
+            wrapped_seri[1:],
+            start=1
+        ):
+            c.drawString(
+                start_x_val,
+                y_row - i * 0.45 * cm,
+                line
+            )
+    
+        # Posisi baris terakhir Nomor Seri
+        y_row_seri = (
+            y_row
+            - 0.45 * cm * (len(wrapped_seri) - 1)
+        )
+    
     else:
-        y_row_kiri = y_row
+        y_row_seri = y_row
 
     # ---------- KOLOM KANAN: Kelas ----------
     c.setFont("Helvetica", 12)
@@ -450,14 +468,15 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     c.drawString(colon_right_fixed, y_row, ":")
     c.drawString(colon_right_fixed + 0.3*cm, y_row, data.get('kelas', ''))
 
-    y = min(y_row_kiri - 0.5*cm, y_row - 1.3*cm)
+    y = min(y_row_seri - 0.5*cm, y_row - 1.3*cm)
 
         # ======================== PEMILIK, ALAMAT, PENERA, DLL ========================
     # Semua menggunakan margin kiri content
     # Tentukan posisi titik dua yang digeser untuk bagian ini (sama dengan baris 1&2)
     special_offset = 1.2*cm   # sesuaikan
     colon_fixed_shifted = colon_x_fixed + special_offset
-
+    # Tambahan jarak dari Nomor Seri ke Pemilik
+    y -= 0.10 * cm
     # ======================== PEMILIK ========================
     c.setFont(
         "Helvetica-Bold",
