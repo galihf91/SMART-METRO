@@ -3786,8 +3786,11 @@ def run():
                 key="tb_model"
             )
 
+            # =====================================================
+            # NOMOR SERI
+            # =====================================================
             no_seri = st.text_input(
-                "No. Seri/No. Alat",
+                "No. Seri",
                 value=st.session_state.tb_saved_data.get(
                     "no_seri",
                     ""
@@ -3795,6 +3798,47 @@ def run():
                 placeholder="",
                 key="tb_no_seri",
             )
+            
+            # =====================================================
+            # NOMOR ALAT — OPSIONAL
+            # =====================================================
+            if "tb_tambahkan_no_alat" not in st.session_state:
+                st.session_state[
+                    "tb_tambahkan_no_alat"
+                ] = bool(
+                    str(
+                        st.session_state.tb_saved_data.get(
+                            "no_alat",
+                            ""
+                        )
+                        or ""
+                    ).strip()
+                )
+            
+            tambahkan_no_alat = st.checkbox(
+                "Tambahkan No. Alat",
+                key="tb_tambahkan_no_alat",
+            )
+            
+            if "tb_no_alat" not in st.session_state:
+                st.session_state[
+                    "tb_no_alat"
+                ] = str(
+                    st.session_state.tb_saved_data.get(
+                        "no_alat",
+                        ""
+                    )
+                    or ""
+                ).strip()
+            
+            if tambahkan_no_alat:
+                no_alat = st.text_input(
+                    "No. Alat",
+                    key="tb_no_alat",
+                    placeholder="",
+                )
+            else:
+                no_alat = ""
 
         with col3:
             st.subheader("Kapasitas & Skala")
