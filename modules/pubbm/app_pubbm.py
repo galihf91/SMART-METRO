@@ -3373,7 +3373,15 @@ def run():
                         "Kecamatan Tigaraksa Kabupaten Tangerang"
                     ),
                 )
-
+            # =====================================================
+            # NOMOR SPBU
+            # =====================================================
+            st.text_input(
+                "Nomor SPBU",
+                key="nomor_spbu_pubbm",
+                placeholder="Contoh: 34-15717",
+                help="Nomor SPBU tetap dapat diedit.",
+            )
             pemilik = str(
                 st.session_state.get(
                     "nama_perusahaan",
