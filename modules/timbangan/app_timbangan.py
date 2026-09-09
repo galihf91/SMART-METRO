@@ -7734,7 +7734,7 @@ def run():
                     f"{alat_item.get('jenis_uttp') or '-'} | "
                     f"{alat_item.get('merk') or '-'} | "
                     f"{alat_item.get('tipe') or '-'} | "
-                    f"No. Seri/Alat: "
+                    f"No. Seri: "
                     f"{alat_item.get('nomor_seri') or '-'}"
                 )
     
@@ -7812,7 +7812,7 @@ def run():
     
             with col3:
                 st.write(
-                    "**No. Seri / No. Alat:**",
+                    "**No. Seri:**",
                     alat.get(
                         "nomor_seri"
                     ) or "-"
