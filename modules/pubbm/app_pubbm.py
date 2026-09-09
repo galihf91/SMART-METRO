@@ -5086,8 +5086,9 @@ def run():
             daftar_pengujian_filter = (
                 daftar_pengujian
             )
+            
             # =====================================================
-            # 6. TAMPILKAN PENGUJIAN ACUAN
+            # 6. PENGUJIAN ACUAN
             # =====================================================
             st.markdown("---")
             
@@ -5096,8 +5097,8 @@ def run():
             )
             
             st.caption(
-                "Pengujian ini dipilih otomatis berdasarkan "
-                "jumlah nozzle terbanyak."
+                "Data dengan jumlah nozzle terbanyak "
+                "digunakan sebagai acuan pengisian."
             )
             
             detail = (
@@ -5107,18 +5108,11 @@ def run():
             with st.container(
                 border=True
             ):
-                col1, col2, col3 = (
-                    st.columns(3)
-                )
+                col1, col2 = st.columns(2)
             
-                # =================================================
-                # KOLOM 1
-                # =================================================
                 with col1:
                     st.write(
-                        "**Tanggal Pengujian:**"
-                    )
-                    st.write(
+                        "**Tanggal:**",
                         pengujian_terpilih.get(
                             "tanggal_pengujian",
                             ""
@@ -5127,9 +5121,7 @@ def run():
                     )
             
                     st.write(
-                        "**Jenis Pengujian:**"
-                    )
-                    st.write(
+                        "**Jenis Pengujian:**",
                         pengujian_terpilih.get(
                             "jenis_pengujian",
                             ""
@@ -5137,14 +5129,14 @@ def run():
                         or "-"
                     )
             
-                # =================================================
-                # KOLOM 2
-                # =================================================
+                    st.write(
+                        "**Jumlah Nozzle:**",
+                        jumlah_nozzle_terpilih
+                    )
+            
                 with col2:
                     st.write(
-                        "**Nomor Sertifikat:**"
-                    )
-                    st.write(
+                        "**Nomor Sertifikat:**",
                         pengujian_terpilih.get(
                             "nomor_sertifikat",
                             ""
@@ -5153,9 +5145,7 @@ def run():
                     )
             
                     st.write(
-                        "**Nomor Order:**"
-                    )
-                    st.write(
+                        "**Nomor Order:**",
                         pengujian_terpilih.get(
                             "nomor_order",
                             ""
@@ -5163,21 +5153,8 @@ def run():
                         or "-"
                     )
             
-                # =================================================
-                # KOLOM 3
-                # =================================================
-                with col3:
                     st.write(
-                        "**Jumlah Nozzle:**"
-                    )
-                    st.write(
-                        jumlah_nozzle_terpilih
-                    )
-            
-                    st.write(
-                        "**Penera:**"
-                    )
-                    st.write(
+                        "**Penera:**",
                         pengujian_terpilih.get(
                             "penera_1",
                             ""
