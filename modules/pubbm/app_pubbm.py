@@ -2119,11 +2119,13 @@ def run():
             )
         )
     
+        # =====================================================
         # PULIHKAN DATA DISPENSER
-        # =========================
+        # =====================================================
         dispenser_df = data.get(
             "dispenser"
         )
+
         # =====================================================
         # NORMALISASI NOMOR DISPENSER
         # =====================================================
@@ -2138,7 +2140,7 @@ def run():
             dispenser_df = (
                 dispenser_df.copy()
             )
-        
+
             dispenser_df["No"] = (
                 pd.to_numeric(
                     dispenser_df["No"],
@@ -2146,72 +2148,101 @@ def run():
                 )
             )
 
-    dispenser_df = (
-        dispenser_df[
-            dispenser_df["No"].notna()
-        ]
-        .copy()
-    )
+            dispenser_df = (
+                dispenser_df[
+                    dispenser_df["No"].notna()
+                ]
+                .copy()
+            )
 
-    dispenser_df["No"] = (
-        dispenser_df["No"]
-        .astype(int)
-    )
-    # =====================================================
-    # SINKRONKAN DISPENSER HASIL NORMALISASI
-    # =====================================================
-    st.session_state[
-        "pubbm_dispenser"
-    ] = dispenser_df.copy()
-    
-    data[
-        "dispenser"
-    ] = dispenser_df.copy()
-    
-    data[
-        "jumlah_dispenser"
-    ] = (
-        int(
-            dispenser_df["No"]
-            .nunique()
-        )
-        if not dispenser_df.empty
-        and "No" in dispenser_df.columns
-        else 1
-    )
-    
-    st.session_state[
-        "data_pubbm"
-    ] = data
-    
-    
-    # Sinkronkan juga saved_data
-    if isinstance(
-        st.session_state.get(
-            "saved_data"
-        ),
-        dict
-    ):
+            dispenser_df["No"] = (
+                dispenser_df["No"]
+                .astype(int)
+            )
+
+        else:
+            dispenser_df = pd.DataFrame(
+                columns=[
+                    "No",
+                    "Posisi",
+                    "Merk",
+                    "Tipe",
+                    "No. Seri",
+                    "Media",
+                ]
+            )
+
+        # =====================================================
+        # SINKRONKAN DISPENSER HASIL NORMALISASI
+        # =====================================================
         st.session_state[
-            "saved_data"
-        ][
+            "pubbm_dispenser"
+        ] = dispenser_df.copy()
+
+        data[
             "dispenser"
         ] = dispenser_df.copy()
-    
-        st.session_state[
-            "saved_data"
-        ][
+
+        data[
             "jumlah_dispenser"
-        ] = data[
-            "jumlah_dispenser"
-        ]
-        if (
-            isinstance(
-                dispenser_df,
-                pd.DataFrame
+        ] = (
+            int(
+                dispenser_df["No"]
+                .nunique()
             )
-            and not dispenser_df.empty
+            if not dispenser_df.empty
+            else int(
+                data.get(
+                    "jumlah_dispenser",
+                    1
+                )
+                or 1
+            )
+        )
+
+        st.session_state[
+            "jumlah_dispenser_pubbm"
+        ] = max(
+            1,
+            int(
+                data[
+                    "jumlah_dispenser"
+                ]
+            )
+        )
+
+        st.session_state[
+            "data_pubbm"
+        ] = data
+
+        # =====================================================
+        # SINKRONKAN SAVED DATA
+        # =====================================================
+        if isinstance(
+            st.session_state.get(
+                "saved_data"
+            ),
+            dict
         ):
+            st.session_state[
+                "saved_data"
+            ][
+                "dispenser"
+            ] = dispenser_df.copy()
+
+            st.session_state[
+                "saved_data"
+            ][
+                "jumlah_dispenser"
+            ] = data[
+                "jumlah_dispenser"
+            ]
+
+        # =====================================================
+        # PULIHKAN WIDGET SETIAP DISPENSER
+        # =====================================================
+        if not dispenser_df.empty:
+
             for nomor_dispenser in sorted(
                 dispenser_df["No"]
                 .dropna()
@@ -2234,9 +2265,9 @@ def run():
                 if data_dispenser.empty:
                     continue
 
-                # =========================
+                # =============================================
                 # IDENTITAS DISPENSER
-                # =========================
+                # =============================================
                 baris_pertama = (
                     data_dispenser.iloc[0]
                 )
@@ -2246,6 +2277,7 @@ def run():
                         "Merk",
                         ""
                     )
+                    or ""
                 ).strip()
 
                 tipe_restore = str(
@@ -2253,6 +2285,7 @@ def run():
                         "Tipe",
                         ""
                     )
+                    or ""
                 ).strip()
 
                 no_seri_restore = str(
@@ -2260,9 +2293,9 @@ def run():
                         "No. Seri",
                         ""
                     )
+                    or ""
                 ).strip()
 
-                # Hindari tulisan nan
                 if merk_restore.lower() == "nan":
                     merk_restore = ""
 
@@ -2272,7 +2305,6 @@ def run():
                 if no_seri_restore.lower() == "nan":
                     no_seri_restore = ""
 
-                # Hilangkan .0 jika nomor seri terbaca sebagai angka Excel
                 if no_seri_restore.endswith(
                     ".0"
                 ):
@@ -2292,9 +2324,9 @@ def run():
                     f"no_seri_{nomor_dispenser}"
                 ] = no_seri_restore
 
-                # =========================
-                # JUMLAH POSISI
-                # =========================
+                # =============================================
+                # JUMLAH POSISI / NOZZLE
+                # =============================================
                 jumlah_posisi = len(
                     data_dispenser
                 )
@@ -2306,9 +2338,9 @@ def run():
                     jumlah_posisi
                 )
 
-                # =========================
+                # =============================================
                 # POSISI & MEDIA
-                # =========================
+                # =============================================
                 for idx, row in (
                     data_dispenser.iterrows()
                 ):
@@ -2321,6 +2353,7 @@ def run():
                             "Posisi",
                             ""
                         )
+                        or ""
                     ).strip()
 
                     if (
@@ -2334,6 +2367,7 @@ def run():
                             "Media",
                             ""
                         )
+                        or ""
                     ).strip()
 
                     if (
@@ -2346,9 +2380,6 @@ def run():
                         f"posisi_{nomor_dispenser}_{nomor_posisi}"
                     ] = posisi_restore
 
-                    # Media dipulihkan lewat key sementara.
-                    # Nanti di bagian selectbox akan ditentukan:
-                    # media standar atau media manual.
                     st.session_state[
                         f"media_restore_{nomor_dispenser}_{nomor_posisi}"
                     ] = media_tersimpan
