@@ -4815,15 +4815,21 @@ def run():
     
             # =====================================================
             # 3. SUSUN PILIHAN SPBU
+            # Hindari SPBU yang sama muncul lebih dari sekali
             # =====================================================
-            opsi_spbu = {}
-    
+            grup_spbu = {}
+            
             for alat in daftar_uttp:
+            
                 perusahaan = perusahaan_map.get(
                     alat.get("perusahaan_id"),
                     {}
                 )
-    
+            
+                perusahaan_id = alat.get(
+                    "perusahaan_id"
+                )
+            
                 nama_perusahaan = str(
                     perusahaan.get(
                         "nama_perusahaan",
@@ -4831,7 +4837,7 @@ def run():
                     )
                     or ""
                 ).strip()
-    
+            
                 identitas_spbu = str(
                     alat.get(
                         "nomor_seri",
@@ -4839,10 +4845,75 @@ def run():
                     )
                     or ""
                 ).strip()
-    
-                # =====================================================
-                # LABEL PILIHAN SPBU YANG LEBIH RINGKAS
-                # =====================================================
+            
+                # =================================================
+                # KUNCI SPBU
+                # perusahaan + identitas SPBU yang sudah dinormalisasi
+                # =================================================
+                identitas_normal = (
+                    normalisasi_identitas_spbu(
+                        identitas_spbu
+                        or nama_perusahaan
+                    )
+                )
+            
+                key_spbu = (
+                    perusahaan_id,
+                    identitas_normal,
+                )
+            
+                # =================================================
+                # SPBU BELUM MASUK DAFTAR
+                # =================================================
+                if key_spbu not in grup_spbu:
+            
+                    grup_spbu[key_spbu] = {
+                        "uttp": alat,
+                        "uttp_ids": [],
+                        "perusahaan": perusahaan,
+                        "nama_perusahaan": nama_perusahaan,
+                        "identitas_spbu": identitas_spbu,
+                    }
+            
+                # Simpan seluruh UTTP ID yang ternyata
+                # mengarah ke SPBU yang sama
+                uttp_id_item = alat.get(
+                    "id"
+                )
+            
+                if (
+                    uttp_id_item is not None
+                    and uttp_id_item
+                    not in grup_spbu[
+                        key_spbu
+                    ]["uttp_ids"]
+                ):
+                    grup_spbu[
+                        key_spbu
+                    ]["uttp_ids"].append(
+                        uttp_id_item
+                    )
+            
+            
+            # =====================================================
+            # SUSUN LABEL DROPDOWN
+            # =====================================================
+            opsi_spbu = {}
+            
+            for data_spbu_item in grup_spbu.values():
+            
+                nama_perusahaan = (
+                    data_spbu_item[
+                        "nama_perusahaan"
+                    ]
+                )
+            
+                identitas_spbu = (
+                    data_spbu_item[
+                        "identitas_spbu"
+                    ]
+                )
+            
                 if (
                     identitas_spbu
                     and identitas_spbu.lower()
@@ -4857,11 +4928,10 @@ def run():
                         nama_perusahaan
                         or identitas_spbu
                     )
-    
-                opsi_spbu[label] = {
-                    "uttp": alat,
-                    "perusahaan": perusahaan,
-                }
+            
+                opsi_spbu[
+                    label
+                ] = data_spbu_item
     
             pilihan_spbu = st.selectbox(
                 "Pilih SPBU",
@@ -5081,12 +5151,6 @@ def run():
                 hitung_jumlah_nozzle_pubbm(
                     pengujian_terpilih
                 )
-            )
-            # =====================================================
-            # SELURUH RIWAYAT SPBU
-            # =====================================================
-            daftar_pengujian_filter = (
-                daftar_pengujian
             )
             
             # =====================================================
