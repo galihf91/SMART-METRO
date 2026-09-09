@@ -2307,29 +2307,41 @@ def run():
                 "Pompa Ukur BBM (Dispenser)"
             ),
     
-            "pemilik": perusahaan.get(
-                "nama_perusahaan",
-                detail.get(
+            "pemilik": str(
+                perusahaan.get(
+                    "nama_perusahaan",
+                    ""
+                )
+                or detail.get(
                     "pemilik",
                     ""
                 )
-            ),
-    
-            "nama_spbu": detail.get(
-                "nama_spbu",
-                alat.get(
+                or ""
+            ).strip(),
+            
+            "nama_spbu": str(
+                detail.get(
+                    "nama_spbu",
+                    ""
+                )
+                or alat.get(
                     "nomor_seri",
                     ""
                 )
-            ),
-    
-            "alamat": perusahaan.get(
-                "alamat",
-                detail.get(
+                or ""
+            ).strip(),
+            
+            "alamat": str(
+                perusahaan.get(
                     "alamat",
                     ""
                 )
-            ),
+                or detail.get(
+                    "alamat",
+                    ""
+                )
+                or ""
+            ).strip(),
     
             "jenis_pengujian": (
                 pengujian.get(
@@ -2601,29 +2613,43 @@ def run():
                 "Pompa Ukur BBM (Dispenser)"
             ),
     
-            "pemilik": perusahaan.get(
-                "nama_perusahaan",
-                detail.get(
+            "pemilik": str(
+                perusahaan.get(
+                    "nama_perusahaan",
+                    ""
+                )
+                or detail.get(
                     "pemilik",
                     ""
                 )
+                or ""
+            ).strip(),
+    
+            "nama_spbu": (
+                str(
+                    detail.get(
+                        "nama_spbu",
+                        ""
+                    )
+                    or alat.get(
+                        "nomor_seri",
+                        ""
+                    )
+                    or ""
+                ).strip()
             ),
     
-            "nama_spbu": detail.get(
-                "nama_spbu",
-                alat.get(
-                    "nomor_seri",
-                    ""
-                )
-            ),
-    
-            "alamat": perusahaan.get(
-                "alamat",
-                detail.get(
+            "alamat": str(
+                perusahaan.get(
                     "alamat",
                     ""
                 )
-            ),
+                or detail.get(
+                    "alamat",
+                    ""
+                )
+                or ""
+            ).strip(),
     
             # =============================================
             # DEFAULT PENGUJIAN BARU
