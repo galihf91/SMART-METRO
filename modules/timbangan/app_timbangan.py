@@ -865,7 +865,15 @@ def gunakan_data_lama_untuk_pengujian_baru_timbangan(
             alat.get("nomor_seri")
             or ""
         ),
-
+        
+        "no_alat": str(
+            detail.get(
+                "no_alat",
+                ""
+            )
+            or ""
+        ).strip(),
+        
         "kapasitas_max": detail.get(
             "kapasitas_max",
             0
@@ -1046,6 +1054,26 @@ def gunakan_data_lama_untuk_pengujian_baru_timbangan(
     ] = st.session_state.tb_saved_data[
         "no_seri"
     ]
+    # =====================================================
+    # NOMOR ALAT OPSIONAL
+    # =====================================================
+    no_alat_lama = str(
+        st.session_state.tb_saved_data.get(
+            "no_alat",
+            ""
+        )
+        or ""
+    ).strip()
+    
+    st.session_state[
+        "tb_no_alat"
+    ] = no_alat_lama
+    
+    st.session_state[
+        "tb_tambahkan_no_alat"
+    ] = bool(
+        no_alat_lama
+    )
     # =====================================================
     # SINKRONKAN SPESIFIKASI KE WIDGET
     # =====================================================
