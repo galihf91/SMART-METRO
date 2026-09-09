@@ -2630,7 +2630,7 @@ def run():
             # =============================================
             # ALAT STANDAR
             # =============================================
-            ""jumlah_alat_standar": (
+            "jumlah_alat_standar": (
                 len(alat_standar_df)
                 if not alat_standar_df.empty
                 else 1
