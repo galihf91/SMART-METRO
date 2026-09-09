@@ -343,7 +343,15 @@ def build_data_pengujian_timbangan(data):
                 ""
             ) or ""
         ).strip(),
-
+        
+        # Nomor alat bersifat opsional
+        "no_alat": str(
+            data.get(
+                "no_alat",
+                ""
+            ) or ""
+        ).strip(),
+        
         "kapasitas_max": data.get(
             "kapasitas_max",
             0
@@ -6890,6 +6898,12 @@ def run():
                 'merek': merek,
                 'model': model,
                 'no_seri': no_seri,
+                # Nomor alat bersifat opsional
+                'no_alat': (
+                    no_alat
+                    if tambahkan_no_alat
+                    else ""
+                ),
                 'kapasitas_max': kapasitas_max_kg,
                 'kapasitas_min': kapasitas_min_final,
                 'daya_baca': daya_baca_kg,
