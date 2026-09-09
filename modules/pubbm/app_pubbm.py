@@ -5027,7 +5027,16 @@ def run():
             # =====================================================
             opsi_spbu = {}
             
-            for data_spbu_item in grup_spbu.values():
+            for data_spbu_item in sorted(
+                grup_spbu.values(),
+                key=lambda item: (
+                    item.get(
+                        "nama_perusahaan",
+                        ""
+                    )
+                    or ""
+                ).lower()
+            ):
             
                 nama_perusahaan = (
                     data_spbu_item[
