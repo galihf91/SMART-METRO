@@ -2040,7 +2040,39 @@ def run():
         dispenser_df = data.get(
             "dispenser"
         )
+        # =====================================================
+        # NORMALISASI NOMOR DISPENSER
+        # =====================================================
+        if (
+            isinstance(
+                dispenser_df,
+                pd.DataFrame
+            )
+            and not dispenser_df.empty
+            and "No" in dispenser_df.columns
+        ):
+            dispenser_df = (
+                dispenser_df.copy()
+            )
+        
+            dispenser_df["No"] = (
+                pd.to_numeric(
+                    dispenser_df["No"],
+                    errors="coerce"
+                )
+            )
 
+    dispenser_df = (
+        dispenser_df[
+            dispenser_df["No"].notna()
+        ]
+        .copy()
+    )
+
+    dispenser_df["No"] = (
+        dispenser_df["No"]
+        .astype(int)
+    )
         if (
             isinstance(
                 dispenser_df,
