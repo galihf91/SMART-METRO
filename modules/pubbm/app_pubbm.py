@@ -1714,7 +1714,7 @@ def run():
     if "pubbm_generated_files" not in st.session_state:
         st.session_state.pubbm_generated_files = {}
         
-    def pulihkan_data_pubbm():
+    def :
         data = st.session_state.get("data_pubbm", {})
     
         if not data:
@@ -1746,6 +1746,18 @@ def run():
         st.session_state[
             "alamat_input_pubbm"
         ] = alamat_spbu_restore
+        # =====================================================
+        # NOMOR SPBU
+        # =====================================================
+        st.session_state[
+            "nomor_spbu_pubbm"
+        ] = str(
+            data.get(
+                "nama_spbu",
+                ""
+            )
+            or ""
+        ).strip()
 
         # =====================================================
         # PULIHKAN PILIHAN SPBU
@@ -2399,6 +2411,7 @@ def run():
             "pubbm_filter_nozzle",
             "pubbm_detail_riwayat",
             "pubbm_riwayat_spbu",
+            "nomor_spbu_pubbm",
         }
 
         for key in list(st.session_state.keys()):
@@ -3344,16 +3357,33 @@ def run():
                 )
             ).strip()
 
-            match_spbu = re.search(
-                r"SPBU\s*[\d\.-]+",
-                pemilik,
-                re.IGNORECASE,
-            )
-
-            if match_spbu:
-                nomor_spbu = match_spbu.group(0).upper()
-            else:
-                nomor_spbu = ""
+            nomor_spbu = str(
+                st.session_state.get(
+                    "nomor_spbu_pubbm",
+                    ""
+                )
+                or ""
+            ).strip()
+            
+            # Fallback untuk data lama:
+            # ambil dari nama pemilik jika field nomor SPBU kosong
+            if not nomor_spbu:
+                match_spbu = re.search(
+                    r"SPBU\s*[\d\.-]+",
+                    pemilik,
+                    re.IGNORECASE,
+                )
+            
+                if match_spbu:
+                    nomor_spbu = (
+                        match_spbu
+                        .group(0)
+                        .upper()
+                    )
+            
+                    st.session_state[
+                        "nomor_spbu_pubbm"
+                    ] = nomor_spbu
     
         # ======================== KOLOM 2 ========================
         with col2:
