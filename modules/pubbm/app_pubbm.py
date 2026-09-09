@@ -4951,18 +4951,36 @@ def run():
             data_pilihan = opsi_spbu[
                 pilihan_spbu
             ]
-    
+            
             alat = data_pilihan[
                 "uttp"
             ]
-    
+            
             perusahaan = data_pilihan[
                 "perusahaan"
             ]
-    
-            uttp_id = alat[
-                "id"
-            ]
+            
+            # =====================================================
+            # SELURUH UTTP ID MILIK SPBU YANG SAMA
+            # =====================================================
+            uttp_ids = (
+                data_pilihan.get(
+                    "uttp_ids",
+                    []
+                )
+                or []
+            )
+            
+            # Fallback jika data lama hanya punya satu UTTP
+            if not uttp_ids:
+                uttp_id_lama = alat.get(
+                    "id"
+                )
+            
+                if uttp_id_lama is not None:
+                    uttp_ids = [
+                        uttp_id_lama
+                    ]
     
             # =====================================================
             # 4. IDENTITAS SPBU
@@ -5025,9 +5043,9 @@ def run():
                 supabase
                 .table("pengujian")
                 .select("*")
-                .eq(
+                .in_(
                     "uttp_id",
-                    uttp_id
+                    uttp_ids
                 )
                 .order(
                     "tanggal_pengujian",
