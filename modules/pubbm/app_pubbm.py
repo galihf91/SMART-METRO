@@ -2347,19 +2347,14 @@ def run():
             # =============================================
             # DISPENSER
             # =============================================
-            "jumlah_dispenser": int(
-                detail.get(
-                    "jumlah_dispenser",
-                    (
-                        dispenser_df["No"]
-                        .nunique()
-                        if not dispenser_df.empty
-                        else 1
-                    )
+            "jumlah_dispenser": (
+                int(
+                    dispenser_df["No"].nunique()
                 )
-                or 1
+                if not dispenser_df.empty
+                else 1
             ),
-    
+            
             "dispenser": dispenser_df,
         }
     
