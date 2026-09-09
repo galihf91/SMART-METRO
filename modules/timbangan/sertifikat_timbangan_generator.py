@@ -569,108 +569,197 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
 
     # ============================================================
     # BARIS 5
-    # ============================================================
-    # BARIS NOMOR SERI / NOMOR ALAT
+    # NOMOR SERI / NOMOR ALAT
     # ============================================================
     
     y_row = y
     
     # ============================================================
-    # 1. NOMOR SERI /
+    # AMBIL NOMOR SERI DAN NOMOR ALAT
     # ============================================================
     
-    c.setFont("Helvetica", 12)
+    no_seri = str(
+        data.get(
+            "no_seri",
+            ""
+        )
+        or ""
+    ).strip()
     
-    teks_nomor_seri = "Nomor Seri"
-    
-    c.drawString(
-        left_col_x,
-        y_row,
-        teks_nomor_seri
-    )
-    
-    lebar_nomor_seri = c.stringWidth(
-        teks_nomor_seri,
-        "Helvetica",
-        12
-    )
-    
-    c.drawString(
-        left_col_x + lebar_nomor_seri + 0.08 * cm,
-        y_row,
-        "/"
-    )
+    no_alat = str(
+        data.get(
+            "no_alat",
+            ""
+        )
+        or ""
+    ).strip()
     
     
     # ============================================================
-    # 2. NOMOR ALAT + GARIS BAWAH
+    # JIKA NOMOR ALAT DIISI
+    # Tampilkan format gabungan seperti sebelumnya
     # ============================================================
     
-    teks_nomor_alat = "Nomor Alat"
+    if no_alat:
     
-    c.drawString(
-        left_col_x,
-        y_row - 0.45 * cm,
-        teks_nomor_alat
-    )
+        # --------------------------------------------------------
+        # NOMOR SERI /
+        # --------------------------------------------------------
+        c.setFont(
+            "Helvetica",
+            12
+        )
     
-    lebar_nomor_alat = c.stringWidth(
-        teks_nomor_alat,
-        "Helvetica",
-        12
-    )
+        teks_nomor_seri = "Nomor Seri"
     
-    c.line(
-        left_col_x,
-        y_row - 0.53 * cm,
-        left_col_x + lebar_nomor_alat,
-        y_row - 0.53 * cm
-    )
+        c.drawString(
+            left_col_x,
+            y_row,
+            teks_nomor_seri
+        )
+    
+        lebar_nomor_seri = c.stringWidth(
+            teks_nomor_seri,
+            "Helvetica",
+            12
+        )
+    
+        c.drawString(
+            left_col_x
+            + lebar_nomor_seri
+            + 0.08 * cm,
+            y_row,
+            "/"
+        )
+    
+        # --------------------------------------------------------
+        # NOMOR ALAT
+        # --------------------------------------------------------
+        teks_nomor_alat = "Nomor Alat"
+    
+        c.drawString(
+            left_col_x,
+            y_row - 0.45 * cm,
+            teks_nomor_alat
+        )
+    
+        lebar_nomor_alat = c.stringWidth(
+            teks_nomor_alat,
+            "Helvetica",
+            12
+        )
+    
+        c.line(
+            left_col_x,
+            y_row - 0.53 * cm,
+            left_col_x + lebar_nomor_alat,
+            y_row - 0.53 * cm
+        )
+    
+        # --------------------------------------------------------
+        # SERIAL NUMBER /
+        # --------------------------------------------------------
+        c.setFont(
+            "Helvetica-Oblique",
+            12
+        )
+    
+        teks_serial_number = "Serial Number"
+    
+        c.drawString(
+            left_col_x,
+            y_row - 0.90 * cm,
+            teks_serial_number
+        )
+    
+        lebar_serial_number = c.stringWidth(
+            teks_serial_number,
+            "Helvetica-Oblique",
+            12
+        )
+    
+        c.drawString(
+            left_col_x
+            + lebar_serial_number
+            + 0.08 * cm,
+            y_row - 0.90 * cm,
+            "/"
+        )
+    
+        # --------------------------------------------------------
+        # TOOL NUMBER
+        # --------------------------------------------------------
+        c.drawString(
+            left_col_x,
+            y_row - 1.35 * cm,
+            "Tool Number"
+        )
+    
+        # Nilai digabung
+        nomor_identitas = (
+            f"{no_seri} / {no_alat}"
+        )
+    
+        tinggi_blok_nomor = 1.80 * cm
     
     
     # ============================================================
-    # 3. SERIAL NUMBER /
+    # JIKA NOMOR ALAT TIDAK DIISI
+    # Hanya tampilkan Nomor Seri
     # ============================================================
     
-    c.setFont("Helvetica-Oblique", 12)
+    else:
     
-    teks_serial_number = "Serial Number"
+        c.setFont(
+            "Helvetica",
+            12
+        )
     
-    c.drawString(
-        left_col_x,
-        y_row - 0.90 * cm,
-        teks_serial_number
-    )
+        teks_nomor_seri = "Nomor Seri"
     
-    lebar_serial_number = c.stringWidth(
-        teks_serial_number,
-        "Helvetica-Oblique",
-        12
-    )
+        c.drawString(
+            left_col_x,
+            y_row,
+            teks_nomor_seri
+        )
     
-    c.drawString(
-        left_col_x + lebar_serial_number + 0.08 * cm,
-        y_row - 0.90 * cm,
-        "/"
-    )
+        lebar_nomor_seri = c.stringWidth(
+            teks_nomor_seri,
+            "Helvetica",
+            12
+        )
     
+        c.line(
+            left_col_x,
+            y_row - 0.08 * cm,
+            left_col_x + lebar_nomor_seri,
+            y_row - 0.08 * cm
+        )
     
-    # ============================================================
-    # 4. TOOL NUMBER
-    # ============================================================
+        c.setFont(
+            "Helvetica-Oblique",
+            12
+        )
     
-    c.drawString(
-        left_col_x,
-        y_row - 1.35 * cm,
-        "Tool Number"
-    )
+        c.drawString(
+            left_col_x,
+            y_row - 0.45 * cm,
+            "Serial Number"
+        )
+    
+        nomor_identitas = no_seri
+    
+        tinggi_blok_nomor = 1.0 * cm
     
     
     # ============================================================
     # TITIK DUA
     # ============================================================
     
-    c.setFont("Helvetica", 12)
+    c.setFont(
+        "Helvetica",
+        12
+    )
     
     c.drawString(
         colon_x_fixed,
@@ -683,17 +772,17 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     # NILAI NOMOR SERI / NOMOR ALAT
     # ============================================================
     
-    no_seri = str(
-        data.get("no_seri", "")
-    ).strip()
-    
     wrapped_seri = textwrap.wrap(
-        no_seri,
+        nomor_identitas,
         width=chars_per_line_left
     )
     
     if wrapped_seri:
-        c.setFont("Helvetica", 12)
+    
+        c.setFont(
+            "Helvetica",
+            12
+        )
     
         c.drawString(
             start_x_val,
@@ -713,7 +802,8 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     
         y_row_seri = (
             y_row
-            - 0.45 * cm * (len(wrapped_seri) - 1)
+            - 0.45 * cm
+            * (len(wrapped_seri) - 1)
         )
     
     else:
