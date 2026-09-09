@@ -2375,7 +2375,37 @@ def run():
         ] = dict(
             data_edit
         )
-    
+        # =====================================================
+        # SINKRONKAN DATA DISPENSER AKTIF
+        # =====================================================
+        st.session_state[
+            "pubbm_dispenser"
+        ] = dispenser_df.copy()
+        # =====================================================
+        # BERSIHKAN WIDGET DINAMIS DARI PENGUJIAN SEBELUMNYA
+        # =====================================================
+        prefix_hapus = (
+            "merk_",
+            "tipe_",
+            "no_seri_",
+            "posisi_",
+            "media_",
+            "media_manual_",
+            "media_restore_",
+            "jumlah_posisi_",
+            "bejana_select_",
+        )
+        
+        for key in list(
+            st.session_state.keys()
+        ):
+            if key.startswith(
+                prefix_hapus
+            ):
+                st.session_state.pop(
+                    key,
+                    None
+                )
         # =====================================================
         # PULIHKAN SELURUH WIDGET FORM
         # =====================================================
