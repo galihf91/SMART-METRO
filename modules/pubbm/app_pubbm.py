@@ -4847,16 +4847,52 @@ def run():
                 ).strip()
             
                 # =================================================
-                # KUNCI SPBU
-                # perusahaan + identitas SPBU yang sudah dinormalisasi
+                # NORMALISASI IDENTITAS SPBU UNTUK PENGELOMPOKAN
                 # =================================================
-                identitas_normal = (
-                    normalisasi_identitas_spbu(
-                        identitas_spbu
-                        or nama_perusahaan
-                    )
+                sumber_identitas = (
+                    identitas_spbu
+                    or nama_perusahaan
                 )
-            
+                
+                sumber_identitas = str(
+                    sumber_identitas
+                    or ""
+                ).strip()
+                
+                # Jika terdapat tulisan SPBU,
+                # ambil nomor SPBU-nya saja.
+                match_nomor_spbu = re.search(
+                    r"SPBU\s*([0-9][0-9.\-\s]*)",
+                    sumber_identitas,
+                    re.IGNORECASE,
+                )
+                
+                if match_nomor_spbu:
+                    identitas_normal = re.sub(
+                        r"\D",
+                        "",
+                        match_nomor_spbu.group(1)
+                    )
+                
+                else:
+                    identitas_normal = (
+                        normalisasi_identitas_spbu(
+                            sumber_identitas
+                        )
+                    )
+                
+                    # Samakan:
+                    # SPBU3415717
+                    # dengan
+                    # 3415717
+                    if identitas_normal.startswith(
+                        "SPBU"
+                    ):
+                        identitas_normal = (
+                            identitas_normal[4:]
+                        )
+                
+                
                 key_spbu = (
                     perusahaan_id,
                     identitas_normal,
