@@ -425,6 +425,31 @@ def generate_cerapan_pdf(data: dict[str, Any], filename: str) -> str:
     # --------------------------------------------------------
     # SPESIFIKASI ALAT DAN DATA PENGUJIAN
     # --------------------------------------------------------
+    # ============================================================
+    # NOMOR SERI / NOMOR ALAT
+    # ============================================================
+    no_seri = safe_str(
+        data.get(
+            "no_seri",
+            ""
+        )
+    ).strip()
+    
+    no_alat = safe_str(
+        data.get(
+            "no_alat",
+            ""
+        )
+    ).strip()
+    
+    if no_alat:
+        label_nomor_identitas = "No. Seri / No. Alat"
+        nilai_nomor_identitas = (
+            f"{no_seri} / {no_alat}"
+        )
+    else:
+        label_nomor_identitas = "No. Seri"
+        nilai_nomor_identitas = no_seri
     spesifikasi = [
         (
             "Nama Alat",
@@ -447,8 +472,8 @@ def generate_cerapan_pdf(data: dict[str, Any], filename: str) -> str:
             False
         ),
         (
-            "No. Seri",
-            safe_str(data.get("no_seri", "")),
+            label_nomor_identitas,
+            nilai_nomor_identitas,
             False
         ),
         (
