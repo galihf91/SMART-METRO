@@ -4985,7 +4985,9 @@ def run():
             # 3. Jika tanggal sama, ID pengujian terbesar
             # =====================================================
             
-            def hitung_jumlah_nozzle_pubbm(pengujian):
+            def hitung_jumlah_nozzle_pubbm(
+                pengujian
+            ):
                 detail = (
                     pengujian.get(
                         "data_pengujian"
@@ -4993,34 +4995,43 @@ def run():
                     or {}
                 )
             
-                # Prioritas menggunakan jumlah_nozzle
-                jumlah_nozzle = detail.get(
-                    "jumlah_nozzle"
+                # =================================================
+                # PRIORITAS: HITUNG LANGSUNG DARI DATA DISPENSER
+                # 1 baris dispenser = 1 nozzle
+                # =================================================
+                dispenser_records = (
+                    detail.get(
+                        "dispenser",
+                        []
+                    )
+                    or []
                 )
             
-                try:
-                    jumlah_nozzle = int(
-                        jumlah_nozzle
-                    )
-                except (TypeError, ValueError):
-                    jumlah_nozzle = 0
-            
-                # Fallback untuk data lama
-                # jika jumlah_nozzle belum pernah disimpan
-                if jumlah_nozzle <= 0:
-                    dispenser_records = (
-                        detail.get(
-                            "dispenser",
-                            []
-                        )
-                        or []
-                    )
-            
-                    jumlah_nozzle = len(
+                if isinstance(
+                    dispenser_records,
+                    list
+                ) and dispenser_records:
+                    return len(
                         dispenser_records
                     )
             
-                return jumlah_nozzle
+                # =================================================
+                # FALLBACK DATA LAMA
+                # =================================================
+                try:
+                    return int(
+                        detail.get(
+                            "jumlah_nozzle",
+                            0
+                        )
+                        or 0
+                    )
+            
+                except (
+                    TypeError,
+                    ValueError
+                ):
+                    return 0
             
             
             def kunci_pengujian_acuan_pubbm(
