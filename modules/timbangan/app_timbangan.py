@@ -7952,7 +7952,23 @@ def run():
                     riwayat_label
                 ]
             )
-    
+            # =====================================================
+            # NOMOR ALAT DARI DATA PENGUJIAN
+            # =====================================================
+            detail_riwayat = (
+                riwayat_terpilih.get(
+                    "data_pengujian"
+                )
+                or {}
+            )
+            
+            no_alat_riwayat = str(
+                detail_riwayat.get(
+                    "no_alat",
+                    ""
+                )
+                or ""
+            ).strip()
             with st.container(
                 border=True
             ):
@@ -7969,7 +7985,18 @@ def run():
                         "jenis_pengujian"
                     ) or "-"
                 )
-    
+                st.write(
+                    "**No. Seri:**",
+                    alat.get(
+                        "nomor_seri"
+                    ) or "-"
+                )
+                
+                if no_alat_riwayat:
+                    st.write(
+                        "**No. Alat:**",
+                        no_alat_riwayat
+                    )
                 st.write(
                     "**Nomor Sertifikat:**",
                     riwayat_terpilih.get(
