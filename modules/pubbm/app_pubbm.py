@@ -1507,7 +1507,7 @@ def run():
                 supabase
                 .table("uttp")
                 .select(
-                    "perusahaan_id"
+                    "perusahaan_id, nomor_seri"
                 )
                 .eq(
                     "jenis_uttp",
@@ -1515,7 +1515,34 @@ def run():
                 )
                 .execute()
             )
-    
+            # =====================================================
+            # PETA NOMOR SPBU BERDASARKAN PERUSAHAAN
+            # =====================================================
+            nomor_spbu_map = {}
+            
+            for row in (
+                response_uttp.data
+                or []
+            ):
+                perusahaan_id = row.get(
+                    "perusahaan_id"
+                )
+            
+                nomor_spbu = str(
+                    row.get(
+                        "nomor_seri",
+                        ""
+                    )
+                    or ""
+                ).strip()
+            
+                if (
+                    perusahaan_id is not None
+                    and nomor_spbu
+                ):
+                    nomor_spbu_map[
+                        perusahaan_id
+                    ] = nomor_spbu
             perusahaan_ids_pubbm = {
                 row.get("perusahaan_id")
                 for row in (
