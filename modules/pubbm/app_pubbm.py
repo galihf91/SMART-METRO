@@ -2105,6 +2105,12 @@ def run():
         dispenser_df["No"]
         .astype(int)
     )
+    # =====================================================
+    # SINKRONKAN DISPENSER HASIL NORMALISASI
+    # =====================================================
+    st.session_state[
+        "pubbm_dispenser"
+    ] = dispenser_df.copy()
         if (
             isinstance(
                 dispenser_df,
