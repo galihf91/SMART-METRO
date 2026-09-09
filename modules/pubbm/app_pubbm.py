@@ -810,28 +810,79 @@ def simpan_pengujian_pubbm_ke_supabase(
 # =========================================================
 # NORMALISASI IDENTITAS SPBU
 # =========================================================
-def normalisasi_identitas_spbu(text):
+def normalisasi_identitas_spbu(
+    text
+):
     """
-    Normalisasi untuk membandingkan identitas SPBU.
+    Menyamakan berbagai format penulisan
+    identitas SPBU.
 
     Contoh:
     SPBU 34-15717
     SPBU 34.15717
-    spbu 34 15717
+    34-15717
+    34.15717
 
     semuanya menjadi:
-    SPBU3415717
+    3415717
     """
 
     text = str(
         text or ""
     ).upper().strip()
 
-    return re.sub(
+    if not text:
+        return ""
+
+    # =====================================================
+    # JIKA ADA NOMOR SPBU, GUNAKAN ANGKANYA SAJA
+    # =====================================================
+    match_spbu = re.search(
+        r"SPBU\s*([0-9][0-9.\-\s]*)",
+        text,
+        re.IGNORECASE,
+    )
+
+    if match_spbu:
+        return re.sub(
+            r"\D",
+            "",
+            match_spbu.group(1)
+        )
+
+    # =====================================================
+    # JIKA ISINYA MEMANG NOMOR SPBU TANPA KATA "SPBU"
+    # =====================================================
+    hanya_angka = re.sub(
+        r"\D",
+        "",
+        text
+    )
+
+    if (
+        hanya_angka
+        and not re.search(
+            r"[A-Z]",
+            text
+        )
+    ):
+        return hanya_angka
+
+    # =====================================================
+    # FALLBACK UNTUK NAMA SPBU / PERUSAHAAN
+    # =====================================================
+    hasil = re.sub(
         r"[^A-Z0-9]",
         "",
         text
     )
+
+    if hasil.startswith(
+        "SPBU"
+    ):
+        hasil = hasil[4:]
+
+    return hasil
 def bulan_singkat_id(tanggal):
     bulan = {
         1: "JAN", 2: "FEB", 3: "MAR", 4: "APR",
