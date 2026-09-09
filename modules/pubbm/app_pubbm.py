@@ -3376,6 +3376,37 @@ def run():
             # =====================================================
             # NOMOR SPBU
             # =====================================================
+            if "nomor_spbu_pubbm" not in st.session_state:
+            
+                pemilik_awal = str(
+                    st.session_state.get(
+                        "nama_perusahaan",
+                        ""
+                    )
+                    or ""
+                ).strip()
+            
+                match_spbu_awal = re.search(
+                    r"SPBU\s*[\d\.-]+",
+                    pemilik_awal,
+                    re.IGNORECASE,
+                )
+            
+                if match_spbu_awal:
+                    st.session_state[
+                        "nomor_spbu_pubbm"
+                    ] = (
+                        match_spbu_awal
+                        .group(0)
+                        .upper()
+                    )
+            
+                else:
+                    st.session_state[
+                        "nomor_spbu_pubbm"
+                    ] = ""
+            
+            
             st.text_input(
                 "Nomor SPBU",
                 key="nomor_spbu_pubbm",
@@ -3403,26 +3434,6 @@ def run():
                 )
                 or ""
             ).strip()
-            
-            # Fallback untuk data lama:
-            # ambil dari nama pemilik jika field nomor SPBU kosong
-            if not nomor_spbu:
-                match_spbu = re.search(
-                    r"SPBU\s*[\d\.-]+",
-                    pemilik,
-                    re.IGNORECASE,
-                )
-            
-                if match_spbu:
-                    nomor_spbu = (
-                        match_spbu
-                        .group(0)
-                        .upper()
-                    )
-            
-                    st.session_state[
-                        "nomor_spbu_pubbm"
-                    ] = nomor_spbu
     
         # ======================== KOLOM 2 ========================
         with col2:
