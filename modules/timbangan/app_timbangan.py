@@ -169,7 +169,7 @@ def get_or_create_uttp_timbangan(
 
     if not no_seri:
         raise ValueError(
-            "No. Seri / No. Alat wajib diisi."
+            "No. Seri wajib diisi."
         )
 
     # =====================================================
@@ -502,7 +502,7 @@ def simpan_pengujian_timbangan_ke_supabase(data):
 
     if not no_seri:
         raise ValueError(
-            "No. Seri / No. Alat belum diisi."
+            "No. Seri belum diisi."
         )
 
     if not nomor_order:
