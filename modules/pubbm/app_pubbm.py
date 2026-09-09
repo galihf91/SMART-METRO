@@ -1950,6 +1950,46 @@ def run():
                 alat_standar["No"]
                 .astype(int)
             )
+            # =====================================================
+            # SINKRONKAN ALAT STANDAR HASIL NORMALISASI
+            # =====================================================
+            jumlah_alat_standar_normal = (
+                len(alat_standar)
+                if not alat_standar.empty
+                else 1
+            )
+            
+            data[
+                "alat_standar"
+            ] = alat_standar.copy()
+            
+            data[
+                "jumlah_alat_standar"
+            ] = jumlah_alat_standar_normal
+            
+            st.session_state[
+                "data_pubbm"
+            ] = data
+            
+            
+            # Sinkronkan juga saved_data jika tersedia
+            if isinstance(
+                st.session_state.get(
+                    "saved_data"
+                ),
+                dict
+            ):
+                st.session_state[
+                    "saved_data"
+                ][
+                    "alat_standar"
+                ] = alat_standar.copy()
+            
+                st.session_state[
+                    "saved_data"
+                ][
+                    "jumlah_alat_standar"
+                ] = jumlah_alat_standar_normal
         if (
             isinstance(
                 alat_standar,
