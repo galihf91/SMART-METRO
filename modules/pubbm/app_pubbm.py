@@ -4983,7 +4983,13 @@ def run():
                             identitas_normal[4:]
                         )
                 
-                
+                # =================================================
+                # JANGAN GABUNGKAN DATA YANG IDENTITAS SPBU-NYA KOSONG
+                # =================================================
+                if not identitas_normal:
+                    identitas_normal = (
+                        f"UTTP_{alat.get('id')}"
+                    )
                 key_spbu = (
                     perusahaan_id,
                     identitas_normal,
