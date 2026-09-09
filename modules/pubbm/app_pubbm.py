@@ -5170,7 +5170,24 @@ def run():
                     pengujian_terpilih
                 )
             )
+            # =====================================================
+            # UTTP YANG BENAR-BENAR MILIK PENGUJIAN ACUAN
+            # =====================================================
+            uttp_id_pengujian_terpilih = (
+                pengujian_terpilih.get(
+                    "uttp_id"
+                )
+            )
             
+            alat_pengujian_terpilih = next(
+                (
+                    item
+                    for item in daftar_uttp
+                    if item.get("id")
+                    == uttp_id_pengujian_terpilih
+                ),
+                alat
+            )
             # =====================================================
             # 6. PENGUJIAN ACUAN
             # =====================================================
@@ -5267,7 +5284,7 @@ def run():
                     )
                 ):
                     gunakan_data_lama_untuk_edit_pubbm(
-                        alat=alat,
+                        alat=alat_pengujian_terpilih,
                         perusahaan=perusahaan,
                         pengujian=pengujian_terpilih,
                     )
@@ -5285,7 +5302,7 @@ def run():
                     )
                 ):
                     gunakan_data_lama_untuk_pengujian_baru_pubbm(
-                        alat=alat,
+                        alat=alat_pengujian_terpilih,
                         perusahaan=perusahaan,
                         pengujian=pengujian_terpilih,
                     )
