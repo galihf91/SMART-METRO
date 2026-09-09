@@ -2151,6 +2151,48 @@ def run():
     st.session_state[
         "pubbm_dispenser"
     ] = dispenser_df.copy()
+    
+    data[
+        "dispenser"
+    ] = dispenser_df.copy()
+    
+    data[
+        "jumlah_dispenser"
+    ] = (
+        int(
+            dispenser_df["No"]
+            .nunique()
+        )
+        if not dispenser_df.empty
+        and "No" in dispenser_df.columns
+        else 1
+    )
+    
+    st.session_state[
+        "data_pubbm"
+    ] = data
+    
+    
+    # Sinkronkan juga saved_data
+    if isinstance(
+        st.session_state.get(
+            "saved_data"
+        ),
+        dict
+    ):
+        st.session_state[
+            "saved_data"
+        ][
+            "dispenser"
+        ] = dispenser_df.copy()
+    
+        st.session_state[
+            "saved_data"
+        ][
+            "jumlah_dispenser"
+        ] = data[
+            "jumlah_dispenser"
+        ]
         if (
             isinstance(
                 dispenser_df,
