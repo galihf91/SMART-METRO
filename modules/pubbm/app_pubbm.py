@@ -4961,6 +4961,100 @@ def run():
                 )
                 st.stop()
             # =====================================================
+            # PILIH OTOMATIS PENGUJIAN ACUAN
+            # Prioritas:
+            # 1. Jumlah nozzle terbanyak
+            # 2. Jika sama, tanggal pengujian terbaru
+            # 3. Jika tanggal sama, ID pengujian terbesar
+            # =====================================================
+            
+            def hitung_jumlah_nozzle_pubbm(pengujian):
+                detail = (
+                    pengujian.get(
+                        "data_pengujian"
+                    )
+                    or {}
+                )
+            
+                # Prioritas menggunakan jumlah_nozzle
+                jumlah_nozzle = detail.get(
+                    "jumlah_nozzle"
+                )
+            
+                try:
+                    jumlah_nozzle = int(
+                        jumlah_nozzle
+                    )
+                except (TypeError, ValueError):
+                    jumlah_nozzle = 0
+            
+                # Fallback untuk data lama
+                # jika jumlah_nozzle belum pernah disimpan
+                if jumlah_nozzle <= 0:
+                    dispenser_records = (
+                        detail.get(
+                            "dispenser",
+                            []
+                        )
+                        or []
+                    )
+            
+                    jumlah_nozzle = len(
+                        dispenser_records
+                    )
+            
+                return jumlah_nozzle
+            
+            
+            def kunci_pengujian_acuan_pubbm(
+                pengujian
+            ):
+                tanggal = str(
+                    pengujian.get(
+                        "tanggal_pengujian",
+                        ""
+                    )
+                    or ""
+                ).strip()
+            
+                try:
+                    pengujian_id = int(
+                        pengujian.get(
+                            "id",
+                            0
+                        )
+                        or 0
+                    )
+                except (TypeError, ValueError):
+                    pengujian_id = 0
+            
+                return (
+                    hitung_jumlah_nozzle_pubbm(
+                        pengujian
+                    ),
+                    tanggal,
+                    pengujian_id,
+                )
+            
+            
+            pengujian_terpilih = max(
+                daftar_pengujian,
+                key=kunci_pengujian_acuan_pubbm
+            )
+            
+            detail_pengujian_terpilih = (
+                pengujian_terpilih.get(
+                    "data_pengujian"
+                )
+                or {}
+            )
+            
+            jumlah_nozzle_terpilih = (
+                hitung_jumlah_nozzle_pubbm(
+                    pengujian_terpilih
+                )
+            )
+            # =====================================================
             # FILTER TAHUN
             # =====================================================
             daftar_tahun = sorted(
