@@ -2400,16 +2400,12 @@ def run():
             # =============================================
             # ALAT STANDAR
             # =============================================
-            "jumlah_alat_standar": int(
-                detail.get(
-                    "jumlah_alat_standar",
-                    len(alat_standar_df)
-                    if not alat_standar_df.empty
-                    else 1
-                )
-                or 1
+            ""jumlah_alat_standar": (
+                len(alat_standar_df)
+                if not alat_standar_df.empty
+                else 1
             ),
-    
+            
             "alat_standar": alat_standar_df,
     
             # =============================================
@@ -2708,18 +2704,12 @@ def run():
             # =============================================
             # ALAT STANDAR
             # =============================================
-            "jumlah_alat_standar": int(
-                detail.get(
-                    "jumlah_alat_standar",
-                    (
-                        len(alat_standar_df)
-                        if not alat_standar_df.empty
-                        else 1
-                    )
-                )
-                or 1
+            "jumlah_alat_standar": (
+                len(alat_standar_df)
+                if not alat_standar_df.empty
+                else 1
             ),
-    
+            
             "alat_standar": (
                 alat_standar_df
             ),
