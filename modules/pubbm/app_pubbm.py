@@ -1917,7 +1917,39 @@ def run():
         alat_standar = data.get(
             "alat_standar"
         )
+        # =====================================================
+        # NORMALISASI NOMOR ALAT STANDAR
+        # =====================================================
+        if (
+            isinstance(
+                alat_standar,
+                pd.DataFrame
+            )
+            and not alat_standar.empty
+            and "No" in alat_standar.columns
+        ):
+            alat_standar = (
+                alat_standar.copy()
+            )
         
+            alat_standar["No"] = (
+                pd.to_numeric(
+                    alat_standar["No"],
+                    errors="coerce"
+                )
+            )
+        
+            alat_standar = (
+                alat_standar[
+                    alat_standar["No"].notna()
+                ]
+                .copy()
+            )
+        
+            alat_standar["No"] = (
+                alat_standar["No"]
+                .astype(int)
+            )
         if (
             isinstance(
                 alat_standar,
