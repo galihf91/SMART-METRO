@@ -4523,6 +4523,7 @@ def run():
                     "nomor_sertifikat": nomor_sertifikat,
                     "nomor_order": nomor_order,
                     "pemilik": pemilik,
+                    "nama_spbu": nomor_spbu,
                     "alamat": alamat,
                     "jumlah_penera": jumlah_penera,
                     "penera_1": penera_1,
