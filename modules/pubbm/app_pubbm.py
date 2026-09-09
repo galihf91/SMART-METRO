@@ -5061,284 +5061,33 @@ def run():
                 daftar_pengujian
             )
             # =====================================================
-            # 6. TABEL RINGKAS RIWAYAT
+            # 6. TAMPILKAN PENGUJIAN ACUAN
             # =====================================================
-            data_ringkas = []
-
-            for pengujian in daftar_pengujian_filter:
-                detail = (
-                    pengujian.get(
-                        "data_pengujian"
-                    )
-                    or {}
-                )
-            
-                # =================================================
-                # POSISI NOZZLE
-                # =================================================
-                posisi_nozzle = (
-                    detail.get(
-                        "posisi_nozzle",
-                        []
-                    )
-                    or []
-                )
-            
-                if isinstance(
-                    posisi_nozzle,
-                    list
-                ):
-                    posisi_bersih = [
-                        str(x).strip()
-                        for x in posisi_nozzle
-                        if str(x).strip()
-                    ]
-            
-                    posisi_text = ", ".join(
-                        posisi_bersih
-                    )
-            
-                else:
-                    posisi_text = str(
-                        posisi_nozzle
-                        or ""
-                    ).strip()
-            
-                # Jika tidak ada posisi
-                if not posisi_text:
-                    posisi_text = "-"
-            
-                # =================================================
-                # MEDIA
-                # =================================================
-                daftar_media = (
-                    detail.get(
-                        "media",
-                        []
-                    )
-                    or []
-                )
-            
-                if isinstance(
-                    daftar_media,
-                    list
-                ):
-                    media_text = ", ".join(
-                        str(x).strip()
-                        for x in daftar_media
-                        if str(x).strip()
-                    )
-            
-                else:
-                    media_text = str(
-                        daftar_media
-                        or ""
-                    ).strip()
-            
-                if not media_text:
-                    media_text = "-"
-            
-                # =================================================
-                # DATA RINGKAS
-                # =================================================
-                data_ringkas.append({
-                    "Tanggal": pengujian.get(
-                        "tanggal_pengujian",
-                        ""
-                    ),
-            
-                    "Jenis": pengujian.get(
-                        "jenis_pengujian",
-                        ""
-                    ),
-            
-                    "Nomor Sertifikat": pengujian.get(
-                        "nomor_sertifikat",
-                        ""
-                    ),
-            
-                    "Nomor Order": pengujian.get(
-                        "nomor_order",
-                        ""
-                    ),
-            
-                    "Jumlah Nozzle": detail.get(
-                        "jumlah_nozzle",
-                        0
-                    ),
-            
-                    "Posisi": posisi_text,
-            
-                    "Media": media_text,
-            
-                    "Penera": pengujian.get(
-                        "penera_1",
-                        ""
-                    ),
-                })
-    
             st.markdown("---")
+            
             st.subheader(
-                "Riwayat Tera / Tera Ulang"
+                "Pengujian Acuan"
             )
-    
-            st.dataframe(
-                pd.DataFrame(
-                    data_ringkas
-                ),
-                use_container_width=True,
-                hide_index=True,
+            
+            st.caption(
+                "Pengujian ini dipilih otomatis berdasarkan "
+                "jumlah nozzle terbanyak."
             )
-    
-            # =====================================================
-            # 7. PILIH SALAH SATU RIWAYAT
-            # =====================================================
-            opsi_riwayat = {}
-
-            for pengujian in daftar_pengujian_filter:
             
-                detail = (
-                    pengujian.get(
-                        "data_pengujian"
-                    )
-                    or {}
-                )
-            
-                jumlah_nozzle = int(
-                    detail.get(
-                        "jumlah_nozzle",
-                        0
-                    )
-                    or 0
-                )
-            
-                # =================================================
-                # POSISI
-                # =================================================
-                posisi_nozzle = (
-                    detail.get(
-                        "posisi_nozzle",
-                        []
-                    )
-                    or []
-                )
-            
-                if isinstance(
-                    posisi_nozzle,
-                    list
-                ):
-                    posisi_bersih = [
-                        str(x).strip()
-                        for x in posisi_nozzle
-                        if str(x).strip()
-                    ]
-            
-                    posisi_text = ", ".join(
-                        posisi_bersih
-                    )
-                else:
-                    posisi_text = str(
-                        posisi_nozzle
-                        or ""
-                    ).strip()
-            
-                # =================================================
-                # MEDIA
-                # =================================================
-                daftar_media = (
-                    detail.get(
-                        "media",
-                        []
-                    )
-                    or []
-                )
-            
-                if isinstance(
-                    daftar_media,
-                    list
-                ):
-                    media_text = ", ".join(
-                        str(x).strip()
-                        for x in daftar_media
-                        if str(x).strip()
-                    )
-                else:
-                    media_text = str(
-                        daftar_media
-                        or ""
-                    ).strip()
-            
-                # =================================================
-                # LABEL TAMBAHAN
-                # =================================================
-                if posisi_text and media_text:
-                    detail_label = (
-                        f"Posisi {posisi_text}"
-                        f" | {media_text}"
-                    )
-            
-                elif media_text:
-                    detail_label = (
-                        media_text
-                    )
-            
-                elif posisi_text:
-                    detail_label = (
-                        f"Posisi {posisi_text}"
-                    )
-            
-                else:
-                    detail_label = (
-                        "Tanpa detail posisi/media"
-                    )
-            
-                # =================================================
-                # LABEL RIWAYAT
-                # =================================================
-                label = (
-                    f"{pengujian.get('tanggal_pengujian', '')}"
-                    f" | {pengujian.get('jenis_pengujian', '')}"
-                    f" | {jumlah_nozzle} nozzle"
-                    f" | {detail_label}"
-                    f" | {pengujian.get('nomor_sertifikat', '')}"
-                )
-            
-                opsi_riwayat[
-                    label
-                ] = pengujian
-    
-            pilihan_riwayat = st.selectbox(
-                "Lihat Detail Pengujian",
-                options=[""] + list(
-                    opsi_riwayat.keys()
-                ),
-                key="pubbm_detail_riwayat",
+            detail = (
+                detail_pengujian_terpilih
             )
-    
-            if pilihan_riwayat:
-    
-                pengujian_terpilih = (
-                    opsi_riwayat[
-                        pilihan_riwayat
-                    ]
-                )
-    
-                detail = (
-                    pengujian_terpilih.get(
-                        "data_pengujian"
-                    )
-                    or {}
-                )
-    
-                st.markdown("---")
-                st.subheader(
-                    "Detail Pengujian"
-                )
-    
+            
+            with st.container(
+                border=True
+            ):
                 col1, col2, col3 = (
                     st.columns(3)
                 )
-    
+            
+                # =================================================
+                # KOLOM 1
+                # =================================================
                 with col1:
                     st.write(
                         "**Tanggal Pengujian:**"
@@ -5348,8 +5097,9 @@ def run():
                             "tanggal_pengujian",
                             ""
                         )
+                        or "-"
                     )
-    
+            
                     st.write(
                         "**Jenis Pengujian:**"
                     )
@@ -5358,8 +5108,12 @@ def run():
                             "jenis_pengujian",
                             ""
                         )
+                        or "-"
                     )
-    
+            
+                # =================================================
+                # KOLOM 2
+                # =================================================
                 with col2:
                     st.write(
                         "**Nomor Sertifikat:**"
@@ -5369,8 +5123,9 @@ def run():
                             "nomor_sertifikat",
                             ""
                         )
+                        or "-"
                     )
-    
+            
                     st.write(
                         "**Nomor Order:**"
                     )
@@ -5379,19 +5134,20 @@ def run():
                             "nomor_order",
                             ""
                         )
+                        or "-"
                     )
-    
+            
+                # =================================================
+                # KOLOM 3
+                # =================================================
                 with col3:
                     st.write(
                         "**Jumlah Nozzle:**"
                     )
                     st.write(
-                        detail.get(
-                            "jumlah_nozzle",
-                            0
-                        )
+                        jumlah_nozzle_terpilih
                     )
-    
+            
                     st.write(
                         "**Penera:**"
                     )
@@ -5400,81 +5156,54 @@ def run():
                             "penera_1",
                             ""
                         )
+                        or "-"
                     )
-    
-                # =================================================
-                # DETAIL NOZZLE
-                # =================================================
-                dispenser_records = (
-                    detail.get(
-                        "dispenser",
-                        []
+            
+            
+            # =====================================================
+            # 7. AKSI PENGUJIAN ACUAN
+            # =====================================================
+            st.markdown("---")
+            
+            col_edit, col_baru = (
+                st.columns(2)
+            )
+            
+            with col_edit:
+                if st.button(
+                    "✏️ Edit Pengujian",
+                    type="primary",
+                    use_container_width=True,
+                    key=(
+                        "pubbm_edit_riwayat_"
+                        f"{pengujian_terpilih.get('id')}"
                     )
-                    or []
-                )
-    
-                st.subheader(
-                    "Nozzle yang Diuji"
-                )
-    
-                if dispenser_records:
-                    st.dataframe(
-                        pd.DataFrame(
-                            dispenser_records
-                        ),
-                        use_container_width=True,
-                        hide_index=True,
+                ):
+                    gunakan_data_lama_untuk_edit_pubbm(
+                        alat=alat,
+                        perusahaan=perusahaan,
+                        pengujian=pengujian_terpilih,
                     )
-    
-                else:
-                    st.info(
-                        "Detail nozzle tidak tersedia."
+            
+                    st.rerun()
+            
+            
+            with col_baru:
+                if st.button(
+                    "➕ Tambah Pengujian Baru",
+                    use_container_width=True,
+                    key=(
+                        "pubbm_baru_riwayat_"
+                        f"{pengujian_terpilih.get('id')}"
                     )
-                st.markdown("---")
-
-                # =================================================
-                # AKSI RIWAYAT
-                # =================================================
-                st.markdown("---")
-                
-                col_edit, col_baru = st.columns(2)
-                
-                
-                with col_edit:
-                    if st.button(
-                        "✏️ Edit Pengujian",
-                        type="primary",
-                        use_container_width=True,
-                        key=(
-                            "pubbm_edit_riwayat_"
-                            f"{pengujian_terpilih.get('id')}"
-                        )
-                    ):
-                        gunakan_data_lama_untuk_edit_pubbm(
-                            alat=alat,
-                            perusahaan=perusahaan,
-                            pengujian=pengujian_terpilih,
-                        )
-                
-                        st.rerun()
-                
-                
-                with col_baru:
-                    if st.button(
-                        "➕ Tambah Pengujian Baru",
-                        use_container_width=True,
-                        key=(
-                            "pubbm_baru_riwayat_"
-                            f"{pengujian_terpilih.get('id')}"
-                        )
-                    ):
-                        gunakan_data_lama_untuk_pengujian_baru_pubbm(
-                            alat=alat,
-                            perusahaan=perusahaan,
-                            pengujian=pengujian_terpilih,
-                        )
-                
-                        st.rerun()
+                ):
+                    gunakan_data_lama_untuk_pengujian_baru_pubbm(
+                        alat=alat,
+                        perusahaan=perusahaan,
+                        pengujian=pengujian_terpilih,
+                    )
+            
+                    st.rerun()
 
         except Exception as exc:
             st.error(
