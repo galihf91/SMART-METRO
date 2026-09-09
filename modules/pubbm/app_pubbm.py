@@ -4907,41 +4907,55 @@ def run():
             # 4. IDENTITAS SPBU
             # =====================================================
             st.markdown("---")
-    
-            col_a, col_b = st.columns(2)
-    
-            with col_a:
-                st.write(
-                    "**Nama SPBU / Perusahaan:**"
+            
+            nama_spbu_tampil = str(
+                perusahaan.get(
+                    "nama_perusahaan",
+                    ""
                 )
-                st.write(
-                    perusahaan.get(
-                        "nama_perusahaan",
-                        ""
-                    )
+                or ""
+            ).strip()
+            
+            identitas_spbu_tampil = str(
+                alat.get(
+                    "nomor_seri",
+                    ""
                 )
-    
-            with col_b:
-                st.write(
-                    "**Identitas SPBU:**"
-                )
-                st.write(
-                    alat.get(
-                        "nomor_seri",
-                        ""
-                    )
-                )
-    
-            st.write(
-                "**Alamat:**"
-            )
-    
-            st.write(
+                or ""
+            ).strip()
+            
+            alamat_spbu_tampil = str(
                 perusahaan.get(
                     "alamat",
                     ""
                 )
-            )
+                or ""
+            ).strip()
+            
+            with st.container(
+                border=True
+            ):
+                st.write(
+                    "**Nama SPBU / Perusahaan:**",
+                    nama_spbu_tampil or "-"
+                )
+            
+                # Hanya tampilkan identitas SPBU
+                # jika belum tercantum pada nama perusahaan
+                if (
+                    identitas_spbu_tampil
+                    and identitas_spbu_tampil.lower()
+                    not in nama_spbu_tampil.lower()
+                ):
+                    st.write(
+                        "**Identitas SPBU:**",
+                        identitas_spbu_tampil
+                    )
+            
+                st.write(
+                    "**Alamat:**",
+                    alamat_spbu_tampil or "-"
+                )
     
             # =====================================================
             # 5. AMBIL RIWAYAT PENGUJIAN
