@@ -2645,7 +2645,12 @@ def run():
         ] = dict(
             data_baru
         )
-    
+        # =====================================================
+        # SINKRONKAN DATA DISPENSER AKTIF
+        # =====================================================
+        st.session_state[
+            "pubbm_dispenser"
+        ] = dispenser_df.copy()
         # =====================================================
         # BERSIHKAN WIDGET DINAMIS LAMA
         # =====================================================
