@@ -1911,64 +1911,129 @@ def run():
                 ""
             )
         ).strip()
-        # Jumlah alat standar
-        st.session_state["jumlah_alat_standar_pubbm"] = int(
-            data.get(
-                "jumlah_alat_standar",
-                1
-            )
+        # =====================================================
+        # ALAT STANDAR
+        # =====================================================
+        alat_standar = data.get(
+            "alat_standar"
         )
-    
-        alat_standar = data.get("alat_standar")
-
+        
         if (
-            isinstance(alat_standar, pd.DataFrame)
+            isinstance(
+                alat_standar,
+                pd.DataFrame
+            )
+            and not alat_standar.empty
+        ):
+            jumlah_alat_standar = len(
+                alat_standar
+            )
+        
+        else:
+            jumlah_alat_standar = int(
+                data.get(
+                    "jumlah_alat_standar",
+                    1
+                )
+                or 1
+            )
+        
+        st.session_state[
+            "jumlah_alat_standar_pubbm"
+        ] = max(
+            1,
+            jumlah_alat_standar
+        )
+        
+        
+        # =====================================================
+        # PULIHKAN PILIHAN BEJANA
+        # =====================================================
+        if (
+            isinstance(
+                alat_standar,
+                pd.DataFrame
+            )
             and not alat_standar.empty
         ):
             for _, row in alat_standar.iterrows():
-
+        
                 nomor = int(
                     row.get(
                         "No",
                         1
                     )
                 )
-
+        
                 merk = str(
                     row.get(
                         "Merk",
                         ""
                     )
                 ).strip()
-
+        
                 nomor_seri = str(
                     row.get(
                         "Nomor Seri",
                         ""
                     )
                 ).strip()
-
-                # Hilangkan .0 jika nomor seri berasal dari Excel
-                if nomor_seri.endswith(".0"):
-                    nomor_seri = nomor_seri[:-2]
-
+        
+                if nomor_seri.endswith(
+                    ".0"
+                ):
+                    nomor_seri = (
+                        nomor_seri[:-2]
+                    )
+        
                 st.session_state[
                     f"bejana_select_{nomor}"
                 ] = (
-                    f"{merk} | No Seri : {nomor_seri}"
+                    f"{merk} | "
+                    f"No Seri : {nomor_seri}"
                 )
-    
-        # Jumlah dispenser
-        jumlah_dispenser = int(
-            data.get(
-                "jumlah_dispenser",
-                1
-            )
+        
+        
+        # =====================================================
+        # DISPENSER
+        # =====================================================
+        dispenser_df = data.get(
+            "dispenser"
         )
-    
+        
+        if (
+            isinstance(
+                dispenser_df,
+                pd.DataFrame
+            )
+            and not dispenser_df.empty
+            and "No" in dispenser_df.columns
+        ):
+            jumlah_dispenser = (
+                dispenser_df[
+                    "No"
+                ]
+                .dropna()
+                .nunique()
+            )
+        
+        else:
+            jumlah_dispenser = int(
+                data.get(
+                    "jumlah_dispenser",
+                    1
+                )
+                or 1
+            )
+        
         st.session_state[
             "jumlah_dispenser_pubbm"
-        ] = max(1, jumlah_dispenser)
+        ] = max(
+            1,
+            int(
+                jumlah_dispenser
+            )
+        )
     
         # PULIHKAN DATA DISPENSER
         # =========================
