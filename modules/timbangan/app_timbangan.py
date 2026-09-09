@@ -7071,7 +7071,33 @@ def run():
                         f"**Model / Tipe:** "
                         f"{data.get('model', '-')}"
                     )
-                    st.write(f"**No. Seri:** {data.get('no_seri', '-')}")
+                    no_seri_preview = str(
+                        data.get(
+                            "no_seri",
+                            ""
+                        )
+                        or ""
+                    ).strip()
+                    
+                    no_alat_preview = str(
+                        data.get(
+                            "no_alat",
+                            ""
+                        )
+                        or ""
+                    ).strip()
+                    
+                    if no_alat_preview:
+                        st.write(
+                            f"**No. Seri / No. Alat:** "
+                            f"{no_seri_preview or '-'} / "
+                            f"{no_alat_preview}"
+                        )
+                    else:
+                        st.write(
+                            f"**No. Seri:** "
+                            f"{no_seri_preview or '-'}"
+                        )
             
                 with preview_cols[1]:
                     st.write(f"**Penera:** {data.get('nama_penera', '-')}")
