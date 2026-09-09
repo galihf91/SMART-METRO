@@ -2126,6 +2126,11 @@ def run():
             "mode_pubbm",
             "pubbm_edit_pengujian_id",
             "pubbm_next_mode",
+            "pubbm_filter_tahun",
+            "pubbm_filter_jenis_pengujian",
+            "pubbm_filter_nozzle",
+            "pubbm_detail_riwayat",
+            "pubbm_riwayat_spbu",
         }
 
         for key in list(st.session_state.keys()):
