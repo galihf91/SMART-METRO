@@ -4849,11 +4849,23 @@ def run():
                     or ""
                 ).strip()
     
-                label = (
-                    f"{nama_perusahaan}"
-                    f" | {identitas_spbu}"
-                    f" | ID {alat.get('id')}"
-                )
+                # =====================================================
+                # LABEL PILIHAN SPBU YANG LEBIH RINGKAS
+                # =====================================================
+                if (
+                    identitas_spbu
+                    and identitas_spbu.lower()
+                    not in nama_perusahaan.lower()
+                ):
+                    label = (
+                        f"{nama_perusahaan}"
+                        f" | {identitas_spbu}"
+                    )
+                else:
+                    label = (
+                        nama_perusahaan
+                        or identitas_spbu
+                    )
     
                 opsi_spbu[label] = {
                     "uttp": alat,
