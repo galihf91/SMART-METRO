@@ -1714,7 +1714,7 @@ def run():
     if "pubbm_generated_files" not in st.session_state:
         st.session_state.pubbm_generated_files = {}
         
-    def :
+    def pulihkan_data_pubbm():
         data = st.session_state.get("data_pubbm", {})
     
         if not data:
