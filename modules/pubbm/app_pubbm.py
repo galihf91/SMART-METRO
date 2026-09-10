@@ -2520,6 +2520,7 @@ def run():
             "media_restore_",
             "jumlah_posisi_",
             "bejana_select_",
+            "k_faktor_",
         )
 
         key_hapus_langsung = {
@@ -2826,6 +2827,7 @@ def run():
             "media_restore_",
             "jumlah_posisi_",
             "bejana_select_",
+            "k_faktor_",
         )
         
         for key in list(
@@ -3131,6 +3133,7 @@ def run():
             "no_seri_",
             "posisi_",
             "media_",
+            "k_faktor_",
             "media_manual_",
             "media_restore_",
             "jumlah_posisi_",
