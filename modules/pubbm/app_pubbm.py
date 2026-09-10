@@ -4316,14 +4316,17 @@ def run():
                     1,
                     jumlah_posisi + 1
                 ):
-                    col_posisi, col_media = st.columns(
-                        [1, 2]
+                    col_posisi, col_media, col_kfaktor = st.columns(
+                        [1, 2, 1]
                     )
                 
                     key_posisi = f"posisi_{i}_{idx}"
                     key_media_pilihan = f"media_{i}_{idx}"
                     key_media_manual = f"media_manual_{i}_{idx}"
                     key_media_restore = f"media_restore_{i}_{idx}"
+                    key_k_faktor = (
+                        f"k_faktor_{i}_{idx}"
+                    )
                 
                     # =================================================
                     # PULIHKAN MEDIA SAAT USER KEMBALI DARI PREVIEW
@@ -4396,6 +4399,12 @@ def run():
                                 pilihan_media
                             ).strip()
                 
+                    with col_kfaktor:
+                        k_faktor = st.text_input(
+                            f"K-Faktor {idx}",
+                            key=key_k_faktor,
+                            placeholder="Opsional",
+                        ) 
                     if media:
                         data_rows.append(
                             {
@@ -4404,7 +4413,8 @@ def run():
                                 "Merk": merk.strip(),
                                 "Tipe": tipe.strip(),
                                 "No. Seri": no_seri.strip(),
-                                "Media": media
+                                "Media": media,
+                                "K-Faktor": k_faktor.strip(),
                             }
                         )
 
@@ -4471,7 +4481,8 @@ def run():
             "Merk",
             "Tipe",
             "No. Seri",
-            "Media"
+            "Media",
+            "K-Faktor",
         ]
 
         dispenser_df = pd.DataFrame(
