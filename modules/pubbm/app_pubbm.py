@@ -1778,7 +1778,15 @@ def run():
         st.session_state.saved_data = {}
     if "pubbm_dispenser" not in st.session_state:
         st.session_state.pubbm_dispenser = pd.DataFrame(
-            columns=["No", "Posisi", "Merk", "Tipe", "No. Seri", "Media"]
+            columns=[
+                "No",
+                "Posisi",
+                "Merk",
+                "Tipe",
+                "No. Seri",
+                "Media",
+                "K-Faktor",
+            ]
         )
     if "data_spbu" not in st.session_state:
         st.session_state.data_spbu = load_data_spbu()
@@ -2257,6 +2265,7 @@ def run():
                     "Tipe",
                     "No. Seri",
                     "Media",
+                    "K-Faktor",
                 ]
             )
 
