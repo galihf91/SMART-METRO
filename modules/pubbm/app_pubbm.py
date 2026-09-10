@@ -4670,29 +4670,32 @@ def run():
                 data_pubbm
             )
 
-            st.session_state.saved_data.update(
-                {
-                    "tanggal_pengujian": tanggal_pengujian,
-                    "tanggal_cetak": tanggal_tanda_tangan,
-                    "jenis_pengujian": jenis_pengujian,
-                    "nomor_sertifikat": nomor_sertifikat,
-                    "nomor_order": nomor_order,
-            
-                    "pemilik": pemilik,
-                    "nama_spbu": nomor_spbu,
-                    "alamat": alamat,
-            
-                    "jumlah_penera": jumlah_penera,
-                    "penera_1": penera_1,
-                    "penera_2": penera_2,
-            
-                    "jumlah_alat_standar": jumlah_alat_standar,
-                    "alat_standar": alat_standar_df.copy(),
-            
-                    "jumlah_dispenser": jumlah_dispenser,
-                    "dispenser": dispenser_df.copy(),
-                }
+            # =====================================================
+            # SIMPAN SNAPSHOT LENGKAP DATA PUBBM
+            # =====================================================
+            st.session_state[
+                "saved_data"
+            ] = dict(
+                data_pubbm
             )
+            
+            # DataFrame dibuat copy agar tidak ikut berubah
+            # karena perubahan widget pada rerun berikutnya
+            st.session_state[
+                "saved_data"
+            ][
+                "alat_standar"
+            ] = alat_standar_df.copy()
+            
+            st.session_state[
+                "saved_data"
+            ][
+                "dispenser"
+            ] = dispenser_df.copy()
+            
+            st.session_state[
+                "pubbm_dispenser"
+            ] = dispenser_df.copy()
 
             st.balloons()
 
