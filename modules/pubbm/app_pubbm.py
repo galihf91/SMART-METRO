@@ -4913,13 +4913,33 @@ def run():
     
         st.subheader("Data Pompa Ukur BBM")
     
-        dispenser_df = data_pubbm.get("dispenser")
-    
-        if dispenser_df is None or dispenser_df.empty:
-            st.warning("Data pompa ukur BBM belum diisi.")
+        dispenser_df = data_pubbm.get(
+            "dispenser"
+        )
+        
+        if (
+            dispenser_df is None
+            or dispenser_df.empty
+        ):
+            st.warning(
+                "Data pompa ukur BBM belum diisi."
+            )
+        
         else:
+            # K-Faktor tetap disimpan dalam data,
+            # tetapi tidak ditampilkan di Preview
+            dispenser_preview_df = (
+                dispenser_df.drop(
+                    columns=[
+                        "K-Faktor"
+                    ],
+                    errors="ignore"
+                )
+                .copy()
+            )
+        
             st.dataframe(
-                dispenser_df,
+                dispenser_preview_df,
                 use_container_width=True,
                 hide_index=True
             )
