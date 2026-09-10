@@ -2457,20 +2457,43 @@ def run():
                         )
                         or ""
                     ).strip()
-
+                    
                     if (
                         media_tersimpan.lower()
                         == "nan"
                     ):
                         media_tersimpan = ""
-
+                    
+                    
+                    # =============================================
+                    # K-FAKTOR
+                    # =============================================
+                    k_faktor_restore = str(
+                        row.get(
+                            "K-Faktor",
+                            ""
+                        )
+                        or ""
+                    ).strip()
+                    
+                    if (
+                        k_faktor_restore.lower()
+                        == "nan"
+                    ):
+                        k_faktor_restore = ""
+                    
+                    
                     st.session_state[
                         f"posisi_{nomor_dispenser}_{nomor_posisi}"
                     ] = posisi_restore
-
+                    
                     st.session_state[
                         f"media_restore_{nomor_dispenser}_{nomor_posisi}"
                     ] = media_tersimpan
+                    
+                    st.session_state[
+                        f"k_faktor_{nomor_dispenser}_{nomor_posisi}"
+                    ] = k_faktor_restore
                     
     def kembali_ke_input_pubbm():
         pulihkan_data_pubbm()
