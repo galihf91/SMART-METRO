@@ -5704,15 +5704,6 @@ def run():
                 "Pengujian Acuan"
             )
             
-            st.caption(
-                "Data dengan jumlah nozzle terbanyak "
-                "digunakan sebagai acuan pengisian."
-            )
-            
-            detail = (
-                detail_pengujian_terpilih
-            )
-            
             with st.container(
                 border=True
             ):
