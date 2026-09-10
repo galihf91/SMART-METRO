@@ -5004,8 +5004,41 @@ def run():
                         # =================================================
                         # 3. GENERATE PDF
                         # =================================================
+                        # =================================================
+                        # DATA KHUSUS UNTUK SERTIFIKAT
+                        # K-Faktor tidak dicetak ke sertifikat
+                        # =================================================
+                        data_sertifikat_pubbm = dict(
+                            data_pubbm
+                        )
+                        
+                        dispenser_sertifikat = (
+                            data_pubbm.get(
+                                "dispenser"
+                            )
+                        )
+                        
+                        if (
+                            isinstance(
+                                dispenser_sertifikat,
+                                pd.DataFrame
+                            )
+                        ):
+                            data_sertifikat_pubbm[
+                                "dispenser"
+                            ] = (
+                                dispenser_sertifikat.drop(
+                                    columns=[
+                                        "K-Faktor"
+                                    ],
+                                    errors="ignore"
+                                )
+                                .copy()
+                            )
+                        
+                        
                         generate_sertifikat_pubbm(
-                            data_pubbm,
+                            data_sertifikat_pubbm,
                             str(output_file),
                         )
                 
