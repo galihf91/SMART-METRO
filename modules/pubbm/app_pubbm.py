@@ -3373,7 +3373,28 @@ def run():
         ],
         key="mode_pubbm",
     )
+    # =========================================================
+    # PULIHKAN DATA JIKA KEMBALI KE INPUT
+    # =========================================================
+    mode_sebelumnya = st.session_state.get(
+        "pubbm_mode_sebelumnya"
+    )
     
+    if (
+        mode == "📝 Input Data Pengujian"
+        and mode_sebelumnya
+        == "📄 Preview & Generate Data"
+        and st.session_state.get(
+            "data_pubbm"
+        )
+    ):
+        pulihkan_data_pubbm()
+    
+    
+    # Simpan mode saat ini untuk run berikutnya
+    st.session_state[
+        "pubbm_mode_sebelumnya"
+    ] = mode
     # =========================
     # TITLE
     # =========================
