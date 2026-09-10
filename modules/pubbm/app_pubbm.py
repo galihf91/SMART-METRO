@@ -4656,14 +4656,20 @@ def run():
                     "jenis_pengujian": jenis_pengujian,
                     "nomor_sertifikat": nomor_sertifikat,
                     "nomor_order": nomor_order,
+            
                     "pemilik": pemilik,
                     "nama_spbu": nomor_spbu,
                     "alamat": alamat,
+            
                     "jumlah_penera": jumlah_penera,
                     "penera_1": penera_1,
                     "penera_2": penera_2,
+            
                     "jumlah_alat_standar": jumlah_alat_standar,
+                    "alat_standar": alat_standar_df.copy(),
+            
                     "jumlah_dispenser": jumlah_dispenser,
+                    "dispenser": dispenser_df.copy(),
                 }
             )
 
