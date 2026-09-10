@@ -983,29 +983,36 @@ def update_spbu_terpilih():
         "alamat_input_pubbm"
     ] = str(alamat_spbu).strip()
     # =====================================================
-    # PERBARUI NOMOR SPBU SESUAI PILIHAN
+    # PERBARUI NOMOR SPBU SESUAI MASTER
     # =====================================================
-    match_spbu = re.search(
-        r"SPBU\s*[\d\.-]+",
-        selected,
-        re.IGNORECASE,
-    )
+    nomor_spbu = str(
+        data.get(
+            "Nomor SPBU",
+            ""
+        )
+        or ""
+    ).strip()
     
-    if match_spbu:
-        st.session_state[
-            "nomor_spbu_pubbm"
-        ] = (
-            match_spbu
-            .group(0)
-            .upper()
+    # Fallback khusus data lama
+    if (
+        not nomor_spbu
+        or nomor_spbu.lower() == "nan"
+    ):
+        match_spbu = re.search(
+            r"SPBU\s*[\d\.-]+",
+            selected,
+            re.IGNORECASE,
         )
     
-    else:
-        # Jangan membawa nomor SPBU
-        # dari pilihan sebelumnya
-        st.session_state[
-            "nomor_spbu_pubbm"
-        ] = ""
+        nomor_spbu = (
+            match_spbu.group(0).upper()
+            if match_spbu
+            else ""
+        )
+    
+    st.session_state[
+        "nomor_spbu_pubbm"
+    ] = nomor_spbu
 def run():
     col_nav1, col_nav2 = st.columns(2)
 
