@@ -4262,7 +4262,10 @@ def run():
                     f"media_restore_{dispenser_hapus}_{idx_hapus}",
                     None
                 )
-
+                st.session_state.pop(
+                    f"k_faktor_{dispenser_hapus}_{idx_hapus}",
+                    None
+                )
             st.session_state.jumlah_dispenser_pubbm = (
                 jumlah_sekarang - 1
             )
