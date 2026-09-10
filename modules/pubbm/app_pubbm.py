@@ -5525,44 +5525,7 @@ def run():
                     uttp_ids = [
                         uttp_id_lama
                     ]
-    
-            # =====================================================
-            # 4. IDENTITAS SPBU
-            # =====================================================
-            st.markdown("---")
-            
-            nama_spbu_tampil = str(
-                perusahaan.get(
-                    "nama_perusahaan",
-                    ""
-                )
-                or ""
-            ).strip()
-            
-            identitas_spbu_tampil = str(
-                alat.get(
-                    "nomor_seri",
-                    ""
-                )
-                or ""
-            ).strip()
-            
-            alamat_spbu_tampil = str(
-                perusahaan.get(
-                    "alamat",
-                    ""
-                )
-                or ""
-            ).strip()
-            
-            with st.container(
-                border=True
-            ):
-                st.write(
-                    "**Nama SPBU / Perusahaan:**",
-                    nama_spbu_tampil or "-"
-                )
-            
+          
                 # Hanya tampilkan identitas SPBU
                 # jika belum tercantum pada nama perusahaan
                 if (
