@@ -4073,6 +4073,10 @@ def run():
                     f"media_restore_{dispenser_baru}_{idx_baru}",
                     None
                 )
+                st.session_state.pop(
+                    f"k_faktor_{dispenser_baru}_{idx_baru}",
+                    None
+                )
 
             st.session_state.jumlah_dispenser_pubbm = (
                 dispenser_baru
