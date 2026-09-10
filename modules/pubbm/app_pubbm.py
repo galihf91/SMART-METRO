@@ -2595,6 +2595,7 @@ def run():
                 "Tipe",
                 "No. Seri",
                 "Media",
+                "K-Faktor",
             ]
         )
     
@@ -2882,6 +2883,7 @@ def run():
                 "Tipe",
                 "No. Seri",
                 "Media",
+                "K-Faktor",
             ]
         )
     
