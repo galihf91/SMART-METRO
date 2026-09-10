@@ -2564,6 +2564,8 @@ def run():
             "pubbm_detail_riwayat",
             "pubbm_riwayat_spbu",
             "nomor_spbu_pubbm",
+            "pubbm_draft_widget",
+            "pubbm_mode_sebelumnya",
         }
 
         for key in list(st.session_state.keys()):
