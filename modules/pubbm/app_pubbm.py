@@ -4159,7 +4159,13 @@ def run():
                 key_manual_baru = (
                     f"media_manual_{dispenser_baru}_{idx_copy}"
                 )
+                key_k_faktor_asal = (
+                    f"k_faktor_{dispenser_asal}_{idx_copy}"
+                )
                 
+                key_k_faktor_baru = (
+                    f"k_faktor_{dispenser_baru}_{idx_copy}"
+                )
                 pilihan_media_asal = st.session_state.get(
                     key_media_asal,
                     ""
@@ -4184,7 +4190,15 @@ def run():
                     st.session_state[
                         key_manual_baru
                     ] = ""
-
+                # =============================================
+                # SALIN K-FAKTOR
+                # =============================================
+                st.session_state[
+                    key_k_faktor_baru
+                ] = st.session_state.get(
+                    key_k_faktor_asal,
+                    ""
+                )
             st.session_state.jumlah_dispenser_pubbm = (
                 dispenser_baru
             )
