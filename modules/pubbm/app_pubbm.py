@@ -1728,7 +1728,17 @@ def run():
             .astype(str)
             .str.strip()
         )
-    
+        df["Nomor SPBU"] = (
+            df["Nomor SPBU"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+        )
+        
+        df.loc[
+            df["Nomor SPBU"].str.lower() == "nan",
+            "Nomor SPBU"
+        ] = ""
         df["Alamat"] = (
             df["Alamat"]
             .fillna("")
