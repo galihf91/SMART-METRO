@@ -3361,6 +3361,79 @@ def run():
         ] = st.session_state.pop(
             "pubbm_next_mode"
         )
+    # =========================================================
+    # SIMPAN DRAFT FORM SEBELUM MENINGGALKAN MENU INPUT
+    # =========================================================
+    def simpan_draft_widget_pubbm():
+    
+        mode_lama = st.session_state.get(
+            "pubbm_mode_sebelumnya"
+        )
+    
+        # Hanya simpan draft ketika user
+        # sedang meninggalkan menu Input
+        if (
+            mode_lama
+            != "📝 Input Data Pengujian"
+        ):
+            return
+    
+        key_form = {
+            "nama_perusahaan",
+            "alamat_input_pubbm",
+            "input_manual_spbu",
+            "spbu_select",
+            "nomor_spbu_pubbm",
+    
+            "jenis_pengujian_pubbm",
+            "tanggal_pengujian_pubbm",
+            "tanggal_cetak_pubbm",
+            "nomor_sertifikat_pubbm",
+            "nomor_order_pubbm",
+    
+            "jumlah_penera",
+            "penera_1_select",
+            "penera_2_select",
+            "nip_penera_1_pubbm",
+            "nip_penera_2_pubbm",
+            "golongan_penera_1_pubbm",
+            "golongan_penera_2_pubbm",
+    
+            "jumlah_alat_standar_pubbm",
+            "jumlah_dispenser_pubbm",
+        }
+    
+        prefix_form = (
+            "merk_",
+            "tipe_",
+            "no_seri_",
+            "posisi_",
+            "media_",
+            "media_manual_",
+            "media_restore_",
+            "k_faktor_",
+            "jumlah_posisi_",
+            "bejana_select_",
+        )
+    
+        draft = {}
+    
+        for key, value in list(
+            st.session_state.items()
+        ):
+            if (
+                key in key_form
+                or key.startswith(
+                    prefix_form
+                )
+            ):
+                draft[key] = value
+    
+        st.session_state[
+            "pubbm_draft_widget"
+        ] = draft
+    
+    
     # =========================
     # SIDEBAR
     # =========================
@@ -3372,7 +3445,10 @@ def run():
             "📚 Riwayat PU BBM",
         ],
         key="mode_pubbm",
+        on_change=simpan_draft_widget_pubbm,
     )
+    
+    
     # =========================================================
     # PULIHKAN DATA SETIAP KEMBALI KE INPUT
     # =========================================================
@@ -3385,11 +3461,29 @@ def run():
         and mode_sebelumnya
         and mode_sebelumnya
         != "📝 Input Data Pengujian"
-        and st.session_state.get(
-            "data_pubbm"
-        )
     ):
-        pulihkan_data_pubbm()
+    
+        draft = st.session_state.get(
+            "pubbm_draft_widget",
+            {}
+        )
+    
+        # =============================================
+        # PRIORITAS 1: DRAFT YANG BELUM DISIMPAN
+        # =============================================
+        if draft:
+            for key, value in draft.items():
+                st.session_state[
+                    key
+                ] = value
+    
+        # =============================================
+        # PRIORITAS 2: DATA YANG SUDAH DISIMPAN
+        # =============================================
+        elif st.session_state.get(
+            "data_pubbm"
+        ):
+            pulihkan_data_pubbm()
     
     
     st.session_state[
