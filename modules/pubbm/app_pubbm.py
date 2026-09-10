@@ -1612,6 +1612,13 @@ def run():
                 ):
                     daftar_data.append({
                         "Nama SPBU": nama,
+                        "Nomor SPBU": str(
+                            nomor_spbu_map.get(
+                                perusahaan_id,
+                                ""
+                            )
+                            or ""
+                        ).strip(),
                         "Alamat": alamat,
                     })
     
@@ -1663,8 +1670,21 @@ def run():
                         and nama.lower()
                         != "nan"
                     ):
+                        match_nomor = re.search(
+                            r"SPBU\s*[\d\.-]+",
+                            nama,
+                            re.IGNORECASE,
+                        )
+                        
+                        nomor_spbu_csv = (
+                            match_nomor.group(0).upper()
+                            if match_nomor
+                            else ""
+                        )
+                        
                         daftar_data.append({
                             "Nama SPBU": nama,
+                            "Nomor SPBU": nomor_spbu_csv,
                             "Alamat": (
                                 ""
                                 if alamat.lower()
@@ -1683,6 +1703,7 @@ def run():
             return pd.DataFrame(
                 columns=[
                     "Nama SPBU",
+                    "Nomor SPBU",
                     "Alamat"
                 ]
             )
