@@ -1303,7 +1303,23 @@ def gunakan_data_lama_untuk_pengujian_baru_timbangan(
 
     # Hapus file generated lama
     st.session_state.tb_generated_files = {}
-
+    # =====================================================
+    # SPESIFIKASI DARI RIWAYAT MENJADI ACUAN AWAL
+    # Jangan dianggap sebagai perubahan spesifikasi.
+    # =====================================================
+    st.session_state[
+        "tb_signature_spesifikasi_uji"
+    ] = buat_signature_spesifikasi_timbangan(
+        st.session_state.tb_saved_data
+    )
+    
+    st.session_state[
+        "tb_paksa_hitung_ulang_uji"
+    ] = False
+    
+    st.session_state[
+        "tb_paksa_hitung_ulang_kebenaran"
+    ] = False
     # Kembali ke input data
     st.session_state[
         "tb_next_mode"
