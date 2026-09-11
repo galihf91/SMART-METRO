@@ -816,6 +816,14 @@ def gunakan_data_lama_untuk_pengujian_baru_timbangan(
         pengujian.get("data_pengujian")
         or {}
     )
+    # =====================================================
+    # FORM BERASAL DARI RIWAYAT
+    # Data riwayat harus menjadi acuan utama,
+    # bukan draft form sebelumnya.
+    # =====================================================
+    st.session_state[
+        "tb_form_dari_riwayat"
+    ] = True
 
     # Pastikan bukan mode edit
     st.session_state.pop(
@@ -1315,7 +1323,9 @@ def gunakan_data_lama_untuk_edit_timbangan(
         pengujian.get("data_pengujian")
         or {}
     )
-
+    st.session_state[
+        "tb_form_dari_riwayat"
+    ] = True
     # =====================================================
     # BERSIHKAN WIDGET HASIL PENGUJIAN LAMA
     # =====================================================
@@ -4414,8 +4424,16 @@ def run():
             )
         )
     ):
+    
+        form_dari_riwayat = bool(
+            st.session_state.pop(
+                "tb_form_dari_riwayat",
+                False
+            )
+        )
+    
         # =====================================================
-        # 1. PULIHKAN DATA HASIL SAVE SEBAGAI DASAR
+        # PULIHKAN SNAPSHOT / DATA ACUAN
         # =====================================================
         if st.session_state.get(
             "tb_saved_data"
@@ -4423,19 +4441,21 @@ def run():
             pulihkan_data_timbangan()
     
         # =====================================================
-        # 2. TIMPA DENGAN PERUBAHAN TERBARU YANG BELUM DISAVE
+        # DRAFT HANYA BOLEH MENIMPA JIKA BUKAN
+        # BERASAL DARI RIWAYAT
         # =====================================================
-        draft = st.session_state.get(
-            "tb_draft_widget",
-            {}
-        )
+        if not form_dari_riwayat:
     
-        if draft:
-            for key, value in draft.items():
-                st.session_state[
-                    key
-                ] = value
+            draft = st.session_state.get(
+                "tb_draft_widget",
+                {}
+            )
     
+            if draft:
+                for key, value in draft.items():
+                    st.session_state[
+                        key
+                    ] = value
     
     # Simpan mode saat ini untuk rerun berikutnya
     st.session_state[
