@@ -8106,9 +8106,69 @@ def run():
                     ""
                 )
             )
+            # =====================================================
+            # KUNCI KONDISI FINAL FORM SAAT TOMBOL SIMPAN DITEKAN
+            # =====================================================
+            
+            # Identitas pemilik selalu ambil dari widget/state terbaru
+            pemilik_final = str(
+                st.session_state.get(
+                    "tb_nama_perusahaan",
+                    pemilik
+                )
+                or ""
+            ).strip()
+            
+            alamat_final = str(
+                st.session_state.get(
+                    "tb_alamat_input",
+                    alamat
+                )
+                or ""
+            ).strip()
+            
+            # Kelas terakhir yang terlihat user.
+            # PENTING: jangan hitung otomatis lagi di sini.
+            kelas_final = str(
+                st.session_state.get(
+                    "tb_kelas",
+                    kelas_final
+                )
+                or kelas_final
+            ).strip()
+            
+            # Tanggal terakhir yang dipilih user
+            tanggal_final = st.session_state.get(
+                "tb_tanggal_pengujian",
+                tanggal
+            )
+            
+            tanggal_tanda_tangan_final = (
+                st.session_state.get(
+                    "tb_tanggal_tanda_tangan",
+                    tanggal_tanda_tangan
+                )
+            )
+            
+            # Buat salinan hasil pengujian supaya snapshot
+            # tidak ikut berubah oleh rerun/widget berikutnya.
+            test_results_final = [
+                dict(item)
+                for item in test_results
+            ]
+            
+            eksen_data_final = [
+                dict(item)
+                for item in eksen_data
+            ]
+            
+            repet_data_final = [
+                dict(item)
+                for item in repet_data
+            ]
             st.session_state.tb_saved_data = {
-                'pemilik': pemilik,
-                'alamat': alamat,
+                'pemilik': pemilik_final,
+                'alamat': alamat_final,
                 'nama_alat': nama_alat,
                 'is_neraca': is_neraca,
                 'is_timbangan_meja': is_timbangan_meja,
