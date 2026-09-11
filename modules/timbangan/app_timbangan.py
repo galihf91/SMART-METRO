@@ -3525,6 +3525,64 @@ def init_timbangan_state():
             update_class()
 
 # ============================================================
+# SIGNATURE SPESIFIKASI DARI DATA TERSIMPAN
+# ============================================================
+def buat_signature_spesifikasi_timbangan(data):
+
+    data = data or {}
+
+    nama_alat = str(
+        data.get(
+            "nama_alat",
+            ""
+        )
+        or ""
+    ).strip()
+
+    satuan = str(
+        data.get(
+            "satuan",
+            "kg"
+        )
+        or "kg"
+    ).strip()
+
+    try:
+        kapasitas_max_kg = float(
+            data.get(
+                "kapasitas_max",
+                0
+            )
+            or 0
+        )
+    except (TypeError, ValueError):
+        kapasitas_max_kg = 0.0
+
+    try:
+        interval_skala_kg = float(
+            data.get(
+                "interval_skala",
+                0
+            )
+            or 0
+        )
+    except (TypeError, ValueError):
+        interval_skala_kg = 0.0
+
+    return (
+        nama_alat,
+        satuan,
+        round(
+            kapasitas_max_kg,
+            12
+        ),
+        round(
+            interval_skala_kg,
+            12
+        ),
+    )
+
+# ============================================================
 # PULIHKAN DATA SAVED KE SELURUH WIDGET FORM TIMBANGAN
 # ============================================================
 def pulihkan_data_timbangan():
@@ -4067,6 +4125,18 @@ def pulihkan_data_timbangan():
                 key,
                 None
             )
+    # ========================================================
+    # SNAPSHOT INI MENJADI ACUAN SPESIFIKASI SAAT INI
+    # ========================================================
+    st.session_state[
+        "tb_signature_spesifikasi_uji"
+    ] = buat_signature_spesifikasi_timbangan(
+        saved
+    )
+    
+    st.session_state[
+        "tb_paksa_hitung_ulang_uji"
+    ] = False
 # ============================================================
 # SIMPAN DRAFT WIDGET TIMBANGAN
 # Menjaga perubahan form walaupun belum klik Simpan Data
@@ -7940,6 +8010,14 @@ def run():
             st.session_state[
                 "tb_paksa_hitung_ulang_uji"
             ] = False
+            # =====================================================
+            # SPESIFIKASI YANG BARU DISIMPAN MENJADI ACUAN BARU
+            # =====================================================
+            st.session_state[
+                "tb_signature_spesifikasi_uji"
+            ] = buat_signature_spesifikasi_timbangan(
+                st.session_state.tb_saved_data
+            )
             # Dokumen lama tidak boleh tetap tersedia setelah data berubah.
             st.session_state.tb_generated_files = {}
             # =====================================================
