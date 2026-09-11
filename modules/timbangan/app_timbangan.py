@@ -3998,6 +3998,118 @@ def pulihkan_data_timbangan():
                 key,
                 None
             )
+# ============================================================
+# SIMPAN DRAFT WIDGET TIMBANGAN
+# Menjaga perubahan form walaupun belum klik Simpan Data
+# ============================================================
+def simpan_draft_widget_timbangan():
+
+    key_form = {
+        # Pemilik
+        "tb_nama_perusahaan",
+        "tb_alamat_input",
+        "tb_manual_perusahaan",
+        "tb_perusahaan_select",
+
+        # Identitas alat
+        "tb_nama_alat",
+        "tb_merek",
+        "tb_model",
+        "tb_no_seri",
+        "tb_no_alat",
+        "tb_tambahkan_no_alat",
+
+        # Kapasitas & skala
+        "tb_satuan_kapasitas_max",
+        "tb_kapasitas_max_input",
+        "tb_daya_baca_input",
+        "tb_interval_skala_input",
+        "tb_kapasitas_min_kg",
+        "tb_kapasitas_min_tampil",
+
+        # Neraca
+        "tb_kapasitas_max_neraca_input",
+        "tb_kapasitas_min_neraca_input",
+        "tb_interval_skala_neraca_kg",
+
+        # Timbangan Meja
+        "tb_e_meja_display",
+        "tb_min_meja_display",
+        "tb_kelas_meja",
+
+        # Kelas
+        "tb_kelas",
+        "tb_kelas_status",
+
+        # Pengujian
+        "tb_keterangan",
+        "tb_metode_pengujian",
+        "tb_at_standar",
+        "tb_lokasi_pengujian",
+        "tb_jumlah_titik_kebenaran",
+
+        # Tanggal
+        "tb_tanggal_pengujian",
+        "tb_tanggal_tanda_tangan",
+
+        # Penera
+        "tb_nama_penera",
+        "tb_nip_penera",
+        "tb_golongan_penera",
+        "tb_penera_select",
+        "tb_manual_penera",
+        "tb_penera_2_select",
+
+        # Kondisi
+        "tb_suhu",
+        "tb_kelembaban",
+
+        # Alat standar
+        "tb_jumlah_baris_alat_standar",
+        "tb_tambahkan_alat_standar",
+    }
+
+    prefix_form = (
+        # Visual
+        "tb_vis_",
+
+        # Kebenaran
+        "tb_muatan_uji_",
+        "tb_penunjukan_kebenaran_",
+        "tb_pengamatan_penunjukan_",
+        "tb_hasil_kebenaran_",
+        "tb_cek_kebenaran_",
+
+        # Neraca
+        "tb_neraca_",
+
+        # Eksentrisitas
+        "tb_eksen_",
+
+        # Repetability
+        "tb_repet_",
+
+        # Alat standar
+        "tb_jenis_alat_standar_",
+        "tb_jumlah_alat_standar_",
+    )
+
+    draft = {}
+
+    for key, value in list(
+        st.session_state.items()
+    ):
+        if (
+            key in key_form
+            or key.startswith(
+                prefix_form
+            )
+        ):
+            draft[key] = value
+
+    st.session_state[
+        "tb_draft_widget"
+    ] = draft
 def reset_form_timbangan():
     """Menghapus state khusus timbangan tanpa mengganggu modul lain."""
     for key in list(st.session_state.keys()):
@@ -4081,12 +4193,38 @@ def run():
     
     if (
         mode == "📝 Input Data Pengujian"
-        and mode_sebelumnya == "📄 Generate Dokumen"
-        and st.session_state.get(
-            "tb_saved_data"
+        and mode_sebelumnya
+        != "📝 Input Data Pengujian"
+        and (
+            st.session_state.get(
+                "tb_saved_data"
+            )
+            or st.session_state.get(
+                "tb_draft_widget"
+            )
         )
     ):
-        pulihkan_data_timbangan()
+        # =====================================================
+        # 1. PULIHKAN DATA HASIL SAVE SEBAGAI DASAR
+        # =====================================================
+        if st.session_state.get(
+            "tb_saved_data"
+        ):
+            pulihkan_data_timbangan()
+    
+        # =====================================================
+        # 2. TIMPA DENGAN PERUBAHAN TERBARU YANG BELUM DISAVE
+        # =====================================================
+        draft = st.session_state.get(
+            "tb_draft_widget",
+            {}
+        )
+    
+        if draft:
+            for key, value in draft.items():
+                st.session_state[
+                    key
+                ] = value
     
     
     # Simpan mode saat ini untuk rerun berikutnya
@@ -7751,7 +7889,10 @@ def run():
             st.success("✅ Data berhasil disimpan!")
             st.balloons()
 
-
+        # =========================================================
+        # SIMPAN DRAFT FORM SETIAP INPUT SELESAI DIRENDER
+        # =========================================================
+        simpan_draft_widget_timbangan()
     # ===== MODE 2: GENERATE DOKUMEN =====
     elif mode == "📄 Generate Dokumen":
         st.header("Generate Dokumen Cerapan & Sertifikat")
