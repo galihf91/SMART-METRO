@@ -2028,7 +2028,50 @@ def gunakan_data_lama_untuk_edit_timbangan(
             st.session_state.pop(key, None)
     # Bersihkan file lama
     st.session_state.tb_generated_files = {}
-
+    
+    # =====================================================
+    # DATA EDIT MENJADI ACUAN SPESIFIKASI YANG VALID
+    # Jangan anggap data dari database sebagai perubahan baru.
+    # =====================================================
+    st.session_state[
+        "tb_signature_spesifikasi_uji"
+    ] = buat_signature_spesifikasi_timbangan(
+        st.session_state.tb_saved_data
+    )
+    
+    # Hasil lama tetap valid saat pertama membuka Edit.
+    st.session_state[
+        "tb_paksa_hitung_ulang_uji"
+    ] = False
+    
+    st.session_state[
+        "tb_paksa_hitung_ulang_kebenaran"
+    ] = False
+    
+    # =====================================================
+    # SIMPAN KAPASITAS AWAL MODE EDIT
+    # Digunakan untuk mendeteksi perubahan nyata oleh user.
+    # =====================================================
+    st.session_state[
+        "tb_kapasitas_max_edit_asli_kg"
+    ] = float(
+        st.session_state.tb_saved_data.get(
+            "kapasitas_max",
+            0
+        )
+        or 0
+    )
+    
+    st.session_state[
+        "tb_kapasitas_max_edit_terakhir_kg"
+    ] = float(
+        st.session_state.tb_saved_data.get(
+            "kapasitas_max",
+            0
+        )
+        or 0
+    )
+    
     # Kembali ke input
     st.session_state[
         "tb_next_mode"
