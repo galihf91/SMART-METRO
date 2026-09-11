@@ -5878,17 +5878,19 @@ def run():
                 with sub_muatan1:
                     muatan_uji_tampil = st.number_input(
                         f"Muatan Uji {nomor_baris}",
-                        value=float(default_muatan_tampil),
-                        step=float(step_muatan_tampil),
+                        value=float(
+                            default_muatan_tampil
+                        ),
+                        step=float(
+                            step_muatan_tampil
+                        ),
                         format="%g",
                         disabled=(
                             is_neraca
                             or is_timbangan_meja
                         ),
                         key=(
-                            f"tb_muatan_uji_{jumlah_titik_uji}_{i}_{nama_alat}_"
-                            f"{kapasitas_max_kg}_{e}_"
-                            f"{satuan_tampilan}"
+                            f"tb_muatan_uji_{i}"
                         ),
                         label_visibility="collapsed"
                     )
@@ -5948,14 +5950,16 @@ def run():
                 with sub_penunjukan1:
                     penunjukan_tampil = st.number_input(
                         f"Penunjukan {nomor_baris}",
-                        value=float(default_penunjukan_tampil),
-                        step=float(step_penunjukan_tampil),
+                        value=float(
+                            default_penunjukan_tampil
+                        ),
+                        step=float(
+                            step_penunjukan_tampil
+                        ),
                         format=format_penunjukan,
                         disabled=True,
                         key=(
-                            f"tb_penunjukan_kebenaran_{i}_{nama_alat}_"
-                            f"{e}_{daya_baca_kg}_{muatan_uji}_"
-                            f"{satuan_tampilan}"
+                            f"tb_penunjukan_kebenaran_{i}"
                         ),
                         label_visibility="collapsed"
                     )
@@ -6036,12 +6040,19 @@ def run():
             with cols[5]:
                 hasil_val = st.text_input(
                     f"Hasil {nomor_baris}",
-                    value="SAH",
-                    disabled=True,
-                    key=(
-                        f"tb_hasil_kebenaran_{nama_alat}_{i}_"
-                        f"{e}_{muatan_uji}_{penunjukan_val}"
+                    value=(
+                        str(
+                            row_lama.get(
+                                "hasil_text",
+                                "SAH"
+                            )
+                            or "SAH"
+                        )
+                        if row_lama
+                        else "SAH"
                     ),
+                    disabled=True,
+                    key=f"tb_hasil_kebenaran_{i}",
                     label_visibility="collapsed"
                 )
 
@@ -6053,10 +6064,7 @@ def run():
                     f"Cek {nomor_baris}",
                     value=cek_icon,
                     disabled=True,
-                    key=(
-                        f"tb_cek_kebenaran_{nama_alat}_{i}_"
-                        f"{e}_{muatan_uji}_{penunjukan_val}"
-                    ),
+                    key=f"tb_cek_kebenaran_{i}",
                     label_visibility="collapsed"
                 )
 
