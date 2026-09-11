@@ -2647,6 +2647,17 @@ def update_class():
 # Tanpa menghitung ulang / mengganti kelas secara otomatis
 # ============================================================
 def update_minimum_dari_kelas_manual():
+    """
+    Dipanggil ketika user mengubah kelas secara manual.
+
+    Dampaknya:
+    - kelas pilihan user dipertahankan;
+    - minimum menimbang dihitung ulang;
+    - hasil pengujian yang bergantung pada kelas
+      harus dibangun ulang;
+    - snapshot tb_saved_data TIDAK diubah sampai
+      user menekan Simpan Data.
+    """
 
     nama_alat = str(
         st.session_state.get(
@@ -2656,8 +2667,8 @@ def update_minimum_dari_kelas_manual():
         or ""
     ).strip()
 
-    # Neraca dan Timbangan Meja memiliki
-    # aturan kelas tersendiri
+    # Neraca dan Timbangan Meja
+    # mempunyai logika kelas tersendiri.
     if (
         is_neraca_name(nama_alat)
         or is_timbangan_meja_name(nama_alat)
@@ -2687,32 +2698,89 @@ def update_minimum_dari_kelas_manual():
         or "III"
     ).strip()
 
-    faktor_minimum = {
-        "I": 100,
-        "II": 50,
-        "III": 20,
-        "IIII": 10,
-    }
+    # =====================================================
+    # HITUNG ULANG MINIMUM MENIMBANG
+    # =====================================================
+    if e_kg > 0:
 
-    if (
-        e_kg > 0
-        and kelas in faktor_minimum
-    ):
-        minimum_kg = (
-            faktor_minimum[
-                kelas
-            ]
-            * e_kg
-        )
+        if kelas == "I":
+            faktor_minimum = 100
+
+        elif kelas == "II":
+            # Samakan dengan logika titik uji Kelas II
+            faktor_minimum = (
+                50
+                if e_kg >= 0.0001
+                else 20
+            )
+
+        elif kelas == "III":
+            faktor_minimum = 20
+
+        elif kelas == "IIII":
+            faktor_minimum = 10
+
+        else:
+            faktor_minimum = 20
 
         st.session_state[
             "tb_kapasitas_min_kg"
-        ] = minimum_kg
+        ] = (
+            faktor_minimum
+            * e_kg
+        )
 
     st.session_state[
         "tb_kelas_status"
     ] = (
         f"Kelas {kelas} dipilih manual"
+    )
+
+    # =====================================================
+    # KELAS BERUBAH → HASIL UJI LAMA TIDAK BOLEH
+    # DIJADIKAN ACUAN PERHITUNGAN
+    # =====================================================
+    st.session_state[
+        "tb_paksa_hitung_ulang_uji"
+    ] = True
+
+    # =====================================================
+    # HAPUS WIDGET HASIL UJI
+    # Agar pada rerun tabel dibangun dengan kelas terbaru
+    # =====================================================
+    prefixes_hasil = (
+        "tb_muatan_uji_",
+        "tb_penunjukan_kebenaran_",
+        "tb_pengamatan_penunjukan_",
+        "tb_hasil_kebenaran_",
+        "tb_cek_kebenaran_",
+
+        "tb_neraca_muatan_disabled_",
+        "tb_neraca_penunjukan_disabled_",
+        "tb_neraca_bkd_disabled_",
+        "tb_neraca_pengamatan_disabled_",
+        "tb_neraca_hasil_disabled_",
+        "tb_neraca_cek_disabled_",
+
+        "tb_eksen_",
+        "tb_repet_",
+    )
+
+    for key in list(
+        st.session_state.keys()
+    ):
+        if key.startswith(
+            prefixes_hasil
+        ):
+            st.session_state.pop(
+                key,
+                None
+            )
+
+    # Nilai tampilan minimum juga dibangun ulang
+    st.session_state.pop(
+        "tb_kapasitas_min_tampil",
+        None
     )
 def bulan_ke_romawi(bulan):
     romawi = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"]
