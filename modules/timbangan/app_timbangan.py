@@ -4467,6 +4467,7 @@ def run():
                 "📚 Riwayat Timbangan"
             ],
             key="tb_mode",
+            on_change=simpan_draft_widget_timbangan,
             help="Pilih mode yang ingin digunakan."
         )
     
