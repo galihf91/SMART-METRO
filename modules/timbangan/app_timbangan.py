@@ -8214,12 +8214,20 @@ def run():
                 'nip_penera': nip_penera,
                 'golongan_penera': st.session_state.get('tb_golongan_penera', ''),
                 'nama_penera_2': nama_penera_2,
-                'hasil_pengujian': test_results,
+                'hasil_pengujian': test_results_final,
                 'jumlah_titik_uji': jumlah_titik_uji,
-                'tanggal': tanggal.strftime('%Y-%m-%d'),
-                'tanggal_penera': format_tanggal_indonesia(tanggal.strftime('%Y-%m-%d')),
+                'tanggal': tanggal_final.strftime(
+                    "%Y-%m-%d"
+                ),
+                'tanggal_penera': format_tanggal_indonesia(
+                    tanggal_final.strftime(
+                        "%Y-%m-%d"
+                    )
+                ),
                 'tanggal_tanda_tangan': (
-                    tanggal_tanda_tangan.strftime("%Y-%m-%d")
+                    tanggal_tanda_tangan_final.strftime(
+                        "%Y-%m-%d"
+                    )
                 ),
                 'keterangan': keterangan_final,
                 'nomor_sertifikat': (
@@ -8234,9 +8242,9 @@ def run():
                     else ""
                 ),
                 'berlaku_sampai': add_one_year_safe(tanggal).strftime('%Y-%m-%d'),
-                'repetability': repet_data,
+                'repetability': repet_data_final,
                 'repetability_sederhana': repet_sederhana,
-                'eksentrisitas': eksen_data,
+                'eksentrisitas': eksen_data_final,
                 'penyetelan_nol': [],
                 'visual': visual_results,
             }
