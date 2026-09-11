@@ -4059,7 +4059,7 @@ def run():
     # Sidebar navigasi
     with st.sidebar:
         st.header("📋 Menu Navigasi")
-
+    
         mode = st.radio(
             "Pilih Mode:",
             [
@@ -4070,6 +4070,31 @@ def run():
             key="tb_mode",
             help="Pilih mode yang ingin digunakan."
         )
+    
+    
+    # =========================================================
+    # PULIHKAN SNAPSHOT SAAT KEMBALI DARI GENERATE KE INPUT
+    # =========================================================
+    mode_sebelumnya = st.session_state.get(
+        "tb_mode_sebelumnya"
+    )
+    
+    if (
+        mode == "📝 Input Data Pengujian"
+        and mode_sebelumnya == "📄 Generate Dokumen"
+        and st.session_state.get(
+            "tb_saved_data"
+        )
+    ):
+        pulihkan_data_timbangan()
+    
+    
+    # Simpan mode saat ini untuk rerun berikutnya
+    st.session_state[
+        "tb_mode_sebelumnya"
+    ] = mode
+    
+    
     if mode == "📝 Input Data Pengujian":
         st.header("Masukkan Data Pengujian")
 
