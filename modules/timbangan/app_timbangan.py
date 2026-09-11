@@ -3700,6 +3700,9 @@ def buat_signature_spesifikasi_timbangan(data):
             )
             or 0
         )
+    except (TypeError, ValueError):
+        interval_skala_kg = 0.0
+    
     try:
         daya_baca_kg = float(
             data.get(
@@ -3710,8 +3713,6 @@ def buat_signature_spesifikasi_timbangan(data):
         )
     except (TypeError, ValueError):
         daya_baca_kg = 0.0
-    except (TypeError, ValueError):
-        interval_skala_kg = 0.0
 
     return (
         nama_alat,
