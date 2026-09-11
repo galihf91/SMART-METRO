@@ -7941,6 +7941,10 @@ def run():
             ] = False
             # Dokumen lama tidak boleh tetap tersedia setelah data berubah.
             st.session_state.tb_generated_files = {}
+            # =====================================================
+            # PERBARUI DRAFT SESUAI KONDISI FORM YANG BARU DISIMPAN
+            # =====================================================
+            simpan_draft_widget_timbangan()
             if sedang_edit:
                 st.session_state[
                     "tb_nomor_sertifikat"
