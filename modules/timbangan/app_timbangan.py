@@ -3455,7 +3455,549 @@ def init_timbangan_state():
         if not saved:
             update_class()
 
+# ============================================================
+# PULIHKAN DATA SAVED KE SELURUH WIDGET FORM TIMBANGAN
+# ============================================================
+def pulihkan_data_timbangan():
+    saved = st.session_state.get(
+        "tb_saved_data",
+        {}
+    )
 
+    if not saved:
+        return
+
+    # ========================================================
+    # IDENTITAS PEMILIK
+    # ========================================================
+    pemilik = str(
+        saved.get(
+            "pemilik",
+            ""
+        )
+        or ""
+    ).strip()
+
+    alamat = str(
+        saved.get(
+            "alamat",
+            ""
+        )
+        or ""
+    ).strip()
+
+    st.session_state[
+        "tb_nama_perusahaan"
+    ] = pemilik
+
+    st.session_state[
+        "tb_alamat_input"
+    ] = alamat
+
+    # Cek apakah perusahaan masih ada di master
+    df_perusahaan = st.session_state.get(
+        "tb_data_perusahaan"
+    )
+
+    daftar_perusahaan = []
+
+    if (
+        df_perusahaan is not None
+        and not df_perusahaan.empty
+    ):
+        daftar_perusahaan = (
+            df_perusahaan[
+                "Nama Perusahaan"
+            ]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+            .tolist()
+        )
+
+    if pemilik in daftar_perusahaan:
+        st.session_state[
+            "tb_perusahaan_select"
+        ] = pemilik
+
+        st.session_state[
+            "tb_manual_perusahaan"
+        ] = False
+
+    else:
+        st.session_state[
+            "tb_perusahaan_select"
+        ] = ""
+
+        st.session_state[
+            "tb_manual_perusahaan"
+        ] = bool(
+            pemilik
+        )
+
+    # ========================================================
+    # IDENTITAS ALAT
+    # ========================================================
+    nama_alat = str(
+        saved.get(
+            "nama_alat",
+            "Timbangan Elektronik"
+        )
+        or "Timbangan Elektronik"
+    ).strip()
+
+    st.session_state[
+        "tb_nama_alat"
+    ] = nama_alat
+
+    st.session_state[
+        "tb_merek"
+    ] = str(
+        saved.get(
+            "merek",
+            ""
+        )
+        or ""
+    ).strip()
+
+    st.session_state[
+        "tb_model"
+    ] = str(
+        saved.get(
+            "model",
+            ""
+        )
+        or ""
+    ).strip()
+
+    st.session_state[
+        "tb_no_seri"
+    ] = str(
+        saved.get(
+            "no_seri",
+            ""
+        )
+        or ""
+    ).strip()
+
+    no_alat = str(
+        saved.get(
+            "no_alat",
+            ""
+        )
+        or ""
+    ).strip()
+
+    st.session_state[
+        "tb_no_alat"
+    ] = no_alat
+
+    st.session_state[
+        "tb_tambahkan_no_alat"
+    ] = bool(
+        no_alat
+    )
+
+    # ========================================================
+    # SATUAN + KAPASITAS + SKALA
+    # Semua nilai saved disimpan dalam kg
+    # ========================================================
+    satuan = str(
+        saved.get(
+            "satuan",
+            "kg"
+        )
+        or "kg"
+    ).strip()
+
+    if satuan not in [
+        "kg",
+        "g",
+    ]:
+        satuan = "kg"
+
+    st.session_state[
+        "tb_satuan_kapasitas_max"
+    ] = satuan
+
+    try:
+        kapasitas_max_kg = float(
+            saved.get(
+                "kapasitas_max",
+                0
+            )
+            or 0
+        )
+    except (TypeError, ValueError):
+        kapasitas_max_kg = 0.0
+
+    try:
+        kapasitas_min_kg = float(
+            saved.get(
+                "kapasitas_min",
+                0
+            )
+            or 0
+        )
+    except (TypeError, ValueError):
+        kapasitas_min_kg = 0.0
+
+    try:
+        daya_baca_kg = float(
+            saved.get(
+                "daya_baca",
+                0
+            )
+            or 0
+        )
+    except (TypeError, ValueError):
+        daya_baca_kg = 0.0
+
+    try:
+        interval_skala_kg = float(
+            saved.get(
+                "interval_skala",
+                0
+            )
+            or 0
+        )
+    except (TypeError, ValueError):
+        interval_skala_kg = 0.0
+
+    st.session_state[
+        "tb_kapasitas_min_kg"
+    ] = kapasitas_min_kg
+
+    # ========================================================
+    # NERACA
+    # ========================================================
+    if is_neraca_name(
+        nama_alat
+    ):
+        st.session_state[
+            "tb_kapasitas_max_neraca_input"
+        ] = _format_input_from_kg(
+            kapasitas_max_kg,
+            satuan
+        )
+
+        st.session_state[
+            "tb_kapasitas_min_neraca_input"
+        ] = _format_input_from_kg(
+            kapasitas_min_kg,
+            satuan
+        )
+
+        st.session_state[
+            "tb_interval_skala_neraca_kg"
+        ] = interval_skala_kg
+
+    # ========================================================
+    # TIMBANGAN SELAIN NERACA
+    # ========================================================
+    else:
+        st.session_state[
+            "tb_kapasitas_max_input"
+        ] = _format_input_from_kg(
+            kapasitas_max_kg,
+            satuan
+        )
+
+        st.session_state[
+            "tb_daya_baca_input"
+        ] = _format_input_from_kg(
+            daya_baca_kg,
+            satuan
+        )
+
+        st.session_state[
+            "tb_interval_skala_input"
+        ] = _format_input_from_kg(
+            interval_skala_kg,
+            satuan
+        )
+
+    # ========================================================
+    # KELAS
+    # PENTING: gunakan kelas hasil pilihan user yang tersimpan
+    # Jangan hitung otomatis lagi di sini.
+    # ========================================================
+    kelas_saved = str(
+        saved.get(
+            "kelas",
+            "III"
+        )
+        or "III"
+    ).strip()
+
+    st.session_state[
+        "tb_kelas"
+    ] = kelas_saved
+
+    if is_timbangan_meja_name(
+        nama_alat
+    ):
+        st.session_state[
+            "tb_kelas_meja"
+        ] = kelas_saved
+
+    st.session_state[
+        "tb_kelas_status"
+    ] = (
+        f"Kelas {kelas_saved} dari data tersimpan"
+    )
+
+    # ========================================================
+    # METODE / AT / LOKASI / JENIS PENGUJIAN
+    # ========================================================
+    st.session_state[
+        "tb_metode_pengujian"
+    ] = str(
+        saved.get(
+            "metode",
+            "Perbandingan Langsung"
+        )
+        or "Perbandingan Langsung"
+    ).strip()
+
+    st.session_state[
+        "tb_at_standar"
+    ] = str(
+        saved.get(
+            "at_standar",
+            "M2"
+        )
+        or "M2"
+    ).strip()
+
+    st.session_state[
+        "tb_lokasi_pengujian"
+    ] = str(
+        saved.get(
+            "lokasi",
+            "Perusahaan"
+        )
+        or "Perusahaan"
+    ).strip()
+
+    st.session_state[
+        "tb_keterangan"
+    ] = str(
+        saved.get(
+            "keterangan",
+            "Tera Ulang"
+        )
+        or "Tera Ulang"
+    ).strip()
+
+    # ========================================================
+    # TANGGAL
+    # ========================================================
+    st.session_state[
+        "tb_tanggal_pengujian"
+    ] = _parse_date_safe(
+        saved.get(
+            "tanggal"
+        )
+    )
+
+    st.session_state[
+        "tb_tanggal_tanda_tangan"
+    ] = _parse_date_safe(
+        saved.get(
+            "tanggal_tanda_tangan"
+        )
+    )
+
+    # ========================================================
+    # PENERA
+    # ========================================================
+    nama_penera = str(
+        saved.get(
+            "nama_penera",
+            ""
+        )
+        or ""
+    ).strip()
+
+    st.session_state[
+        "tb_nama_penera"
+    ] = nama_penera
+
+    st.session_state[
+        "tb_nip_penera"
+    ] = str(
+        saved.get(
+            "nip_penera",
+            ""
+        )
+        or ""
+    ).strip()
+
+    st.session_state[
+        "tb_golongan_penera"
+    ] = str(
+        saved.get(
+            "golongan_penera",
+            ""
+        )
+        or ""
+    ).strip()
+
+    df_penera = st.session_state.get(
+        "tb_data_penera"
+    )
+
+    daftar_penera = []
+
+    if (
+        df_penera is not None
+        and not df_penera.empty
+    ):
+        daftar_penera = (
+            df_penera[
+                "Nama"
+            ]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+            .tolist()
+        )
+
+    if nama_penera in daftar_penera:
+        st.session_state[
+            "tb_penera_select"
+        ] = nama_penera
+
+        st.session_state[
+            "tb_manual_penera"
+        ] = False
+
+    else:
+        st.session_state[
+            "tb_penera_select"
+        ] = ""
+
+        st.session_state[
+            "tb_manual_penera"
+        ] = bool(
+            nama_penera
+        )
+
+    st.session_state[
+        "tb_penera_2_select"
+    ] = str(
+        saved.get(
+            "nama_penera_2",
+            ""
+        )
+        or ""
+    ).strip()
+
+    # ========================================================
+    # JUMLAH TITIK KEBENARAN
+    # ========================================================
+    jumlah_titik = saved.get(
+        "jumlah_titik_uji"
+    )
+
+    if jumlah_titik in [
+        3,
+        5,
+    ]:
+        st.session_state[
+            "tb_jumlah_titik_kebenaran"
+        ] = int(
+            jumlah_titik
+        )
+
+    # ========================================================
+    # HASIL PENGUJIAN
+    #
+    # Snapshot saved_data adalah sumber utama.
+    # Setelah data telah disimpan, jangan dianggap perlu
+    # dihitung ulang ketika hanya pindah halaman.
+    # ========================================================
+    st.session_state[
+        "tb_paksa_hitung_ulang_uji"
+    ] = False
+
+    st.session_state[
+        "tb_test_results"
+    ] = list(
+        saved.get(
+            "hasil_pengujian",
+            []
+        )
+        or []
+    )
+
+    # ========================================================
+    # BERSIHKAN WIDGET HASIL LAMA
+    # Nanti tabel dibangun ulang dari tb_saved_data.
+    # ========================================================
+    prefixes_hasil = (
+        "tb_muatan_uji_",
+        "tb_penunjukan_kebenaran_",
+        "tb_pengamatan_penunjukan_",
+        "tb_hasil_kebenaran_",
+        "tb_cek_kebenaran_",
+        "tb_neraca_muatan_disabled_",
+        "tb_neraca_penunjukan_disabled_",
+        "tb_neraca_bkd_disabled_",
+        "tb_neraca_pengamatan_disabled_",
+        "tb_neraca_hasil_disabled_",
+        "tb_neraca_cek_disabled_",
+        "tb_eksen_",
+        "tb_repet_",
+    )
+
+    for key in list(
+        st.session_state.keys()
+    ):
+        if key.startswith(
+            prefixes_hasil
+        ):
+            st.session_state.pop(
+                key,
+                None
+            )
+
+    # ========================================================
+    # ALAT STANDAR
+    # ========================================================
+    daftar_alat = list(
+        saved.get(
+            "daftar_alat_standar_peminjaman",
+            []
+        )
+        or []
+    )
+
+    st.session_state[
+        "tb_jumlah_baris_alat_standar"
+    ] = max(
+        1,
+        len(
+            daftar_alat
+        )
+    )
+
+    for key in list(
+        st.session_state.keys()
+    ):
+        if (
+            key.startswith(
+                "tb_jenis_alat_standar_"
+            )
+            or key.startswith(
+                "tb_jumlah_alat_standar_"
+            )
+        ):
+            st.session_state.pop(
+                key,
+                None
+            )
 def reset_form_timbangan():
     """Menghapus state khusus timbangan tanpa mengganggu modul lain."""
     for key in list(st.session_state.keys()):
