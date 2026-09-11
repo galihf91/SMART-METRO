@@ -7932,7 +7932,13 @@ def run():
                 'visual': visual_results,
             }
             st.session_state.tb_test_results = test_results
-
+            # =====================================================
+            # HASIL PENGUJIAN BARU SUDAH DISIMPAN
+            # Tidak perlu dipaksa dihitung ulang lagi
+            # =====================================================
+            st.session_state[
+                "tb_paksa_hitung_ulang_uji"
+            ] = False
             # Dokumen lama tidak boleh tetap tersedia setelah data berubah.
             st.session_state.tb_generated_files = {}
             if sedang_edit:
