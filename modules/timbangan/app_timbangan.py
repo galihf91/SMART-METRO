@@ -2642,8 +2642,78 @@ def update_class():
     st.session_state["tb_kapasitas_min_kg"] = (
         min_kg if min_kg > 0 else 0.0
     )
+# ============================================================
+# UPDATE MINIMUM MENIMBANG DARI KELAS PILIHAN USER
+# Tanpa menghitung ulang / mengganti kelas secara otomatis
+# ============================================================
+def update_minimum_dari_kelas_manual():
 
+    nama_alat = str(
+        st.session_state.get(
+            "tb_nama_alat",
+            ""
+        )
+        or ""
+    ).strip()
 
+    # Neraca dan Timbangan Meja memiliki
+    # aturan kelas tersendiri
+    if (
+        is_neraca_name(nama_alat)
+        or is_timbangan_meja_name(nama_alat)
+    ):
+        return
+
+    satuan = st.session_state.get(
+        "tb_satuan_kapasitas_max",
+        "kg"
+    )
+
+    e_raw = st.session_state.get(
+        "tb_interval_skala_input",
+        ""
+    )
+
+    e_kg = convert_to_kg(
+        e_raw,
+        satuan
+    )
+
+    kelas = str(
+        st.session_state.get(
+            "tb_kelas",
+            "III"
+        )
+        or "III"
+    ).strip()
+
+    faktor_minimum = {
+        "I": 100,
+        "II": 50,
+        "III": 20,
+        "IIII": 10,
+    }
+
+    if (
+        e_kg > 0
+        and kelas in faktor_minimum
+    ):
+        minimum_kg = (
+            faktor_minimum[
+                kelas
+            ]
+            * e_kg
+        )
+
+        st.session_state[
+            "tb_kapasitas_min_kg"
+        ] = minimum_kg
+
+    st.session_state[
+        "tb_kelas_status"
+    ] = (
+        f"Kelas {kelas} dipilih manual"
+    )
 def bulan_ke_romawi(bulan):
     romawi = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"]
     return romawi[bulan-1]
@@ -4197,14 +4267,13 @@ def run():
                         f"**{st.session_state.tb_satuan_kapasitas_max}**"
                     )
 
-
                 # =========================================================
-                # KAPASITAS MINIMUM OTOMATIS
+                # KAPASITAS MINIMUM
+                # Nilai mengikuti kelas yang saat ini aktif.
+                # Jangan panggil update_class() di sini karena akan
+                # menimpa pilihan kelas manual user saat setiap rerun.
                 # =========================================================
-
-                # Hitung kelas dan kapasitas minimum terlebih dahulu
-                update_class()
-
+                
                 min_kg = st.session_state.get(
                     "tb_kapasitas_min_kg",
                     0.0
@@ -4311,10 +4380,13 @@ def run():
                     "Pilih Kelas",
                     options=options,
                     key="tb_kelas",
+                    on_change=(
+                        update_minimum_dari_kelas_manual
+                    ),
                     help=(
-                        "Kelas diupdate otomatis saat Kapasitas "
+                        "Kelas ditentukan otomatis saat Kapasitas "
                         "Maksimum atau Interval Skala berubah, "
-                        "namun bisa diubah manual."
+                        "namun setelah itu dapat diubah manual."
                     ),
                 )
 
