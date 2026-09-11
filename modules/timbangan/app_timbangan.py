@@ -2409,7 +2409,25 @@ def reset_hasil_uji_jika_spesifikasi_berubah():
             e_raw,
             satuan
         )
-
+    # ========================================================
+    # AMBIL DAYA BACA
+    # ========================================================
+    if (
+        is_neraca_name(nama_alat)
+        or is_timbangan_meja_name(nama_alat)
+    ):
+        daya_baca_kg = 0.0
+    
+    else:
+        daya_baca_raw = st.session_state.get(
+            "tb_daya_baca_input",
+            ""
+        )
+    
+        daya_baca_kg = convert_to_kg(
+            daya_baca_raw,
+            satuan
+        )
     # ========================================================
     # SIGNATURE SPESIFIKASI SAAT INI
     # ========================================================
@@ -2422,6 +2440,10 @@ def reset_hasil_uji_jika_spesifikasi_berubah():
         ),
         round(
             float(interval_skala_kg),
+            12
+        ),
+        round(
+            float(daya_baca_kg),
             12
         ),
     )
@@ -3566,6 +3588,16 @@ def buat_signature_spesifikasi_timbangan(data):
             )
             or 0
         )
+    try:
+        daya_baca_kg = float(
+            data.get(
+                "daya_baca",
+                0
+            )
+            or 0
+        )
+    except (TypeError, ValueError):
+        daya_baca_kg = 0.0
     except (TypeError, ValueError):
         interval_skala_kg = 0.0
 
@@ -3578,6 +3610,10 @@ def buat_signature_spesifikasi_timbangan(data):
         ),
         round(
             interval_skala_kg,
+            12
+        ),
+        round(
+            daya_baca_kg,
             12
         ),
     )
