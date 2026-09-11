@@ -2336,162 +2336,163 @@ def nilai_berbeda(a, b, toleransi=1e-12):
         return False
 
 # ============================================================
-# RESET HASIL UJI JIKA KAPASITAS MAKSIMUM BERUBAH SAAT EDIT
+# RESET HASIL UJI JIKA SPESIFIKASI TEKNIS BERUBAH
 # ============================================================
-def reset_hasil_uji_jika_kapasitas_berubah():
-
-    # Hanya berlaku saat Edit Pengujian
-    if not st.session_state.get(
-        "tb_edit_pengujian_id"
-    ):
-        return
-
-    saved_data = st.session_state.get(
-        "tb_saved_data",
-        {}
-    )
-
-    if not saved_data:
-        return
+def reset_hasil_uji_jika_spesifikasi_berubah():
 
     nama_alat = str(
         st.session_state.get(
             "tb_nama_alat",
-            saved_data.get(
-                "nama_alat",
-                ""
-            )
+            ""
         )
         or ""
     ).strip()
 
-    satuan = st.session_state.get(
-        "tb_satuan_kapasitas_max",
-        "kg"
-    )
+    satuan = str(
+        st.session_state.get(
+            "tb_satuan_kapasitas_max",
+            "kg"
+        )
+        or "kg"
+    ).strip()
 
     # ========================================================
-    # AMBIL KAPASITAS YANG SEDANG DIINPUT USER
+    # AMBIL KAPASITAS MAKSIMUM
     # ========================================================
-    if is_neraca_name(nama_alat):
-
-        kapasitas_raw = (
-            st.session_state.get(
-                "tb_kapasitas_max_neraca_input",
-                ""
-            )
+    if is_neraca_name(
+        nama_alat
+    ):
+        max_raw = st.session_state.get(
+            "tb_kapasitas_max_neraca_input",
+            ""
         )
 
     else:
-
-        kapasitas_raw = (
-            st.session_state.get(
-                "tb_kapasitas_max_input",
-                ""
-            )
+        max_raw = st.session_state.get(
+            "tb_kapasitas_max_input",
+            ""
         )
 
-    kapasitas_baru_kg = convert_to_kg(
-        kapasitas_raw,
+    kapasitas_max_kg = convert_to_kg(
+        max_raw,
         satuan
     )
-    try:
-        kapasitas_terakhir_kg = float(
-            st.session_state.get(
-                "tb_kapasitas_max_edit_terakhir_kg",
-                kapasitas_baru_kg
-            )
-            or 0
-        )
-    except (TypeError, ValueError):
-        kapasitas_terakhir_kg = kapasitas_baru_kg
-    try:
-        kapasitas_lama_kg = float(
-            st.session_state.get(
-                "tb_kapasitas_max_edit_asli_kg",
-                saved_data.get(
-                    "kapasitas_max",
-                    0
-                )
-            )
-            or 0
-        )
-    except (TypeError, ValueError):
-        kapasitas_lama_kg = 0.0
 
-    # Belum ada nilai yang valid
-    if kapasitas_baru_kg <= 0:
-        return
-
-    # Tidak berubah sejak proses terakhir
-    if not nilai_berbeda(
-        kapasitas_baru_kg,
-        kapasitas_terakhir_kg
+    # ========================================================
+    # AMBIL / HITUNG INTERVAL SKALA
+    # ========================================================
+    if is_neraca_name(
+        nama_alat
     ):
-        return
+        interval_skala_kg = (
+            kapasitas_max_kg / 10000.0
+            if kapasitas_max_kg > 0
+            else 0.0
+        )
+
+    elif is_timbangan_meja_name(
+        nama_alat
+    ):
+        interval_skala_kg = (
+            kapasitas_max_kg / 1000.0
+            if kapasitas_max_kg > 0
+            else 0.0
+        )
+
+    else:
+        e_raw = st.session_state.get(
+            "tb_interval_skala_input",
+            ""
+        )
+
+        interval_skala_kg = convert_to_kg(
+            e_raw,
+            satuan
+        )
 
     # ========================================================
-    # KAPASITAS BERUBAH
-    # DATA PENGUJIAN LAMA TIDAK BOLEH DIPAKAI LAGI
+    # SIGNATURE SPESIFIKASI SAAT INI
     # ========================================================
-    # Tandai bahwa seluruh pengujian harus dihitung ulang
-    # Catat kapasitas terbaru agar reset tidak dilakukan
-    # berulang pada setiap rerun Streamlit
+    signature_baru = (
+        nama_alat,
+        satuan,
+        round(
+            float(kapasitas_max_kg),
+            12
+        ),
+        round(
+            float(interval_skala_kg),
+            12
+        ),
+    )
+
+    signature_lama = (
+        st.session_state.get(
+            "tb_signature_spesifikasi_uji"
+        )
+    )
+
+    # Pertama kali: hanya catat kondisi awal
+    if signature_lama is None:
+        st.session_state[
+            "tb_signature_spesifikasi_uji"
+        ] = signature_baru
+        return
+
+    # Tidak ada perubahan
+    if signature_lama == signature_baru:
+        return
+
+    # Catat signature terbaru
     st.session_state[
-        "tb_kapasitas_max_edit_terakhir_kg"
-    ] = kapasitas_baru_kg
+        "tb_signature_spesifikasi_uji"
+    ] = signature_baru
+
+    # ========================================================
+    # SPESIFIKASI BERUBAH
+    # HASIL PENGUJIAN LAMA TIDAK BOLEH DIGUNAKAN
+    # ========================================================
     st.session_state[
         "tb_paksa_hitung_ulang_uji"
     ] = True
-    
-    # Simpan kapasitas baru sebagai data yang sedang diedit
-    saved_data[
-        "kapasitas_max"
-    ] = kapasitas_baru_kg
-    
-    # Jangan gunakan hasil pengujian lama
-    saved_data[
-        "hasil_pengujian"
-    ] = []
-    
-    saved_data[
-        "eksentrisitas"
-    ] = []
-    
-    saved_data[
-        "repetability"
-    ] = []
 
     # ========================================================
-    # HAPUS WIDGET HASIL UJI LAMA
+    # HAPUS WIDGET HASIL UJI
     # ========================================================
-    prefixes_hasil = [
+    prefixes_hasil = (
         "tb_muatan_uji_",
         "tb_penunjukan_kebenaran_",
         "tb_pengamatan_penunjukan_",
         "tb_hasil_kebenaran_",
         "tb_cek_kebenaran_",
+
         "tb_neraca_muatan_disabled_",
         "tb_neraca_penunjukan_disabled_",
         "tb_neraca_bkd_disabled_",
         "tb_neraca_pengamatan_disabled_",
         "tb_neraca_hasil_disabled_",
         "tb_neraca_cek_disabled_",
+
         "tb_eksen_",
         "tb_repet_",
-    ]
+    )
 
     for key in list(
         st.session_state.keys()
     ):
-        if any(
-            key.startswith(prefix)
-            for prefix in prefixes_hasil
+        if key.startswith(
+            prefixes_hasil
         ):
             st.session_state.pop(
                 key,
                 None
             )
+
+    # Minimum tampil akan dibuat ulang
+    st.session_state.pop(
+        "tb_kapasitas_min_tampil",
+        None
+    )
 def update_class():
     """
     Memperbarui kelas dan minimum menimbang.
@@ -2514,9 +2515,9 @@ def update_class():
         "kg"
     )
     
-    # Jika sedang Edit Pengujian dan kapasitas berubah,
+    # Jika spesifikasi teknis berubah,
     # jangan gunakan hasil pengujian lama.
-    reset_hasil_uji_jika_kapasitas_berubah()
+    reset_hasil_uji_jika_spesifikasi_berubah()
 
     if is_neraca_name(nama_alat_aktif):
         max_raw = st.session_state.get(
