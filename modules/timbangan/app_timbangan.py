@@ -2805,6 +2805,41 @@ def update_minimum_dari_kelas_manual():
         "tb_kapasitas_min_tampil",
         None
     )
+
+# ============================================================
+# RESET KEBENARAN JIKA JUMLAH TITIK UJI BERUBAH
+# ============================================================
+def reset_kebenaran_jika_jumlah_titik_berubah():
+    """
+    Dipanggil ketika user mengganti:
+    5 Titik Uji <-> 3 Titik Uji.
+
+    Hanya Pengujian Kebenaran yang dibangun ulang.
+    Eksentrisitas dan Repetability tidak perlu direset.
+    """
+
+    st.session_state[
+        "tb_paksa_hitung_ulang_kebenaran"
+    ] = True
+
+    prefixes_kebenaran = (
+        "tb_muatan_uji_",
+        "tb_penunjukan_kebenaran_",
+        "tb_pengamatan_penunjukan_",
+        "tb_hasil_kebenaran_",
+        "tb_cek_kebenaran_",
+    )
+
+    for key in list(
+        st.session_state.keys()
+    ):
+        if key.startswith(
+            prefixes_kebenaran
+        ):
+            st.session_state.pop(
+                key,
+                None
+            )
 def bulan_ke_romawi(bulan):
     romawi = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"]
     return romawi[bulan-1]
@@ -5685,6 +5720,7 @@ def run():
                     options=[5, 3],
                     horizontal=True,
                     key="tb_jumlah_titik_kebenaran",
+                    on_change=reset_kebenaran_jika_jumlah_titik_berubah,
                     format_func=lambda x: f"{x} Titik Uji",
                     help=(
                         "5 titik menggunakan susunan muatan uji standar. "
@@ -5995,7 +6031,17 @@ def run():
             )
         )
         
-        if paksa_hitung_ulang_uji:
+        paksa_hitung_ulang_kebenaran = bool(
+            st.session_state.get(
+                "tb_paksa_hitung_ulang_kebenaran",
+                False
+            )
+        )
+        
+        if (
+            paksa_hitung_ulang_uji
+            or paksa_hitung_ulang_kebenaran
+        ):
             hasil_kebenaran_lama = []
         
         else:
@@ -8045,6 +8091,9 @@ def run():
             # =====================================================
             st.session_state[
                 "tb_paksa_hitung_ulang_uji"
+            ] = False
+            st.session_state[
+                "tb_paksa_hitung_ulang_kebenaran"
             ] = False
             # =====================================================
             # SPESIFIKASI YANG BARU DISIMPAN MENJADI ACUAN BARU
