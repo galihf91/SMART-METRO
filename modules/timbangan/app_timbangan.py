@@ -6626,79 +6626,105 @@ def run():
             penunjukan_repet_list = []
 
             # =====================================================
-            # DEFAULT REPETABILITY LAMA
+            # REPETABILITY LAMA AKAN DIPULIHKAN PER BARIS
             # =====================================================
-            penunjukan_repet_lama_kg = None
+            penunjukan_acuan_tampil = float(
+                muatan_repet_tampil
+            )
             
-            if repetability_lama:
-                try:
-                    penunjukan_repet_lama_kg = float(
-                        repetability_lama[0].get(
-                            "penunjukan_akhir",
-                            repetability_lama[0].get(
-                                "penunjukan",
-                                0
-                            )
-                        )
-                        or 0
-                    )
-                except (TypeError, ValueError):
-                    penunjukan_repet_lama_kg = None
-            
-            if penunjukan_repet_lama_kg is not None:
-                penunjukan_acuan_tampil = float(
-                    kg_to_satuan(
-                        penunjukan_repet_lama_kg,
-                        satuan_tampilan
-                    )
-                )
-            else:
-                penunjukan_acuan_tampil = float(
-                    muatan_repet_tampil
-                )
-
             for i in range(1, 4):
+            
+                # =================================================
+                # DATA REPETABILITY TERSIMPAN PER BARIS
+                # =================================================
+                row_repet_lama = {}
+            
+                if (i - 1) < len(
+                    repetability_lama
+                ):
+                    calon_row = (
+                        repetability_lama[
+                            i - 1
+                        ]
+                        or {}
+                    )
+            
+                    if isinstance(
+                        calon_row,
+                        dict
+                    ):
+                        row_repet_lama = calon_row
+            
+                penunjukan_repet_lama_kg = None
+            
+                if row_repet_lama:
+                    try:
+                        penunjukan_repet_lama_kg = float(
+                            row_repet_lama.get(
+                                "penunjukan_akhir",
+                                row_repet_lama.get(
+                                    "penunjukan",
+                                    0
+                                )
+                            )
+                            or 0
+                        )
+                    except (
+                        TypeError,
+                        ValueError
+                    ):
+                        penunjukan_repet_lama_kg = None
+            
+                if penunjukan_repet_lama_kg is not None:
+                    default_repet_tampil = float(
+                        kg_to_satuan(
+                            penunjukan_repet_lama_kg,
+                            satuan_tampilan
+                        )
+                    )
+            
+                elif i == 1:
+                    default_repet_tampil = float(
+                        muatan_repet_tampil
+                    )
+            
+                else:
+                    default_repet_tampil = float(
+                        penunjukan_acuan_tampil
+                    )
                 cols_repet = st.columns([3.5, 1.5])
 
                 with cols_repet[0]:
                     col_nilai, col_satuan = st.columns([4, 1])
 
                     with col_nilai:
-                        if i == 1:
-                            penunjukan_akhir_tampil = st.number_input(
-                                f"Penunjukan Akhir Repetability {i}",
-                                min_value=0.0,
-                                value=float(
-                                    penunjukan_acuan_tampil
-                                ),
-                                step=float(step_repet),
-                                format=format_repet,
-                                key=(
-                                    "tb_repet_sederhana_penunjukan_akhir_1_"
-                                    f"{nama_alat_repet}_{muatan_repet_tampil}_"
-                                    f"{daya_baca_kg}_{e}_{satuan_tampilan}"
-                                ),
-                                label_visibility="collapsed"
-                            )
 
+                        penunjukan_akhir_tampil = st.number_input(
+                            f"Penunjukan Akhir Repetability {i}",
+                            min_value=0.0,
+                            value=float(
+                                default_repet_tampil
+                            ),
+                            step=float(
+                                step_repet
+                            ),
+                            format=format_repet,
+                            disabled=(i != 1),
+                            key=(
+                                f"tb_repet_sederhana_penunjukan_akhir_{i}_"
+                                f"{nama_alat_repet}_"
+                                f"{muatan_repet_tampil}_"
+                                f"{daya_baca_kg}_"
+                                f"{e}_"
+                                f"{satuan_tampilan}_"
+                                f"{default_repet_tampil}"
+                            ),
+                            label_visibility="collapsed"
+                        )
+                    
+                        if i == 1:
                             penunjukan_acuan_tampil = float(
                                 penunjukan_akhir_tampil
-                            )
-
-                        else:
-                            penunjukan_akhir_tampil = st.number_input(
-                                f"Penunjukan Akhir Repetability {i}",
-                                min_value=0.0,
-                                value=float(penunjukan_acuan_tampil),
-                                step=float(step_repet),
-                                format=format_repet,
-                                disabled=True,
-                                key=(
-                                    f"tb_repet_sederhana_penunjukan_akhir_{i}_"
-                                    f"{nama_alat_repet}_{penunjukan_acuan_tampil}_"
-                                    f"{daya_baca_kg}_{e}_{satuan_tampilan}"
-                                ),
-                                label_visibility="collapsed"
                             )
 
                     with col_satuan:
