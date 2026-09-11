@@ -4354,6 +4354,14 @@ def simpan_draft_widget_timbangan():
         # Alat standar
         "tb_jumlah_baris_alat_standar",
         "tb_tambahkan_alat_standar",
+        # Status internal perhitungan
+        "tb_signature_spesifikasi_uji",
+        "tb_paksa_hitung_ulang_uji",
+        "tb_paksa_hitung_ulang_kebenaran",
+        
+        # Khusus mode Edit
+        "tb_kapasitas_max_edit_asli_kg",
+        "tb_kapasitas_max_edit_terakhir_kg",
     }
 
     prefix_form = (
