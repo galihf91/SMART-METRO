@@ -3488,6 +3488,14 @@ def sinkronkan_daya_baca_interval():
         )
 
     update_class()
+# ============================================================
+# PERUBAHAN DAYA BACA TIMBANGAN ELEKTRONIK
+# d dapat mengubah metode Repetability (e=d / e!=d),
+# tetapi TIDAK menentukan kelas timbangan.
+# ============================================================
+def update_daya_baca_timbangan_elektronik():
+
+    reset_hasil_uji_jika_spesifikasi_berubah()
 def _parse_date_safe(value, default=None):
     default = default or datetime.now().date()
 
@@ -5204,7 +5212,7 @@ def run():
                         placeholder="Masukkan daya baca",
                         key="tb_daya_baca_input",
                         on_change=(
-                            update_class
+                            update_daya_baca_timbangan_elektronik
                             if is_timbangan_elektronik
                             else sinkronkan_daya_baca_interval
                         ),
