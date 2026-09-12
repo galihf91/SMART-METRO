@@ -78,23 +78,90 @@ def to_float(value: Any, default: float = 0.0) -> float:
         return default
 
 
-def format_angka_id(value: Any, decimals: int | None = None) -> str:
-    """Format angka Indonesia tanpa nol desimal yang tidak diperlukan."""
+def format_angka_id(
+    value: Any,
+    decimals: int | None = None
+) -> str:
+    """
+    Format angka Indonesia.
+
+    Sekaligus membersihkan artefak floating-point, misalnya:
+    0.01999999997 -> 0,02
+    5.00000000001 -> 5
+    0.0001        -> 0,0001
+    """
+
     try:
-        number = Decimal(str(value))
-    except (InvalidOperation, TypeError, ValueError):
+        nilai_float = float(value)
+    except (TypeError, ValueError):
         return safe_str(value)
 
+    # =====================================================
+    # JIKA JUMLAH DESIMAL DITENTUKAN
+    # =====================================================
     if decimals is not None:
-        text = f"{float(number):.{decimals}f}"
-    else:
-        text = format(number.normalize(), "f")
-        if "." in text:
-            text = text.rstrip("0").rstrip(".")
+        text = (
+            f"{nilai_float:.{decimals}f}"
+        )
 
-    if text in {"-0", "-0.0", ""}:
+    # =====================================================
+    # JIKA DESIMAL OTOMATIS
+    # Bersihkan error floating-point terlebih dahulu.
+    # =====================================================
+    else:
+        nilai_bersih = nilai_float
+
+        # Cari representasi desimal terpendek yang masih
+        # sangat dekat dengan nilai asli.
+        for jumlah_desimal in range(0, 11):
+
+            kandidat = round(
+                nilai_float,
+                jumlah_desimal
+            )
+
+            toleransi = max(
+                1e-12,
+                abs(nilai_float) * 1e-8
+            )
+
+            if abs(
+                nilai_float - kandidat
+            ) <= toleransi:
+
+                nilai_bersih = kandidat
+                break
+
+        try:
+            number = Decimal(
+                str(nilai_bersih)
+            )
+        except InvalidOperation:
+            return safe_str(value)
+
+        text = format(
+            number.normalize(),
+            "f"
+        )
+
+        if "." in text:
+            text = (
+                text
+                .rstrip("0")
+                .rstrip(".")
+            )
+
+    if text in {
+        "-0",
+        "-0.0",
+        ""
+    }:
         text = "0"
-    return text.replace(".", ",")
+
+    return text.replace(
+        ".",
+        ","
+    )
 
 
 def format_tanggal_indo(value: Any) -> str:
