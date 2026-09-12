@@ -712,7 +712,31 @@ def simpan_pengujian_pubbm_ke_supabase(
     daftar_payload = []
 
     uttp_id_dalam_form = set()
+    daftar_payload = []
 
+    uttp_id_dalam_form = set()
+    
+    # =====================================================
+    # MODE EDIT NOZZLE
+    # =====================================================
+    sedang_edit_pubbm = bool(
+        st.session_state.get(
+            "pubbm_edit_pengujian_id"
+        )
+    )
+    
+    edit_nozzle_map = (
+        st.session_state.get(
+            "pubbm_edit_nozzle_map",
+            {}
+        )
+        or {}
+    )
+    
+    # Menghitung nozzle ke-1, ke-2, dst
+    # pada setiap dispenser.
+    urutan_nozzle_form = {}
+    
     for urutan, nozzle in enumerate(
         dispenser_records,
         start=1
@@ -784,6 +808,32 @@ def simpan_pengujian_pubbm_ke_supabase(
             ValueError
         ):
             no_dispenser = None
+        # =============================================
+        # SLOT NOZZLE DALAM FORM
+        #
+        # Contoh:
+        # Dispenser 1 nozzle pertama  -> "1_1"
+        # Dispenser 1 nozzle kedua    -> "1_2"
+        # Dispenser 2 nozzle pertama  -> "2_1"
+        # =============================================
+        slot_nozzle = None
+        
+        if no_dispenser is not None:
+        
+            urutan_nozzle_form[
+                no_dispenser
+            ] = (
+                urutan_nozzle_form.get(
+                    no_dispenser,
+                    0
+                )
+                + 1
+            )
+        
+            slot_nozzle = (
+                f"{no_dispenser}_"
+                f"{urutan_nozzle_form[no_dispenser]}"
+            )
 
         # =============================================
         # VALIDASI PER NOZZLE
@@ -819,19 +869,74 @@ def simpan_pengujian_pubbm_ke_supabase(
             )
 
         # =============================================
-        # CARI / BUAT 1 UTTP UNTUK 1 NOZZLE
+        # TENTUKAN UTTP NOZZLE
+        #
+        # MODE EDIT:
+        # Jika slot ini berasal dari nozzle lama,
+        # gunakan UTTP ID lama walaupun identitas
+        # nozzle telah diubah user.
+        #
+        # NOZZLE BARU:
+        # Jika tidak mempunyai ID lama, cari/buat
+        # master UTTP seperti biasa.
         # =============================================
-        uttp_id = (
-            get_or_create_nozzle_pubbm(
-                supabase=supabase,
-                perusahaan_id=perusahaan_id,
-                merk=merk,
-                tipe=tipe,
-                nomor_seri=nomor_seri,
-                media=media,
-                posisi=posisi,
+        uttp_id_lama = None
+        
+        if (
+            sedang_edit_pubbm
+            and slot_nozzle
+        ):
+            uttp_id_lama = (
+                edit_nozzle_map.get(
+                    slot_nozzle
+                )
             )
-        )
+        
+        
+        if uttp_id_lama is not None:
+        
+            # =========================================
+            # UPDATE MASTER UTTP YANG SAMA
+            # =========================================
+            (
+                supabase
+                .table("uttp")
+                .update({
+                    "merk": merk,
+                    "tipe": tipe,
+                    "nomor_seri": nomor_seri,
+                    "media": media,
+                    "posisi": posisi,
+                    "lokasi": "SPBU",
+                    "status": "aktif",
+                })
+                .eq(
+                    "id",
+                    uttp_id_lama
+                )
+                .execute()
+            )
+        
+            uttp_id = (
+                uttp_id_lama
+            )
+        
+        else:
+        
+            # =========================================
+            # NOZZLE BARU / PENGUJIAN BARU
+            # =========================================
+            uttp_id = (
+                get_or_create_nozzle_pubbm(
+                    supabase=supabase,
+                    perusahaan_id=perusahaan_id,
+                    merk=merk,
+                    tipe=tipe,
+                    nomor_seri=nomor_seri,
+                    media=media,
+                    posisi=posisi,
+                )
+            )
 
         # =============================================
         # CEGAH NOZZLE YANG SAMA MASUK 2 KALI
@@ -1141,6 +1246,10 @@ def simpan_pengujian_pubbm_ke_supabase(
     
     st.session_state.pop(
         "pubbm_edit_pengujian_ids",
+        None
+    )
+    st.session_state.pop(
+        "pubbm_edit_nozzle_map",
         None
     )
     
