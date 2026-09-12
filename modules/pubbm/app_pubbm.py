@@ -1086,6 +1086,13 @@ def simpan_pengujian_pubbm_ke_supabase(
             )
             or ""
         ).strip()
+        k_faktor = str(
+            nozzle.get(
+                "K-Faktor",
+                ""
+            )
+            or ""
+        ).strip()
 
         # =============================================
         # NOMOR DISPENSER
@@ -1179,17 +1186,29 @@ def simpan_pengujian_pubbm_ke_supabase(
         # =============================================
         detail_nozzle = {
             "schema_pubbm": 2,
-
+        
             # Nomor SPBU tetap disimpan sebagai
             # snapshot administratif.
             "nomor_spbu": nomor_spbu,
-
+        
             # Dibutuhkan untuk mengelompokkan nozzle
             # dalam dispenser yang sama.
             "no_dispenser": (
                 no_dispenser
             ),
-
+        
+            # =================================================
+            # K-FAKTOR SAAT PENGUJIAN / KALIBRASI
+            #
+            # Tidak disimpan di master UTTP karena nilainya
+            # dapat diubah petugas pada kegiatan berikutnya.
+            # =================================================
+            "k_faktor": (
+                k_faktor
+                if k_faktor
+                else None
+            ),
+        
             # Alat standar merupakan kondisi kegiatan
             # pengujian sehingga tetap disimpan.
             "alat_standar": (
