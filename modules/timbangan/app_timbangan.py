@@ -1339,6 +1339,228 @@ def gunakan_data_lama_untuk_edit_timbangan(
         pengujian.get("data_pengujian")
         or {}
     )
+    # =====================================================
+    # NORMALISASI HASIL KEBENARAN DARI RIWAYAT
+    #
+    # Pada format aplikasi saat ini:
+    # Penunjukan = Massa ATS
+    #
+    # Beberapa data lama mempunyai muatan_uji yang salah,
+    # sedangkan penunjukannya benar.
+    # =====================================================
+    hasil_kebenaran_normal = []
+    
+    hasil_kebenaran_lama = list(
+        detail.get(
+            "hasil_kebenaran",
+            []
+        )
+        or []
+    )
+    
+    kelas_riwayat = str(
+        detail.get(
+            "kelas",
+            "III"
+        )
+        or "III"
+    ).strip()
+    
+    jenis_uji_riwayat = str(
+        pengujian.get(
+            "jenis_pengujian",
+            "Tera Ulang"
+        )
+        or "Tera Ulang"
+    ).strip()
+    
+    try:
+        e_riwayat = float(
+            detail.get(
+                "interval_skala",
+                0
+            )
+            or 0
+        )
+    except (TypeError, ValueError):
+        e_riwayat = 0.0
+    
+    
+    for item in hasil_kebenaran_lama:
+    
+        if not isinstance(
+            item,
+            dict
+        ):
+            continue
+    
+        row = dict(item)
+    
+        # ---------------------------------------------
+        # PENUNJUKAN
+        # ---------------------------------------------
+        try:
+            penunjukan_kg = float(
+                row.get(
+                    "penunjukan",
+                    row.get(
+                        "timbangan",
+                        0
+                    )
+                )
+                or 0
+            )
+        except (
+            TypeError,
+            ValueError
+        ):
+            penunjukan_kg = 0.0
+    
+        # ---------------------------------------------
+        # MUATAN LAMA
+        # ---------------------------------------------
+        try:
+            muatan_lama_kg = float(
+                row.get(
+                    "muatan_uji",
+                    row.get(
+                        "muatan_sb",
+                        row.get(
+                            "standar",
+                            0
+                        )
+                    )
+                )
+                or 0
+            )
+        except (
+            TypeError,
+            ValueError
+        ):
+            muatan_lama_kg = 0.0
+    
+        # ---------------------------------------------
+        # JIKA BERBEDA, PENUNJUKAN MENJADI ACUAN
+        # ---------------------------------------------
+        if (
+            penunjukan_kg > 0
+            and not math.isclose(
+                muatan_lama_kg,
+                penunjukan_kg,
+                rel_tol=1e-9,
+                abs_tol=1e-12
+            )
+        ):
+            muatan_benar_kg = (
+                penunjukan_kg
+            )
+    
+        else:
+            muatan_benar_kg = (
+                muatan_lama_kg
+            )
+    
+        row[
+            "muatan_uji"
+        ] = muatan_benar_kg
+    
+        # Kompatibilitas struktur lama
+        row[
+            "muatan_sb"
+        ] = muatan_benar_kg
+    
+        row[
+            "standar"
+        ] = muatan_benar_kg
+    
+        # ---------------------------------------------
+        # HITUNG ULANG BKD
+        # ---------------------------------------------
+        if (
+            e_riwayat > 0
+            and muatan_benar_kg >= 0
+        ):
+            koef_bkd, bkd_kg = hitung_bkd(
+                muatan_benar_kg,
+                e_riwayat,
+                kelas_riwayat,
+                jenis_uji_riwayat
+            )
+    
+        else:
+            koef_bkd = 0.0
+            bkd_kg = 0.0
+    
+        if koef_bkd == 0.5:
+            bkd_text = "±0.5e"
+    
+        elif koef_bkd == 1.0:
+            bkd_text = "±1e"
+    
+        elif koef_bkd == 1.5:
+            bkd_text = "±1.5e"
+    
+        elif koef_bkd == 2.0:
+            bkd_text = "±2e"
+    
+        elif koef_bkd == 3.0:
+            bkd_text = "±3e"
+    
+        else:
+            bkd_text = (
+                f"±{koef_bkd:g}e"
+                if koef_bkd > 0
+                else ""
+            )
+    
+        row[
+            "bkd_koef"
+        ] = koef_bkd
+    
+        row[
+            "bkd_kg"
+        ] = bkd_kg
+    
+        row[
+            "bkd_text"
+        ] = bkd_text
+    
+        # ---------------------------------------------
+        # HITUNG ULANG CEK
+        # ---------------------------------------------
+        kesalahan = (
+            penunjukan_kg
+            - muatan_benar_kg
+        )
+    
+        cek_sah = (
+            abs(kesalahan)
+            <= bkd_kg
+        )
+    
+        row[
+            "kesalahan"
+        ] = kesalahan
+    
+        row[
+            "cek_otomatis"
+        ] = cek_sah
+    
+        row[
+            "hasil"
+        ] = cek_sah
+    
+        row[
+            "hasil_text"
+        ] = (
+            "SAH"
+            if cek_sah
+            else "TIDAK SAH"
+        )
+    
+        hasil_kebenaran_normal.append(
+            row
+        )
     st.session_state[
         "tb_form_dari_riwayat"
     ] = True
@@ -1579,9 +1801,8 @@ def gunakan_data_lama_untuk_edit_timbangan(
             "jumlah_titik_uji"
         ),
 
-        "hasil_pengujian": detail.get(
-            "hasil_kebenaran",
-            []
+        "hasil_pengujian": (
+            hasil_kebenaran_normal
         ),
 
         "repetability": detail.get(
