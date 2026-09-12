@@ -2050,6 +2050,16 @@ def ambil_riwayat_kegiatan_pubbm(
                 )
                 or ""
             ).strip()
+            # ---------------------------------------------
+            # K-FAKTOR DARI SNAPSHOT PENGUJIAN
+            # ---------------------------------------------
+            k_faktor = str(
+                detail.get(
+                    "k_faktor",
+                    ""
+                )
+                or ""
+            ).strip()
 
             dispenser_records.append({
                 "No": (
@@ -2062,6 +2072,7 @@ def ambil_riwayat_kegiatan_pubbm(
                 "No. Seri": no_seri,
                 "Media": media,
                 "Posisi": posisi,
+                "K-Faktor": k_faktor,
             })
 
             if (
