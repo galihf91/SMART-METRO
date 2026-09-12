@@ -6963,7 +6963,8 @@ def run():
             dispenser_preview_df = (
                 dispenser_df.drop(
                     columns=[
-                        "K-Faktor"
+                        "_uttp_id",
+                        "K-Faktor",
                     ],
                     errors="ignore"
                 )
@@ -7061,7 +7062,8 @@ def run():
                             ] = (
                                 dispenser_sertifikat.drop(
                                     columns=[
-                                        "K-Faktor"
+                                        "_uttp_id",
+                                        "K-Faktor",
                                     ],
                                     errors="ignore"
                                 )
