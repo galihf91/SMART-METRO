@@ -3968,6 +3968,67 @@ def run():
             )
             or []
         )
+        # =====================================================
+        # MAPPING INTERNAL NOZZLE -> UTTP ID
+        #
+        # Dipakai hanya saat Edit Pengujian.
+        # User tidak melihat / mengisi ID ini.
+        # =====================================================
+        nozzle_map = {}
+        
+        urutan_nozzle = {}
+        
+        for item in dispenser_records:
+        
+            uttp_id_asli = item.get(
+                "_uttp_id"
+            )
+        
+            if uttp_id_asli is None:
+                continue
+        
+            no_dispenser_raw = item.get(
+                "No",
+                ""
+            )
+        
+            try:
+                no_dispenser = int(
+                    float(
+                        no_dispenser_raw
+                    )
+                )
+        
+            except (
+                TypeError,
+                ValueError
+            ):
+                continue
+        
+            urutan_nozzle[
+                no_dispenser
+            ] = (
+                urutan_nozzle.get(
+                    no_dispenser,
+                    0
+                )
+                + 1
+            )
+        
+            nomor_nozzle = (
+                urutan_nozzle[
+                    no_dispenser
+                ]
+            )
+        
+            nozzle_map[
+                f"{no_dispenser}_{nomor_nozzle}"
+            ] = uttp_id_asli
+        
+        
+        st.session_state[
+            "pubbm_edit_nozzle_map"
+        ] = nozzle_map
     
         dispenser_df = pd.DataFrame(
             dispenser_records,
