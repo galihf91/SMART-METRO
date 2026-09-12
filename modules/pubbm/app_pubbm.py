@@ -3684,6 +3684,14 @@ def run():
                     "nomor_spbu",
                     ""
                 )
+                or detail.get(
+                    "nama_spbu",
+                    ""
+                )
+                or detail.get(
+                    "nomor_spbu",
+                    ""
+                )
                 or ""
             ).strip(),
             
@@ -3981,6 +3989,14 @@ def run():
     
             "nama_spbu": str(
                 perusahaan.get(
+                    "nomor_spbu",
+                    ""
+                )
+                or detail.get(
+                    "nama_spbu",
+                    ""
+                )
+                or detail.get(
                     "nomor_spbu",
                     ""
                 )
