@@ -6184,7 +6184,7 @@ def run():
             # DATA LAMA BARIS INI
             # =====================================================
             row_lama = {}
-            
+
             if i < len(
                 hasil_kebenaran_lama
             ):
@@ -6197,7 +6197,89 @@ def run():
                     "aktif",
                     True
                 ):
-                    row_lama = calon_row
+                    row_lama = dict(
+                        calon_row
+                    )
+            
+            # =====================================================
+            # NORMALISASI DATA KEBENARAN RIWAYAT
+            #
+            # Pada aplikasi Timbangan saat ini:
+            # Penunjukan = Massa ATS.
+            #
+            # Jika data lama mempunyai Muatan Uji yang berbeda
+            # dengan Penunjukan, berarti nilai Muatan Uji lama
+            # sudah tidak konsisten.
+            #
+            # Gunakan Penunjukan sebagai acuan untuk memperbaiki
+            # data lama saat dibuka kembali.
+            # =====================================================
+            if (
+                row_lama
+                and not is_neraca
+                and not is_timbangan_meja
+            ):
+            
+                try:
+                    muatan_lama_kg = float(
+                        row_lama.get(
+                            "muatan_uji",
+                            row_lama.get(
+                                "muatan_sb",
+                                row_lama.get(
+                                    "standar",
+                                    0
+                                )
+                            )
+                        )
+                        or 0
+                    )
+                except (
+                    TypeError,
+                    ValueError
+                ):
+                    muatan_lama_kg = 0.0
+            
+                try:
+                    penunjukan_lama_kg = float(
+                        row_lama.get(
+                            "penunjukan",
+                            row_lama.get(
+                                "timbangan",
+                                0
+                            )
+                        )
+                        or 0
+                    )
+                except (
+                    TypeError,
+                    ValueError
+                ):
+                    penunjukan_lama_kg = 0.0
+            
+                # Penunjukan adalah nilai yang benar pada data lama.
+                # Koreksi hanya jika keduanya memang berbeda.
+                if (
+                    penunjukan_lama_kg > 0
+                    and not math.isclose(
+                        muatan_lama_kg,
+                        penunjukan_lama_kg,
+                        rel_tol=1e-9,
+                        abs_tol=1e-12
+                    )
+                ):
+                    row_lama[
+                        "muatan_uji"
+                    ] = penunjukan_lama_kg
+            
+                    # Kompatibilitas dengan struktur lama
+                    row_lama[
+                        "muatan_sb"
+                    ] = penunjukan_lama_kg
+            
+                    row_lama[
+                        "standar"
+                    ] = penunjukan_lama_kg
             baris_kebenaran_disabled = (
                 (is_neraca or is_timbangan_meja)
                 and i > 0
