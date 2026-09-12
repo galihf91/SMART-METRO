@@ -954,7 +954,21 @@ def simpan_pengujian_pubbm_ke_supabase(
     edit_id = st.session_state.get(
         "pubbm_edit_pengujian_id"
     )
-
+    edit_ids = (
+        st.session_state.get(
+            "pubbm_edit_pengujian_ids",
+            []
+        )
+        or []
+    )
+    
+    if (
+        not edit_ids
+        and edit_id is not None
+    ):
+        edit_ids = [
+            edit_id
+        ]
     # =====================================================
     # A. DATA BARU
     # =====================================================
@@ -982,134 +996,40 @@ def simpan_pengujian_pubbm_ke_supabase(
     # =====================================================
     # B. MODE EDIT
     #
-    # Cari sertifikat kegiatan lama.
-    # Satu sertifikat dapat mempunyai banyak row nozzle.
+    # Gunakan ID row asli dari kegiatan yang dipilih.
+    # Tidak perlu mencari ulang berdasarkan nomor
+    # sertifikat/order/tanggal.
     # =====================================================
-    response_edit = (
-        supabase
-        .table(
-            "pengujian"
-        )
-        .select(
-            "id, uttp_id, nomor_sertifikat, "
-            "nomor_order, tanggal_pengujian"
-        )
-        .eq(
-            "id",
-            edit_id
-        )
-        .execute()
-    )
-
-    if not response_edit.data:
+    if not edit_ids:
         raise RuntimeError(
-            "Data pengujian lama tidak ditemukan."
-        )
-
-    row_edit = (
-        response_edit.data[0]
-    )
-
-    nomor_sertifikat_lama = str(
-        row_edit.get(
-            "nomor_sertifikat",
-            ""
-        )
-        or ""
-    ).strip()
-    nomor_order_lama = str(
-        row_edit.get(
-            "nomor_order",
-            ""
-        )
-        or ""
-    ).strip()
-    
-    tanggal_pengujian_lama = str(
-        row_edit.get(
-            "tanggal_pengujian",
-            ""
-        )
-        or ""
-    ).strip()
-
-    # =====================================================
-    # AMBIL SEMUA UTTP PUBBM PERUSAHAAN INI
-    # =====================================================
-    response_uttp_perusahaan = (
-        supabase
-        .table(
-            "uttp"
-        )
-        .select(
-            "id"
-        )
-        .eq(
-            "perusahaan_id",
-            perusahaan_id
-        )
-        .eq(
-            "jenis_uttp",
-            "Pompa Ukur BBM"
-        )
-        .execute()
-    )
-
-    id_uttp_perusahaan = {
-        row.get("id")
-        for row in (
-            response_uttp_perusahaan.data
-            or []
-        )
-        if row.get("id") is not None
-    }
-
-    # =====================================================
-    # AMBIL SEMUA ROW DALAM SERTIFIKAT LAMA
-    # =====================================================
-    query_lama = (
-        supabase
-        .table(
-            "pengujian"
-        )
-        .select(
-            "id, uttp_id, nomor_sertifikat, "
-            "nomor_order, tanggal_pengujian"
-        )
-    )
-    
-    if nomor_sertifikat_lama:
-        query_lama = query_lama.eq(
-            "nomor_sertifikat",
-            nomor_sertifikat_lama
-        )
-    
-    if nomor_order_lama:
-        query_lama = query_lama.eq(
-            "nomor_order",
-            nomor_order_lama
-        )
-    
-    if tanggal_pengujian_lama:
-        query_lama = query_lama.eq(
-            "tanggal_pengujian",
-            tanggal_pengujian_lama
+            "ID pengujian lama tidak tersedia."
         )
     
     response_lama = (
-        query_lama.execute()
-    )
-
-    daftar_lama = [
-        row
-        for row in (
-            response_lama.data
-            or []
+        supabase
+        .table(
+            "pengujian"
         )
-        if row.get(
-            "uttp_id"
-        ) in id_uttp_perusahaan
-    ]
+        .select(
+            "id, uttp_id, nomor_sertifikat, "
+            "nomor_order, tanggal_pengujian"
+        )
+        .in_(
+            "id",
+            edit_ids
+        )
+        .execute()
+    )
+    
+    daftar_lama = (
+        response_lama.data
+        or []
+    )
+    
+    if not daftar_lama:
+        raise RuntimeError(
+            "Data pengujian lama tidak ditemukan."
+        )
 
     lama_per_uttp = {
         row.get("uttp_id"): row
@@ -1217,7 +1137,12 @@ def simpan_pengujian_pubbm_ke_supabase(
         "pubbm_edit_pengujian_id",
         None
     )
-
+    
+    st.session_state.pop(
+        "pubbm_edit_pengujian_ids",
+        None
+    )
+    
     return hasil_simpan
 
 def bulan_singkat_id(tanggal):
@@ -3534,6 +3459,7 @@ def run():
             "nomor_spbu_pubbm",
             "pubbm_draft_widget",
             "pubbm_mode_sebelumnya",
+            "pubbm_edit_pengujian_ids",
         }
 
         for key in list(st.session_state.keys()):
@@ -3571,11 +3497,44 @@ def run():
     
         # =====================================================
         # ID PENGUJIAN YANG AKAN DI-UPDATE
+        #
+        # Format baru:
+        # 1 kegiatan PUBBM dapat terdiri dari banyak row
+        # pengujian karena 1 nozzle = 1 row pengujian.
         # =====================================================
+        edit_ids = [
+            pengujian_id
+            for pengujian_id in (
+                pengujian.get(
+                    "_pubbm_pengujian_ids",
+                    []
+                )
+                or []
+            )
+            if pengujian_id is not None
+        ]
+        
+        # Fallback data lama
+        if (
+            not edit_ids
+            and pengujian.get("id") is not None
+        ):
+            edit_ids = [
+                pengujian.get("id")
+            ]
+        
+        st.session_state[
+            "pubbm_edit_pengujian_ids"
+        ] = edit_ids
+        
+        # ID pertama tetap dipakai sebagai penanda
+        # bahwa aplikasi sedang berada dalam mode Edit.
         st.session_state[
             "pubbm_edit_pengujian_id"
-        ] = pengujian.get(
-            "id"
+        ] = (
+            edit_ids[0]
+            if edit_ids
+            else None
         )
     
         # =====================================================
