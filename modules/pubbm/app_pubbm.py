@@ -1007,11 +1007,16 @@ def simpan_pengujian_pubbm_ke_supabase(
         
         
         if uttp_id_lama is not None:
-        
+
             # =========================================
             # UPDATE MASTER UTTP YANG SAMA
+            #
+            # Pengaman:
+            # - ID harus sesuai
+            # - perusahaan harus sesuai
+            # - jenis UTTP harus PUBBM
             # =========================================
-            (
+            response_uttp_edit = (
                 supabase
                 .table("uttp")
                 .update({
@@ -1027,8 +1032,22 @@ def simpan_pengujian_pubbm_ke_supabase(
                     "id",
                     uttp_id_lama
                 )
+                .eq(
+                    "perusahaan_id",
+                    perusahaan_id
+                )
+                .eq(
+                    "jenis_uttp",
+                    "Pompa Ukur BBM"
+                )
                 .execute()
             )
+        
+            if not response_uttp_edit.data:
+                raise RuntimeError(
+                    "UTTP nozzle lama tidak ditemukan "
+                    "atau tidak sesuai dengan SPBU yang sedang diedit."
+                )
         
             uttp_id = (
                 uttp_id_lama
