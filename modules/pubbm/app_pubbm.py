@@ -1873,13 +1873,6 @@ def ambil_riwayat_kegiatan_pubbm(
 
             "nama_spbu": (
                 nomor_spbu
-                or str(
-                    perusahaan.get(
-                        "nama_perusahaan",
-                        ""
-                    )
-                    or ""
-                ).strip()
             ),
 
             "pemilik": str(
