@@ -22,6 +22,11 @@ st.set_page_config(
 BASE_DIR = Path(__file__).resolve().parent
 ASSETS_DIR = BASE_DIR / "assets"
 LOGO_PATH = ASSETS_DIR / "logo.png"
+
+# =========================================================
+# SECURITY
+# =========================================================
+SECURITY_ENABLED = False
 # =========================================================
 # AUTENTIKASI / LOGIN
 # =========================================================
@@ -591,17 +596,37 @@ def main():
     sembunyikan_navigasi_otomatis()
 
     # =====================================================
-    # LOGIN WAJIB SEBELUM MASUK APLIKASI
+    # SECURITY / LOGIN
     # =====================================================
-    if not cek_login():
-        return
+    if SECURITY_ENABLED:
+        if not cek_login():
+            return
 
     # =====================================================
-    # USER SUDAH LOGIN
+    # APLIKASI UTAMA
     # =====================================================
     init_session_state()
 
     halaman_aktif = st.session_state.halaman
+
+    if halaman_aktif == "home":
+        home()
+
+    elif halaman_aktif == "pengujian_uttp":
+        jalankan_modul(
+            "pages.pengujian_uttp",
+            "run"
+        )
+
+    elif halaman_aktif == "dashboard_tera_ulang":
+        jalankan_modul(
+            "pages.dashboard_tera_ulang",
+            "run"
+        )
+
+    else:
+        st.session_state.halaman = "home"
+        st.rerun()
 
     if halaman_aktif == "home":
         home()
