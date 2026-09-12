@@ -3680,12 +3680,8 @@ def run():
             ).strip(),
             
             "nama_spbu": str(
-                detail.get(
-                    "nama_spbu",
-                    ""
-                )
-                or alat.get(
-                    "nomor_seri",
+                perusahaan.get(
+                    "nomor_spbu",
                     ""
                 )
                 or ""
@@ -3983,19 +3979,13 @@ def run():
                 or ""
             ).strip(),
     
-            "nama_spbu": (
-                str(
-                    detail.get(
-                        "nama_spbu",
-                        ""
-                    )
-                    or alat.get(
-                        "nomor_seri",
-                        ""
-                    )
-                    or ""
-                ).strip()
-            ),
+            "nama_spbu": str(
+                perusahaan.get(
+                    "nomor_spbu",
+                    ""
+                )
+                or ""
+            ).strip(),
     
             "alamat": str(
                 perusahaan.get(
