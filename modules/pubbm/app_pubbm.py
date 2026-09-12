@@ -1040,18 +1040,50 @@ def simpan_pengujian_pubbm_ke_supabase(
         # =============================================
         # MODE EDIT:
         # PERTAHANKAN UTTP ID LAMA
+        #
+        # Prioritas:
+        # 1. _uttp_id yang melekat langsung pada baris nozzle
+        # 2. Mapping lama sebagai fallback
         # =============================================
         uttp_id_lama = None
-
-        if (
-            sedang_edit
-            and slot_nozzle
-        ):
-            uttp_id_lama = (
-                edit_nozzle_map.get(
-                    slot_nozzle
-                )
+        
+        if sedang_edit:
+        
+            uttp_id_dari_baris = nozzle.get(
+                "_uttp_id"
             )
+        
+            if (
+                uttp_id_dari_baris is not None
+                and str(
+                    uttp_id_dari_baris
+                ).strip() != ""
+            ):
+                try:
+                    uttp_id_lama = int(
+                        float(
+                            uttp_id_dari_baris
+                        )
+                    )
+        
+                except (
+                    TypeError,
+                    ValueError
+                ):
+                    uttp_id_lama = None
+        
+            # =========================================
+            # FALLBACK MAPPING DATA LAMA
+            # =========================================
+            if (
+                uttp_id_lama is None
+                and slot_nozzle
+            ):
+                uttp_id_lama = (
+                    edit_nozzle_map.get(
+                        slot_nozzle
+                    )
+                )
 
         if uttp_id_lama is not None:
 
