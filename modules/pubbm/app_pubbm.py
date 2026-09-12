@@ -857,12 +857,6 @@ def simpan_pengujian_pubbm_ke_supabase(
         detail_nozzle = {
             "schema_pubbm": 2,
         
-            # Nomor SPBU tetap disimpan sebagai
-            # snapshot administratif.
-            "nomor_spbu": nomor_spbu,
-        
-            # Dibutuhkan untuk mengelompokkan nozzle
-            # dalam dispenser yang sama.
             "no_dispenser": (
                 no_dispenser
             ),
@@ -1643,8 +1637,15 @@ def ambil_riwayat_kegiatan_pubbm(
         nomor_dispenser_set = set()
 
         alat_standar = []
-        nomor_spbu = ""
 
+        nomor_spbu = str(
+            perusahaan.get(
+                "nomor_spbu",
+                ""
+            )
+            or ""
+        ).strip()
+        
         nip_penera_1 = ""
         golongan_penera_1 = ""
         nip_penera_2 = ""
@@ -1785,15 +1786,6 @@ def ambil_riwayat_kegiatan_pubbm(
                     )
                     or []
                 )
-
-            if not nomor_spbu:
-                nomor_spbu = str(
-                    detail.get(
-                        "nomor_spbu",
-                        ""
-                    )
-                    or ""
-                ).strip()
 
             if not nip_penera_1:
                 nip_penera_1 = str(
@@ -6529,7 +6521,7 @@ def run():
                     supabase
                     .table("perusahaan")
                     .select(
-                        "id, nama_perusahaan, alamat"
+                        "id, nama_perusahaan, nomor_spbu, alamat"
                     )
                     .in_(
                         "id",
