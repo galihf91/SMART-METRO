@@ -997,7 +997,8 @@ def simpan_pengujian_pubbm_ke_supabase(
             "pengujian"
         )
         .select(
-            "id, uttp_id, nomor_sertifikat"
+            "id, uttp_id, nomor_sertifikat, "
+            "nomor_order, tanggal_pengujian"
         )
         .eq(
             "id",
@@ -1018,6 +1019,21 @@ def simpan_pengujian_pubbm_ke_supabase(
     nomor_sertifikat_lama = str(
         row_edit.get(
             "nomor_sertifikat",
+            ""
+        )
+        or ""
+    ).strip()
+    nomor_order_lama = str(
+        row_edit.get(
+            "nomor_order",
+            ""
+        )
+        or ""
+    ).strip()
+    
+    tanggal_pengujian_lama = str(
+        row_edit.get(
+            "tanggal_pengujian",
             ""
         )
         or ""
@@ -1057,19 +1073,37 @@ def simpan_pengujian_pubbm_ke_supabase(
     # =====================================================
     # AMBIL SEMUA ROW DALAM SERTIFIKAT LAMA
     # =====================================================
-    response_lama = (
+    query_lama = (
         supabase
         .table(
             "pengujian"
         )
         .select(
-            "id, uttp_id, nomor_sertifikat"
+            "id, uttp_id, nomor_sertifikat, "
+            "nomor_order, tanggal_pengujian"
         )
-        .eq(
+    )
+    
+    if nomor_sertifikat_lama:
+        query_lama = query_lama.eq(
             "nomor_sertifikat",
             nomor_sertifikat_lama
         )
-        .execute()
+    
+    if nomor_order_lama:
+        query_lama = query_lama.eq(
+            "nomor_order",
+            nomor_order_lama
+        )
+    
+    if tanggal_pengujian_lama:
+        query_lama = query_lama.eq(
+            "tanggal_pengujian",
+            tanggal_pengujian_lama
+        )
+    
+    response_lama = (
+        query_lama.execute()
     )
 
     daftar_lama = [
