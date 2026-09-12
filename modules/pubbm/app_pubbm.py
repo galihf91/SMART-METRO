@@ -3536,6 +3536,17 @@ def run():
             if edit_ids
             else None
         )
+        # =====================================================
+        # HAPUS DRAFT INPUT LAMA
+        #
+        # Saat Edit dipilih dari Riwayat, data kegiatan yang
+        # dipilih harus menjadi prioritas utama.
+        # Draft form lama tidak boleh menimpa data Edit.
+        # =====================================================
+        st.session_state.pop(
+            "pubbm_draft_widget",
+            None
+        )
     
         # =====================================================
         # DISPENSER DARI JSON -> DATAFRAME
