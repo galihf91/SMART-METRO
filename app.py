@@ -99,13 +99,6 @@ def cek_login():
             ">
                 SMART METRO
             </h1>
-
-            <p style="
-                color:#64748b;
-                font-size:15px;
-            ">
-                Sistem Manajemen dan Aplikasi Tera Metrologi
-            </p>
         </div>
         """,
         unsafe_allow_html=True
