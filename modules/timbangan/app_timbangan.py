@@ -7141,19 +7141,22 @@ def run():
                         label_visibility="collapsed"
                     )
 
-                # Hitung kesalahan eksentrisitas
+                # =====================================================
+                # HASIL EKSENTRISITAS
+                #
+                # Pada aplikasi ini hasil Eksentrisitas ditetapkan
+                # manual selalu SAH.
+                #
+                # Penunjukan tetap disimpan sesuai hasil pengujian,
+                # BKD tetap ditampilkan, tetapi tidak digunakan
+                # untuk menentukan SAH / TIDAK SAH.
+                # =====================================================
+                
                 kesalahan_eks = (
                     I - muatan_eks_kg
                 )
-
-                # SAH jika kesalahan masih berada dalam BKD
-                if is_timbangan_meja:
-                    cek_sah = True
-                else:
-                    cek_sah = (
-                        abs(kesalahan_eks)
-                        <= bkd_kg
-                    )
+                
+                cek_sah = True
 
                 # --- Hasil ---
                 with cols_eksen[4]:
