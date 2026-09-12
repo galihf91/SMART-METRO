@@ -792,13 +792,16 @@ def simpan_pengujian_pubbm_ke_supabase(
     data
 ):
     """
-    Menyimpan satu kegiatan pengujian PUBBM.
+    Menyimpan pengujian PUBBM dengan konsep:
 
-    Konsep:
-    - 1 perusahaan = pemilik / SPBU
-    - 1 UTTP = 1 SPBU
-    - 1 row pengujian = 1 sertifikat
-    - dispenser/nozzle disimpan di data_pengujian JSONB
+    1 NOZZLE = 1 UTTP
+    1 NOZZLE = 1 ROW PENGUJIAN
+
+    Semua nozzle dalam satu kegiatan tetap memakai:
+    - nomor order yang sama;
+    - nomor sertifikat yang sama;
+    - tanggal yang sama;
+    - penera yang sama.
     """
 
     if not data:
@@ -807,7 +810,7 @@ def simpan_pengujian_pubbm_ke_supabase(
         )
 
     # =====================================================
-    # VALIDASI DASAR
+    # 1. VALIDASI DATA UMUM
     # =====================================================
     pemilik = str(
         data.get(
@@ -865,6 +868,14 @@ def simpan_pengujian_pubbm_ke_supabase(
         or ""
     ).strip()
 
+    jenis_pengujian = str(
+        data.get(
+            "jenis_pengujian",
+            "Tera Ulang"
+        )
+        or "Tera Ulang"
+    ).strip()
+
     if not pemilik:
         raise ValueError(
             "Nama SPBU / perusahaan belum diisi."
@@ -886,12 +897,41 @@ def simpan_pengujian_pubbm_ke_supabase(
         )
 
     # =====================================================
-    # KONEKSI SUPABASE
+    # 2. AMBIL DATA NOZZLE
     # =====================================================
-    supabase = get_supabase_pubbm()
+    dispenser_records = (
+        dataframe_to_records_pubbm(
+            data.get(
+                "dispenser"
+            )
+        )
+    )
+
+    if not dispenser_records:
+        raise ValueError(
+            "Data nozzle / dispenser belum tersedia."
+        )
 
     # =====================================================
-    # 1. CARI / BUAT PERUSAHAAN
+    # 3. ALAT STANDAR
+    # =====================================================
+    alat_standar_records = (
+        dataframe_to_records_pubbm(
+            data.get(
+                "alat_standar"
+            )
+        )
+    )
+
+    # =====================================================
+    # 4. KONEKSI SUPABASE
+    # =====================================================
+    supabase = (
+        get_supabase_pubbm()
+    )
+
+    # =====================================================
+    # 5. PERUSAHAAN / SPBU
     # =====================================================
     perusahaan_id = (
         simpan_atau_update_perusahaan_pubbm(
@@ -902,26 +942,7 @@ def simpan_pengujian_pubbm_ke_supabase(
     )
 
     # =====================================================
-    # 2. CARI / BUAT UTTP SPBU
-    # =====================================================
-    uttp_id = get_or_create_uttp_pubbm(
-        supabase=supabase,
-        perusahaan_id=perusahaan_id,
-        nomor_spbu=nomor_spbu,
-        pemilik=pemilik,
-    )
-
-    # =====================================================
-    # 3. BUILD JSONB DATA PENGUJIAN
-    # =====================================================
-    detail_pengujian = (
-        build_data_pengujian_pubbm(
-            data
-        )
-    )
-
-    # =====================================================
-    # 4. NORMALISASI TANGGAL
+    # 6. TANGGAL
     # =====================================================
     tanggal_pengujian = (
         tanggal_iso_pubbm(
@@ -948,102 +969,509 @@ def simpan_pengujian_pubbm_ke_supabase(
     )
 
     # =====================================================
-    # 5. PAYLOAD TABEL PENGUJIAN
+    # 7. DATA PENERA TAMBAHAN
+    # Disimpan sebagai snapshot teknis karena tabel
+    # pengujian hanya menyimpan nama penera.
     # =====================================================
-    payload = {
-        "uttp_id": uttp_id,
+    nip_penera_1 = str(
+        data.get(
+            "nip_penera_1",
+            ""
+        )
+        or ""
+    ).strip()
 
-        "tanggal_pengujian": (
-            tanggal_pengujian
-        ),
+    golongan_penera_1 = str(
+        data.get(
+            "golongan_penera_1",
+            ""
+        )
+        or ""
+    ).strip()
 
-        "jenis_pengujian": str(
-            data.get(
-                "jenis_pengujian",
-                "Tera Ulang"
+    nip_penera_2 = str(
+        data.get(
+            "nip_penera_2",
+            ""
+        )
+        or ""
+    ).strip()
+
+    golongan_penera_2 = str(
+        data.get(
+            "golongan_penera_2",
+            ""
+        )
+        or ""
+    ).strip()
+
+    # =====================================================
+    # 8. SUSUN PAYLOAD PER NOZZLE
+    # =====================================================
+    daftar_payload = []
+
+    uttp_id_dalam_form = set()
+
+    for urutan, nozzle in enumerate(
+        dispenser_records,
+        start=1
+    ):
+
+        merk = str(
+            nozzle.get(
+                "Merk",
+                ""
             )
-            or "Tera Ulang"
-        ).strip(),
+            or ""
+        ).strip()
 
-        # Hasil PUBBM selalu SAH
-        "hasil": "SAH",
+        tipe = str(
+            nozzle.get(
+                "Tipe",
+                ""
+            )
+            or ""
+        ).strip()
 
-        "nomor_order": nomor_order,
+        nomor_seri = str(
+            nozzle.get(
+                "No. Seri",
+                ""
+            )
+            or ""
+        ).strip()
 
-        "nomor_sertifikat": (
-            nomor_sertifikat
-        ),
+        media = str(
+            nozzle.get(
+                "Media",
+                ""
+            )
+            or ""
+        ).strip()
 
-        "penera_1": penera_1,
+        posisi = str(
+            nozzle.get(
+                "Posisi",
+                ""
+            )
+            or ""
+        ).strip()
 
-        "penera_2": penera_2,
+        # =============================================
+        # NOMOR DISPENSER
+        # =============================================
+        no_dispenser_raw = nozzle.get(
+            "No",
+            ""
+        )
 
-        "berlaku_sampai": (
-            berlaku_sampai
-        ),
+        try:
+            no_dispenser = int(
+                float(
+                    no_dispenser_raw
+                )
+            )
+        except (
+            TypeError,
+            ValueError
+        ):
+            no_dispenser = None
 
-        "tanggal_sertifikat": (
-            tanggal_sertifikat
-        ),
+        # =============================================
+        # VALIDASI PER NOZZLE
+        # =============================================
+        if not merk:
+            raise ValueError(
+                f"Nozzle baris {urutan}: "
+                "Merk belum diisi."
+            )
 
-        "data_pengujian": (
-            detail_pengujian
-        ),
-    }
+        if not tipe:
+            raise ValueError(
+                f"Nozzle baris {urutan}: "
+                "Tipe belum diisi."
+            )
+
+        if not nomor_seri:
+            raise ValueError(
+                f"Nozzle baris {urutan}: "
+                "No. Seri belum diisi."
+            )
+
+        if not media:
+            raise ValueError(
+                f"Nozzle baris {urutan}: "
+                "Media belum diisi."
+            )
+
+        if not posisi:
+            raise ValueError(
+                f"Nozzle baris {urutan}: "
+                "Posisi belum diisi."
+            )
+
+        # =============================================
+        # CARI / BUAT 1 UTTP UNTUK 1 NOZZLE
+        # =============================================
+        uttp_id = (
+            get_or_create_nozzle_pubbm(
+                supabase=supabase,
+                perusahaan_id=perusahaan_id,
+                merk=merk,
+                tipe=tipe,
+                nomor_seri=nomor_seri,
+                media=media,
+                posisi=posisi,
+            )
+        )
+
+        # =============================================
+        # CEGAH NOZZLE YANG SAMA MASUK 2 KALI
+        # =============================================
+        if uttp_id in uttp_id_dalam_form:
+            raise ValueError(
+                "Nozzle yang sama ditemukan lebih "
+                "dari satu kali pada form:\n\n"
+                f"{tipe} | {nomor_seri} | "
+                f"{media} | {posisi}"
+            )
+
+        uttp_id_dalam_form.add(
+            uttp_id
+        )
+
+        # =============================================
+        # JSONB BARU YANG LEBIH SEDERHANA
+        #
+        # Merk, Tipe, No Seri, Media, Posisi
+        # TIDAK disimpan lagi di sini karena sudah
+        # menjadi master pada tabel UTTP.
+        # =============================================
+        detail_nozzle = {
+            "schema_pubbm": 2,
+
+            # Nomor SPBU tetap disimpan sebagai
+            # snapshot administratif.
+            "nomor_spbu": nomor_spbu,
+
+            # Dibutuhkan untuk mengelompokkan nozzle
+            # dalam dispenser yang sama.
+            "no_dispenser": (
+                no_dispenser
+            ),
+
+            # Alat standar merupakan kondisi kegiatan
+            # pengujian sehingga tetap disimpan.
+            "alat_standar": (
+                alat_standar_records
+            ),
+
+            # Snapshot identitas penera
+            "nip_penera_1": (
+                nip_penera_1
+            ),
+
+            "golongan_penera_1": (
+                golongan_penera_1
+            ),
+
+            "nip_penera_2": (
+                nip_penera_2
+            ),
+
+            "golongan_penera_2": (
+                golongan_penera_2
+            ),
+        }
+
+        # =============================================
+        # PAYLOAD PENGUJIAN NOZZLE
+        # =============================================
+        payload = {
+            "uttp_id": (
+                uttp_id
+            ),
+
+            "tanggal_pengujian": (
+                tanggal_pengujian
+            ),
+
+            "tanggal_sertifikat": (
+                tanggal_sertifikat
+            ),
+
+            "jenis_pengujian": (
+                jenis_pengujian
+            ),
+
+            "hasil": "SAH",
+
+            "nomor_order": (
+                nomor_order
+            ),
+
+            "nomor_sertifikat": (
+                nomor_sertifikat
+            ),
+
+            "penera_1": (
+                penera_1
+            ),
+
+            "penera_2": (
+                penera_2
+            ),
+
+            "berlaku_sampai": (
+                berlaku_sampai
+            ),
+
+            "data_pengujian": (
+                detail_nozzle
+            ),
+        }
+
+        daftar_payload.append(
+            payload
+        )
 
     # =====================================================
-    # 6. INSERT / UPDATE PENGUJIAN
+    # 9. MODE EDIT ATAU DATA BARU
     # =====================================================
     edit_id = st.session_state.get(
         "pubbm_edit_pengujian_id"
     )
-    
-    if edit_id:
-    
-        # ==============================================
-        # MODE EDIT
-        # ==============================================
+
+    # =====================================================
+    # A. DATA BARU
+    # =====================================================
+    if not edit_id:
+
         response = (
             supabase
-            .table("pengujian")
-            .update(payload)
-            .eq(
-                "id",
-                edit_id
+            .table(
+                "pengujian"
+            )
+            .insert(
+                daftar_payload
             )
             .execute()
         )
-    
+
         if not response.data:
             raise RuntimeError(
-                "Data pengujian PUBBM gagal diperbarui."
+                "Data pengujian PUBBM "
+                "gagal disimpan."
             )
-    
-        # Setelah UPDATE berhasil,
-        # keluar dari mode edit
-        st.session_state.pop(
-            "pubbm_edit_pengujian_id",
-            None
+
+        return response.data
+
+    # =====================================================
+    # B. MODE EDIT
+    #
+    # Cari sertifikat kegiatan lama.
+    # Satu sertifikat dapat mempunyai banyak row nozzle.
+    # =====================================================
+    response_edit = (
+        supabase
+        .table(
+            "pengujian"
         )
-    
-    else:
-    
-        # ==============================================
-        # PENGUJIAN BARU
-        # ==============================================
-        response = (
-            supabase
-            .table("pengujian")
-            .insert(payload)
-            .execute()
+        .select(
+            "id, uttp_id, nomor_sertifikat"
         )
-    
+        .eq(
+            "id",
+            edit_id
+        )
+        .execute()
+    )
+
+    if not response_edit.data:
+        raise RuntimeError(
+            "Data pengujian lama tidak ditemukan."
+        )
+
+    row_edit = (
+        response_edit.data[0]
+    )
+
+    nomor_sertifikat_lama = str(
+        row_edit.get(
+            "nomor_sertifikat",
+            ""
+        )
+        or ""
+    ).strip()
+
+    # =====================================================
+    # AMBIL SEMUA UTTP PUBBM PERUSAHAAN INI
+    # =====================================================
+    response_uttp_perusahaan = (
+        supabase
+        .table(
+            "uttp"
+        )
+        .select(
+            "id"
+        )
+        .eq(
+            "perusahaan_id",
+            perusahaan_id
+        )
+        .eq(
+            "jenis_uttp",
+            "Pompa Ukur BBM"
+        )
+        .execute()
+    )
+
+    id_uttp_perusahaan = {
+        row.get("id")
+        for row in (
+            response_uttp_perusahaan.data
+            or []
+        )
+        if row.get("id") is not None
+    }
+
+    # =====================================================
+    # AMBIL SEMUA ROW DALAM SERTIFIKAT LAMA
+    # =====================================================
+    response_lama = (
+        supabase
+        .table(
+            "pengujian"
+        )
+        .select(
+            "id, uttp_id, nomor_sertifikat"
+        )
+        .eq(
+            "nomor_sertifikat",
+            nomor_sertifikat_lama
+        )
+        .execute()
+    )
+
+    daftar_lama = [
+        row
+        for row in (
+            response_lama.data
+            or []
+        )
+        if row.get(
+            "uttp_id"
+        ) in id_uttp_perusahaan
+    ]
+
+    lama_per_uttp = {
+        row.get("uttp_id"): row
+        for row in daftar_lama
+    }
+
+    hasil_simpan = []
+
+    id_uttp_baru = {
+        payload["uttp_id"]
+        for payload in daftar_payload
+    }
+
+    # =====================================================
+    # UPDATE ROW YANG SUDAH ADA
+    # INSERT ROW NOZZLE BARU
+    # =====================================================
+    for payload in daftar_payload:
+
+        uttp_id = payload[
+            "uttp_id"
+        ]
+
+        row_lama = lama_per_uttp.get(
+            uttp_id
+        )
+
+        if row_lama:
+
+            response = (
+                supabase
+                .table(
+                    "pengujian"
+                )
+                .update(
+                    payload
+                )
+                .eq(
+                    "id",
+                    row_lama[
+                        "id"
+                    ]
+                )
+                .execute()
+            )
+
+        else:
+
+            response = (
+                supabase
+                .table(
+                    "pengujian"
+                )
+                .insert(
+                    payload
+                )
+                .execute()
+            )
+
         if not response.data:
             raise RuntimeError(
-                "Data pengujian PUBBM gagal disimpan."
+                "Data pengujian nozzle PUBBM "
+                "gagal diperbarui."
             )
-    
-    return response.data[0]
+
+        hasil_simpan.extend(
+            response.data
+        )
+
+    # =====================================================
+    # HAPUS ROW NOZZLE YANG SUDAH TIDAK ADA
+    #
+    # Dilakukan paling akhir agar data lama tidak hilang
+    # jika proses update/insert sebelumnya gagal.
+    # =====================================================
+    for row_lama in daftar_lama:
+
+        uttp_id_lama = row_lama.get(
+            "uttp_id"
+        )
+
+        if (
+            uttp_id_lama
+            not in id_uttp_baru
+        ):
+            (
+                supabase
+                .table(
+                    "pengujian"
+                )
+                .delete()
+                .eq(
+                    "id",
+                    row_lama[
+                        "id"
+                    ]
+                )
+                .execute()
+            )
+
+    # =====================================================
+    # KELUAR DARI MODE EDIT
+    # =====================================================
+    st.session_state.pop(
+        "pubbm_edit_pengujian_id",
+        None
+    )
+
+    return hasil_simpan
 # =========================================================
 # NORMALISASI IDENTITAS SPBU
 # =========================================================
