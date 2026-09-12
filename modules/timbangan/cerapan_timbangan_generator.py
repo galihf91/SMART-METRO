@@ -978,66 +978,261 @@ def generate_cerapan_pdf(data: dict[str, Any], filename: str) -> str:
     else:
         hasil_yang_dicetak = hasil_pengujian[:5]
 
-    for idx, item in enumerate(hasil_yang_dicetak, 1):
-        # Prioritas mengikuti nilai yang tampil di aplikasi
-        muatan_tampil = item.get("muatan_uji_tampil", None)
-
-        if muatan_tampil not in (None, ""):
-            muatan_tampil_text = safe_str(muatan_tampil).strip()
-
-            if (
-                muatan_tampil_text.lower().endswith(" kg")
-                or muatan_tampil_text.lower().endswith(" g")
-            ):
-                muatan = muatan_tampil_text
-            else:
-                muatan = (
-                    f"{format_angka_id(muatan_tampil)} "
-                    f"{satuan}"
+    for idx, item in enumerate(
+        hasil_yang_dicetak,
+        1
+    ):
+        # =====================================================
+        # PENUNJUKAN MENJADI ACUAN DATA KEBENARAN
+        #
+        # Pada aplikasi saat ini:
+        # Penunjukan = Massa ATS
+        #
+        # Beberapa data riwayat lama mempunyai muatan_uji
+        # yang salah, sedangkan penunjukannya benar.
+        # =====================================================
+        try:
+            penunjukan_kg = float(
+                item.get(
+                    "penunjukan",
+                    item.get(
+                        "timbangan",
+                        0
+                    )
                 )
-
+                or 0
+            )
+        except (
+            TypeError,
+            ValueError
+        ):
+            penunjukan_kg = 0.0
+    
+        # =====================================================
+        # MUATAN UJI
+        # Gunakan penunjukan sebagai sumber utama.
+        # =====================================================
+        if penunjukan_kg > 0:
+            muatan_kg = penunjukan_kg
+    
         else:
-            muatan_kg = item.get(
-                "muatan_uji",
+            try:
+                muatan_kg = float(
+                    item.get(
+                        "muatan_uji",
+                        item.get(
+                            "muatan_sb",
+                            item.get(
+                                "standar",
+                                0
+                            )
+                        )
+                    )
+                    or 0
+                )
+            except (
+                TypeError,
+                ValueError
+            ):
+                muatan_kg = 0.0
+    
+            penunjukan_kg = muatan_kg
+    
+        # =====================================================
+        # TAMPILAN MUATAN
+        # =====================================================
+        muatan = nilai_dengan_satuan_dari_kg(
+            muatan_kg,
+            satuan
+        )
+    
+        # =====================================================
+        # TAMPILAN PENUNJUKAN
+        # Pertahankan format penunjukan dari aplikasi bila ada.
+        # =====================================================
+        penunjukan = safe_str(
+            item.get(
+                "penunjukan_text",
                 item.get(
-                    "muatan_sb",
-                    item.get("standar", 0)
+                    "timbangan_text",
+                    ""
                 )
             )
-
-            muatan = nilai_dengan_satuan_dari_kg(
-                muatan_kg,
-                satuan
-            )
-        penunjukan = item.get(
-            "penunjukan_text",
-            item.get("timbangan_text", "")
-        )
+        ).strip()
+    
         if not penunjukan:
-            penunjukan = nilai_dengan_satuan_dari_kg(
-                item.get("penunjukan", item.get("timbangan", 0)),
-                satuan,
+            penunjukan = (
+                nilai_dengan_satuan_dari_kg(
+                    penunjukan_kg,
+                    satuan
+                )
             )
-
+    
+        # =====================================================
+        # HITUNG ULANG BKD
+        # Jangan menggunakan bkd_text lama dari database.
+        # =====================================================
+        kelas_cerapan = safe_str(
+            data.get(
+                "kelas",
+                "III"
+            )
+        ).strip()
+    
+        jenis_uji_cerapan = safe_str(
+            data.get(
+                "keterangan",
+                "Tera Ulang"
+            )
+        ).strip()
+    
+        e_kg = to_float(
+            data.get(
+                "interval_skala",
+                0
+            )
+        )
+    
+        if (
+            e_kg > 0
+            and muatan_kg >= 0
+        ):
+            m = (
+                muatan_kg
+                / e_kg
+            )
+    
+            batas_bkd = {
+                "I": [
+                    (50000, 0.5),
+                    (200000, 1.0),
+                    (float("inf"), 1.5),
+                ],
+    
+                "II": [
+                    (5000, 0.5),
+                    (20000, 1.0),
+                    (100000, 1.5),
+                ],
+    
+                "III": [
+                    (500, 0.5),
+                    (2000, 1.0),
+                    (10000, 1.5),
+                ],
+    
+                "IIII": [
+                    (50, 0.5),
+                    (200, 1.0),
+                    (1000, 1.5),
+                ],
+            }
+    
+            koef_dasar = 1.5
+    
+            for batas_m, koef in batas_bkd.get(
+                kelas_cerapan,
+                batas_bkd["III"]
+            ):
+                if m <= batas_m:
+                    koef_dasar = koef
+                    break
+    
+            multiplier = (
+                2.0
+                if jenis_uji_cerapan
+                == "Tera Ulang"
+                else 1.0
+            )
+    
+            koef_bkd = (
+                koef_dasar
+                * multiplier
+            )
+    
+            bkd_kg = (
+                koef_bkd
+                * e_kg
+            )
+    
+        else:
+            koef_bkd = 0.0
+            bkd_kg = 0.0
+    
+        # =====================================================
+        # FORMAT BKD
+        # =====================================================
+        if koef_bkd == 0.5:
+            bkd_text = "±0.5e"
+    
+        elif koef_bkd == 1.0:
+            bkd_text = "±1e"
+    
+        elif koef_bkd == 1.5:
+            bkd_text = "±1.5e"
+    
+        elif koef_bkd == 2.0:
+            bkd_text = "±2e"
+    
+        elif koef_bkd == 3.0:
+            bkd_text = "±3e"
+    
+        else:
+            bkd_text = (
+                f"±{koef_bkd:g}e"
+                if koef_bkd > 0
+                else ""
+            )
+    
+        # =====================================================
+        # HITUNG ULANG CEK
+        # =====================================================
+        kesalahan_kg = (
+            penunjukan_kg
+            - muatan_kg
+        )
+    
+        cek_sah = (
+            abs(kesalahan_kg)
+            <= bkd_kg
+        )
+    
         benar_rows.append([
-            p(idx, P_CENTER),
-            p(muatan, P_CENTER),
-            p(penunjukan, P_CENTER),
-            p(item.get("bkd_text", ""), P_CENTER),
             p(
-                item.get(
-                    "pengamatan_penunjukan",
-                    "Penunjukan = Massa ATS"
-                ),
-                P_SMALL,
+                idx,
+                P_CENTER
             ),
-            p(item.get("hasil_text", "SAH"), P_CENTER),
+    
+            p(
+                muatan,
+                P_CENTER
+            ),
+    
+            p(
+                penunjukan,
+                P_CENTER
+            ),
+    
+            p(
+                bkd_text,
+                P_CENTER
+            ),
+    
+            p(
+                "Penunjukan = Massa ATS",
+                P_SMALL
+            ),
+    
+            p(
+                "SAH"
+                if cek_sah
+                else "TIDAK SAH",
+                P_CENTER
+            ),
+    
             (
                 buat_tanda_centang()
-                if item.get(
-                    "cek_otomatis",
-                    item.get("hasil", True)
-                )
+                if cek_sah
                 else ""
             ),
         ])
