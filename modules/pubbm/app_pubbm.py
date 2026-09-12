@@ -6938,7 +6938,10 @@ def run():
                 or []
             )
             
-            # Fallback jika data lama hanya punya satu UTTP
+            # =====================================================
+            # FALLBACK DATA LAMA
+            # Jika SPBU lama hanya mempunyai satu UTTP
+            # =====================================================
             if not uttp_ids:
                 uttp_id_lama = alat.get(
                     "id"
@@ -6948,23 +6951,6 @@ def run():
                     uttp_ids = [
                         uttp_id_lama
                     ]
-          
-                # Hanya tampilkan identitas SPBU
-                # jika belum tercantum pada nama perusahaan
-                if (
-                    identitas_spbu_tampil
-                    and identitas_spbu_tampil.lower()
-                    not in nama_spbu_tampil.lower()
-                ):
-                    st.write(
-                        "**Identitas SPBU:**",
-                        identitas_spbu_tampil
-                    )
-            
-                st.write(
-                    "**Alamat:**",
-                    alamat_spbu_tampil or "-"
-                )
     
             # =====================================================
             # 5. AMBIL RIWAYAT PUBBM PER KEGIATAN
