@@ -6173,6 +6173,17 @@ def run():
                                 data_pubbm
                             )
                         )
+                        # =================================================
+                        # REFRESH MASTER SPBU
+                        #
+                        # Nomor SPBU / alamat mungkin baru saja diperbarui
+                        # pada tabel perusahaan.
+                        # =================================================
+                        load_data_spbu.clear()
+                        
+                        st.session_state[
+                            "data_spbu"
+                        ] = load_data_spbu()
                 
                         # =================================================
                         # 5. SIMPAN FILE KE SESSION STATE
