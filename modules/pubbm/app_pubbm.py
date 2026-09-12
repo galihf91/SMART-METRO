@@ -3823,10 +3823,31 @@ def run():
         )
     
         # =====================================================
-        # PASTIKAN BUKAN MODE EDIT
+        # PASTIKAN BENAR-BENAR BUKAN MODE EDIT
+        #
+        # Pengujian baru boleh memakai data nozzle lama
+        # sebagai acuan, tetapi tidak boleh membawa ID
+        # pengujian lama.
         # =====================================================
         st.session_state.pop(
             "pubbm_edit_pengujian_id",
+            None
+        )
+        
+        st.session_state.pop(
+            "pubbm_edit_pengujian_ids",
+            None
+        )
+        
+        # =====================================================
+        # HAPUS DRAFT FORM LAMA
+        #
+        # Draft lama dapat menimpa kembali data pengujian
+        # acuan ketika aplikasi berpindah dari Riwayat
+        # ke menu Input.
+        # =====================================================
+        st.session_state.pop(
+            "pubbm_draft_widget",
             None
         )
     
