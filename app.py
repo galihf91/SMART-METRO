@@ -1,6 +1,7 @@
 import streamlit as st
 from pathlib import Path
 import importlib
+import hmac
 
 
 # =========================================================
@@ -21,7 +22,161 @@ st.set_page_config(
 BASE_DIR = Path(__file__).resolve().parent
 ASSETS_DIR = BASE_DIR / "assets"
 LOGO_PATH = ASSETS_DIR / "logo.png"
+# =========================================================
+# AUTENTIKASI / LOGIN
+# =========================================================
+def init_auth_state():
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
 
+
+def cek_login():
+    """
+    Menampilkan halaman login SMART METRO.
+
+    Return:
+    True  = user sudah login
+    False = user belum login
+    """
+
+    init_auth_state()
+
+    # =====================================================
+    # USER SUDAH LOGIN
+    # =====================================================
+    if st.session_state.authenticated:
+        return True
+
+    # =====================================================
+    # SEMBUNYIKAN SIDEBAR DI HALAMAN LOGIN
+    # =====================================================
+    st.markdown(
+        """
+        <style>
+            [data-testid="stSidebar"] {
+                display: none !important;
+            }
+
+            [data-testid="collapsedControl"] {
+                display: none !important;
+            }
+
+            .block-container {
+                max-width: 520px;
+                padding-top: 6rem;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # =====================================================
+    # LOGO
+    # =====================================================
+    col_logo1, col_logo2, col_logo3 = st.columns(
+        [1, 1.2, 1]
+    )
+
+    with col_logo2:
+        if LOGO_PATH.exists():
+            st.image(
+                str(LOGO_PATH),
+                use_container_width=True
+            )
+
+    # =====================================================
+    # JUDUL LOGIN
+    # =====================================================
+    st.markdown(
+        """
+        <div style="
+            text-align:center;
+            margin-bottom:25px;
+        ">
+            <h1 style="
+                color:#312e81;
+                margin-bottom:5px;
+            ">
+                SMART METRO
+            </h1>
+
+            <p style="
+                color:#64748b;
+                font-size:15px;
+            ">
+                Sistem Manajemen dan Aplikasi Tera Metrologi
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # =====================================================
+    # INPUT LOGIN
+    # =====================================================
+    username = st.text_input(
+        "Username",
+        placeholder="Masukkan username",
+        key="login_username"
+    )
+
+    password = st.text_input(
+        "Password",
+        type="password",
+        placeholder="Masukkan password",
+        key="login_password"
+    )
+
+    if st.button(
+        "🔐 Masuk SMART METRO",
+        type="primary",
+        use_container_width=True,
+        key="btn_login_smart_metro"
+    ):
+
+        username_benar = str(
+            st.secrets["APP_USERNAME"]
+        )
+
+        password_benar = str(
+            st.secrets["APP_PASSWORD"]
+        )
+
+        username_valid = hmac.compare_digest(
+            str(username),
+            username_benar
+        )
+
+        password_valid = hmac.compare_digest(
+            str(password),
+            password_benar
+        )
+
+        if (
+            username_valid
+            and password_valid
+        ):
+            st.session_state.authenticated = True
+
+            # Bersihkan input login
+            st.session_state.pop(
+                "login_username",
+                None
+            )
+
+            st.session_state.pop(
+                "login_password",
+                None
+            )
+
+            st.rerun()
+
+        else:
+            st.error(
+                "Username atau password salah."
+            )
+
+    return False
 
 # =========================================================
 # SEMBUNYIKAN NAVIGASI OTOMATIS STREAMLIT
@@ -440,10 +595,39 @@ def jalankan_modul(module_path, function_name="run"):
 # ROUTER UTAMA
 # =========================================================
 def main():
-    init_session_state()
     sembunyikan_navigasi_otomatis()
 
+    # =====================================================
+    # LOGIN WAJIB SEBELUM MASUK APLIKASI
+    # =====================================================
+    if not cek_login():
+        return
+
+    # =====================================================
+    # USER SUDAH LOGIN
+    # =====================================================
+    init_session_state()
+
     halaman_aktif = st.session_state.halaman
+
+    if halaman_aktif == "home":
+        home()
+
+    elif halaman_aktif == "pengujian_uttp":
+        jalankan_modul(
+            "pages.pengujian_uttp",
+            "run"
+        )
+
+    elif halaman_aktif == "dashboard_tera_ulang":
+        jalankan_modul(
+            "pages.dashboard_tera_ulang",
+            "run"
+        )
+
+    else:
+        st.session_state.halaman = "home"
+        st.rerun()
 
     if halaman_aktif == "home":
         home()
