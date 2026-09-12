@@ -3350,6 +3350,23 @@ def run():
                     nomor_posisi = (
                         idx + 1
                     )
+                    # =============================================
+                    # ID UTTP ASLI NOZZLE
+                    # Hanya digunakan secara internal saat Edit.
+                    # =============================================
+                    uttp_id_restore = row.get(
+                        "_uttp_id",
+                        None
+                    )
+                    
+                    if pd.isna(
+                        uttp_id_restore
+                    ):
+                        uttp_id_restore = None
+                    
+                    st.session_state[
+                        f"uttp_id_{nomor_dispenser}_{nomor_posisi}"
+                    ] = uttp_id_restore
 
                     posisi_restore = str(
                         row.get(
@@ -3436,6 +3453,7 @@ def run():
             "jumlah_posisi_",
             "bejana_select_",
             "k_faktor_",
+            "uttp_id_",
         )
 
         key_hapus_langsung = {
@@ -3575,6 +3593,7 @@ def run():
         dispenser_df = pd.DataFrame(
             dispenser_records,
             columns=[
+                "_uttp_id",
                 "No",
                 "Posisi",
                 "Merk",
@@ -5561,6 +5580,10 @@ def run():
                     if media:
                         data_rows.append(
                             {
+                                "_uttp_id": st.session_state.get(
+                                    f"uttp_id_{i}_{idx}"
+                                ),
+                    
                                 "No": i,
                                 "Posisi": posisi.strip(),
                                 "Merk": merk.strip(),
@@ -5629,6 +5652,7 @@ def run():
         # DATAFRAME DISPENSER
         # =========================
         kolom_dispenser = [
+            "_uttp_id",
             "No",
             "Posisi",
             "Merk",
