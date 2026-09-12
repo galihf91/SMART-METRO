@@ -2148,9 +2148,14 @@ def ambil_riwayat_kegiatan_pubbm(
             "data_pengujian"
         ] = detail_gabungan
 
-        # ID pertama tetap dipakai sebagai jangkar mode Edit.
-        # Fungsi simpan baru kemudian mencari seluruh row
-        # dengan nomor sertifikat yang sama.
+        # =================================================
+        # SIMPAN SELURUH ID ROW PENGUJIAN KEGIATAN INI
+        #
+        # Digunakan pada mode Edit agar setiap row nozzle
+        # yang tergabung dalam kegiatan dapat diperbarui
+        # secara tepat tanpa mencari ulang berdasarkan
+        # nomor sertifikat.
+        # =================================================
         pengujian_utama[
             "_pubbm_pengujian_ids"
         ] = [
