@@ -7059,28 +7059,22 @@ def run():
                 )
     
             # =====================================================
-            # 5. AMBIL RIWAYAT PENGUJIAN
+            # 5. AMBIL RIWAYAT PUBBM PER KEGIATAN
+            #
+            # Struktur database:
+            # 1 nozzle = 1 UTTP
+            # 1 nozzle = 1 row pengujian
+            #
+            # Tetapi pada UI Riwayat:
+            # 1 sertifikat = 1 kegiatan PUBBM
             # =====================================================
-            response_pengujian = (
-                supabase
-                .table("pengujian")
-                .select("*")
-                .in_(
-                    "uttp_id",
-                    uttp_ids
-                )
-                .order(
-                    "tanggal_pengujian",
-                    desc=True
-                )
-                .execute()
-            )
-    
             daftar_pengujian = (
-                response_pengujian.data
-                or []
+                ambil_riwayat_kegiatan_pubbm(
+                    supabase=supabase,
+                    perusahaan=perusahaan,
+                )
             )
-    
+            
             if not daftar_pengujian:
                 st.info(
                     "Belum ada riwayat pengujian "
