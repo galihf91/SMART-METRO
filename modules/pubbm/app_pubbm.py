@@ -1485,7 +1485,9 @@ def ambil_riwayat_kegiatan_pubbm(
 
     for _, rows in kelompok.items():
 
-        # Urutkan agar hasil stabil
+        # =================================================
+        # URUTKAN AGAR HASIL STABIL
+        # =================================================
         rows = sorted(
             rows,
             key=lambda item: int(
@@ -1493,7 +1495,59 @@ def ambil_riwayat_kegiatan_pubbm(
                 or 0
             )
         )
-
+    
+        # =================================================
+        # PRIORITASKAN FORMAT PUBBM BARU
+        #
+        # Format baru:
+        # schema_pubbm = 2
+        # 1 row pengujian = 1 nozzle
+        #
+        # Ini penting jika suatu sertifikat masih memiliki
+        # campuran row lama + row baru akibat migrasi/edit.
+        # Jika row baru tersedia, abaikan row lama saat
+        # membangun tampilan riwayat.
+        # =================================================
+        rows_format_baru = []
+    
+        for row in rows:
+    
+            detail_row = (
+                row.get(
+                    "data_pengujian"
+                )
+                or {}
+            )
+    
+            schema_pubbm = str(
+                detail_row.get(
+                    "schema_pubbm",
+                    ""
+                )
+                or ""
+            ).strip()
+    
+            dispenser_lama_row = (
+                detail_row.get(
+                    "dispenser",
+                    []
+                )
+                or []
+            )
+    
+            if (
+                schema_pubbm == "2"
+                and not dispenser_lama_row
+            ):
+                rows_format_baru.append(
+                    row
+                )
+    
+        # Jika format baru sudah tersedia,
+        # gunakan hanya row format baru.
+        if rows_format_baru:
+            rows = rows_format_baru
+    
         pengujian_utama = dict(
             rows[0]
         )
