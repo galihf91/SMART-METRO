@@ -4420,71 +4420,9 @@ def run():
                 []
             )
             or []
-        )
-        # =====================================================
-        # MAPPING INTERNAL NOZZLE -> UTTP ID
-        #
-        # Tidak masuk ke DataFrame/form.
-        # Hanya dipakai saat menyimpan hasil Edit.
-        # =====================================================
-        nozzle_map = {}
-        
-        urutan_per_dispenser = {}
-        
-        for item in dispenser_records:
-        
-            uttp_id_asli = item.get(
-                "_uttp_id"
-            )
-        
-            if uttp_id_asli is None:
-                continue
-        
-            no_dispenser_raw = item.get(
-                "No",
-                ""
-            )
-        
-            try:
-                no_dispenser = int(
-                    float(
-                        no_dispenser_raw
-                    )
-                )
-            except (
-                TypeError,
-                ValueError
-            ):
-                continue
-        
-            urutan_per_dispenser[
-                no_dispenser
-            ] = (
-                urutan_per_dispenser.get(
-                    no_dispenser,
-                    0
-                )
-                + 1
-            )
-        
-            nomor_posisi = (
-                urutan_per_dispenser[
-                    no_dispenser
-                ]
-            )
-        
-            nozzle_map[
-                f"{no_dispenser}_{nomor_posisi}"
-            ] = uttp_id_asli
-        
-        st.session_state[
-            "pubbm_edit_nozzle_map"
-        ] = nozzle_map
-    
         dispenser_df = pd.DataFrame(
             dispenser_records,
             columns=[
-                "_uttp_id",
                 "No",
                 "Posisi",
                 "Merk",
