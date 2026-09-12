@@ -6823,20 +6823,32 @@ def run():
     
             # =====================================================
             # 3. SUSUN PILIHAN SPBU
-            # Hindari SPBU yang sama muncul lebih dari sekali
+            #
+            # Konsep baru:
+            # 1 perusahaan / SPBU = 1 pilihan dropdown
+            #
+            # Jangan gunakan nomor_seri sebagai identitas SPBU
+            # karena nomor_seri sekarang adalah nomor seri dispenser.
             # =====================================================
-            grup_spbu = {}
+            opsi_spbu = {}
             
-            for alat in daftar_uttp:
+            for perusahaan_id, perusahaan in (
+                perusahaan_map.items()
+            ):
             
-                perusahaan = perusahaan_map.get(
-                    alat.get("perusahaan_id"),
-                    {}
-                )
+                # =================================================
+                # AMBIL SEMUA NOZZLE / UTTP MILIK SPBU INI
+                # =================================================
+                daftar_uttp_spbu = [
+                    alat
+                    for alat in daftar_uttp
+                    if alat.get(
+                        "perusahaan_id"
+                    ) == perusahaan_id
+                ]
             
-                perusahaan_id = alat.get(
-                    "perusahaan_id"
-                )
+                if not daftar_uttp_spbu:
+                    continue
             
                 nama_perusahaan = str(
                     perusahaan.get(
@@ -6846,151 +6858,47 @@ def run():
                     or ""
                 ).strip()
             
-                identitas_spbu = str(
-                    alat.get(
-                        "nomor_seri",
-                        ""
-                    )
-                    or ""
-                ).strip()
+                if not nama_perusahaan:
+                    continue
             
                 # =================================================
-                # NORMALISASI IDENTITAS SPBU UNTUK PENGELOMPOKAN
+                # KUMPULKAN SELURUH UTTP ID
                 # =================================================
-                sumber_identitas = (
-                    identitas_spbu
-                    or nama_perusahaan
-                )
-                
-                sumber_identitas = str(
-                    sumber_identitas
-                    or ""
-                ).strip()
-                
-                # Jika terdapat tulisan SPBU,
-                # ambil nomor SPBU-nya saja.
-                match_nomor_spbu = re.search(
-                    r"SPBU\s*([0-9][0-9.\-\s]*)",
-                    sumber_identitas,
-                    re.IGNORECASE,
-                )
-                
-                if match_nomor_spbu:
-                    identitas_normal = re.sub(
-                        r"\D",
-                        "",
-                        match_nomor_spbu.group(1)
-                    )
-                
-                else:
-                    identitas_normal = (
-                        normalisasi_identitas_spbu(
-                            sumber_identitas
-                        )
-                    )
-                
-                    # Samakan:
-                    # SPBU3415717
-                    # dengan
-                    # 3415717
-                    if identitas_normal.startswith(
-                        "SPBU"
-                    ):
-                        identitas_normal = (
-                            identitas_normal[4:]
-                        )
-                
+                uttp_ids = [
+                    alat.get("id")
+                    for alat in daftar_uttp_spbu
+                    if alat.get("id") is not None
+                ]
+            
                 # =================================================
-                # JANGAN GABUNGKAN DATA YANG IDENTITAS SPBU-NYA KOSONG
+                # SATU ALAT HANYA DIPAKAI SEBAGAI ANCHOR
+                #
+                # Riwayat sebenarnya nanti dibaca berdasarkan
+                # perusahaan melalui ambil_riwayat_kegiatan_pubbm().
                 # =================================================
-                if not identitas_normal:
-                    identitas_normal = (
-                        f"UTTP_{alat.get('id')}"
-                    )
-                key_spbu = (
-                    perusahaan_id,
-                    identitas_normal,
+                alat_anchor = (
+                    daftar_uttp_spbu[0]
                 )
             
                 # =================================================
-                # SPBU BELUM MASUK DAFTAR
+                # LABEL DROPDOWN
                 # =================================================
-                if key_spbu not in grup_spbu:
+                label = nama_perusahaan
             
-                    grup_spbu[key_spbu] = {
-                        "uttp": alat,
-                        "uttp_ids": [],
-                        "perusahaan": perusahaan,
-                        "nama_perusahaan": nama_perusahaan,
-                        "identitas_spbu": identitas_spbu,
-                    }
-            
-                # Simpan seluruh UTTP ID yang ternyata
-                # mengarah ke SPBU yang sama
-                uttp_id_item = alat.get(
-                    "id"
-                )
-            
-                if (
-                    uttp_id_item is not None
-                    and uttp_id_item
-                    not in grup_spbu[
-                        key_spbu
-                    ]["uttp_ids"]
-                ):
-                    grup_spbu[
-                        key_spbu
-                    ]["uttp_ids"].append(
-                        uttp_id_item
-                    )
-            
-            
-            # =====================================================
-            # SUSUN LABEL DROPDOWN
-            # =====================================================
-            opsi_spbu = {}
-            
-            for data_spbu_item in sorted(
-                grup_spbu.values(),
-                key=lambda item: (
-                    item.get(
-                        "nama_perusahaan",
-                        ""
-                    )
-                    or ""
-                ).lower()
-            ):
-            
-                nama_perusahaan = (
-                    data_spbu_item[
-                        "nama_perusahaan"
-                    ]
-                )
-            
-                identitas_spbu = (
-                    data_spbu_item[
-                        "identitas_spbu"
-                    ]
-                )
-            
-                if (
-                    identitas_spbu
-                    and identitas_spbu.lower()
-                    not in nama_perusahaan.lower()
-                ):
+                # Pengaman jika ada nama perusahaan sama
+                if label in opsi_spbu:
                     label = (
                         f"{nama_perusahaan}"
-                        f" | {identitas_spbu}"
-                    )
-                else:
-                    label = (
-                        nama_perusahaan
-                        or identitas_spbu
+                        f" | ID {perusahaan_id}"
                     )
             
                 opsi_spbu[
                     label
-                ] = data_spbu_item
+                ] = {
+                    "perusahaan": perusahaan,
+                    "uttp": alat_anchor,
+                    "uttp_ids": uttp_ids,
+                }
     
             pilihan_spbu = st.selectbox(
                 "Pilih SPBU",
