@@ -2811,7 +2811,7 @@ def run():
                 supabase
                 .table("uttp")
                 .select(
-                    "perusahaan_id, nomor_seri"
+                    "perusahaan_id"
                 )
                 .eq(
                     "jenis_uttp",
@@ -2819,34 +2819,6 @@ def run():
                 )
                 .execute()
             )
-            # =====================================================
-            # PETA NOMOR SPBU BERDASARKAN PERUSAHAAN
-            # =====================================================
-            nomor_spbu_map = {}
-            
-            for row in (
-                response_uttp.data
-                or []
-            ):
-                perusahaan_id = row.get(
-                    "perusahaan_id"
-                )
-            
-                nomor_spbu = str(
-                    row.get(
-                        "nomor_seri",
-                        ""
-                    )
-                    or ""
-                ).strip()
-            
-                if (
-                    perusahaan_id is not None
-                    and nomor_spbu
-                ):
-                    nomor_spbu_map[
-                        perusahaan_id
-                    ] = nomor_spbu
             perusahaan_ids_pubbm = {
                 row.get("perusahaan_id")
                 for row in (
@@ -2863,7 +2835,7 @@ def run():
                 supabase
                 .table("perusahaan")
                 .select(
-                    "id, nama_perusahaan, alamat"
+                    "id, nama_perusahaan, nomor_spbu, alamat"
                 )
                 .execute()
             )
@@ -2887,6 +2859,13 @@ def run():
                 alamat = str(
                     row.get(
                         "alamat",
+                        ""
+                    )
+                    or ""
+                ).strip()
+                nomor_spbu = str(
+                    row.get(
+                        "nomor_spbu",
                         ""
                     )
                     or ""
@@ -2916,13 +2895,7 @@ def run():
                 ):
                     daftar_data.append({
                         "Nama SPBU": nama,
-                        "Nomor SPBU": str(
-                            nomor_spbu_map.get(
-                                perusahaan_id,
-                                ""
-                            )
-                            or ""
-                        ).strip(),
+                        "Nomor SPBU": nomor_spbu,
                         "Alamat": alamat,
                     })
     
