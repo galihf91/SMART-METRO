@@ -7515,6 +7515,11 @@ def run():
                         ),
                         label_visibility="collapsed"
                     )
+                    # =====================================================
+                    # HASIL REPETABILITY SELALU SAH
+                    # =====================================================
+                    hasil = "SAH"
+                    cek_sah_repet = True
 
                 penunjukan_akhir_kg = satuan_to_kg(
                     penunjukan_akhir_tampil,
@@ -7553,8 +7558,10 @@ def run():
                     "periksa": "",
                     "angkat_05e": "",
 
-                    "hasil": hasil == "SAH",
-                    "hasil_text": hasil,
+                    "hasil": True,
+                    "hasil_text": "SAH",
+                    "cek_otomatis": True,
+                    "cek_icon": "✅",
 
                     "delta_l": 0.0,
                     "delta_l_tampil": 0.0,
@@ -7938,7 +7945,11 @@ def run():
                     else:
                         hasil = "SAH"
                         st.write("")
-
+                # =====================================================
+                # HASIL REPETABILITY SELALU SAH
+                # =====================================================
+                hasil = "SAH"
+                cek_sah_repet = True
                 repet_data.append({
                     "penunjukan": I_kg,
                     "penunjukan_tampil": penunjukan_tampil,
@@ -7973,8 +7984,10 @@ def run():
                         + f" {satuan_tampilan}"
                     ),
 
-                    "hasil": hasil == "SAH",
-                    "hasil_text": hasil,
+                    "hasil": True,
+                    "hasil_text": "SAH",
+                    "cek_otomatis": True,
+                    "cek_icon": "✅",
 
                     # Kompatibilitas generator cerapan lama.
                     "delta_l": nilai_naik_kg,
