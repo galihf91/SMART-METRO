@@ -4420,6 +4420,7 @@ def run():
                 []
             )
             or []
+        )
         dispenser_df = pd.DataFrame(
             dispenser_records,
             columns=[
