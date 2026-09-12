@@ -929,7 +929,56 @@ def simpan_pengujian_pubbm_ke_supabase(
         )
         or {}
     )
-
+    # =====================================================
+    # 12A. CEK NOMOR SERTIFIKAT DUPLIKAT
+    #
+    # Dilakukan sebelum master UTTP/nozzle disentuh.
+    #
+    # Struktur baru:
+    # 1 kegiatan = 1 row pengujian
+    # dan header mempunyai uttp_id = NULL.
+    # =====================================================
+    query_sertifikat = (
+        supabase
+        .table("pengujian")
+        .select(
+            "id, nomor_sertifikat"
+        )
+        .eq(
+            "nomor_sertifikat",
+            nomor_sertifikat
+        )
+        .is_(
+            "uttp_id",
+            "null"
+        )
+    )
+    
+    # =====================================================
+    # SAAT EDIT:
+    # sertifikat milik kegiatan yang sedang diedit
+    # tidak dianggap duplikat.
+    # =====================================================
+    if edit_id is not None:
+        query_sertifikat = (
+            query_sertifikat
+            .neq(
+                "id",
+                edit_id
+            )
+        )
+    
+    response_sertifikat = (
+        query_sertifikat
+        .limit(1)
+        .execute()
+    )
+    
+    if response_sertifikat.data:
+        raise ValueError(
+            "Nomor sertifikat sudah pernah digunakan. "
+            "Silakan gunakan nomor sertifikat yang berbeda."
+        )
     # =====================================================
     # 13. CARI / UPDATE MASTER UTTP NOZZLE
     # =====================================================
