@@ -628,44 +628,6 @@ def main():
         st.session_state.halaman = "home"
         st.rerun()
 
-    if halaman_aktif == "home":
-        home()
-
-    elif halaman_aktif == "pengujian_uttp":
-        jalankan_modul(
-            "pages.pengujian_uttp",
-            "run"
-        )
-
-    elif halaman_aktif == "dashboard_tera_ulang":
-        jalankan_modul(
-            "pages.dashboard_tera_ulang",
-            "run"
-        )
-
-    else:
-        st.session_state.halaman = "home"
-        st.rerun()
-
-    if halaman_aktif == "home":
-        home()
-
-    elif halaman_aktif == "pengujian_uttp":
-        jalankan_modul(
-            "pages.pengujian_uttp",
-            "run"
-        )
-
-    elif halaman_aktif == "dashboard_tera_ulang":
-        jalankan_modul(
-            "pages.dashboard_tera_ulang",
-            "run"
-        )
-
-    else:
-        st.session_state.halaman = "home"
-        st.rerun()
-
 
 # =========================================================
 # MENJALANKAN APLIKASI
