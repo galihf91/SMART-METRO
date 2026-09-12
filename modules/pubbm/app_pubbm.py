@@ -607,6 +607,75 @@ def simpan_pengujian_pubbm_ke_supabase(
             )
         )
     )
+    # =====================================================
+    # VALIDASI DUPLIKAT IDENTITAS NOZZLE
+    #
+    # Dilakukan sebelum ada perubahan ke Supabase.
+    #
+    # Identitas nozzle:
+    # - Tipe
+    # - Nomor Seri
+    # - Media
+    # - Posisi
+    # =====================================================
+    identitas_nozzle_form = set()
+    
+    for urutan, nozzle in enumerate(
+        dispenser_records,
+        start=1
+    ):
+        tipe_cek = str(
+            nozzle.get(
+                "Tipe",
+                ""
+            )
+            or ""
+        ).upper().strip()
+    
+        nomor_seri_cek = str(
+            nozzle.get(
+                "No. Seri",
+                ""
+            )
+            or ""
+        ).upper().strip()
+    
+        media_cek = str(
+            nozzle.get(
+                "Media",
+                ""
+            )
+            or ""
+        ).upper().strip()
+    
+        posisi_cek = str(
+            nozzle.get(
+                "Posisi",
+                ""
+            )
+            or ""
+        ).upper().strip()
+    
+        identitas_nozzle = (
+            tipe_cek,
+            nomor_seri_cek,
+            media_cek,
+            posisi_cek,
+        )
+    
+        if identitas_nozzle in identitas_nozzle_form:
+            raise ValueError(
+                "Terdapat nozzle yang sama lebih dari "
+                "satu kali pada form:\n\n"
+                f"Tipe: {tipe_cek}\n"
+                f"No. Seri: {nomor_seri_cek}\n"
+                f"Media: {media_cek}\n"
+                f"Posisi: {posisi_cek}"
+            )
+    
+        identitas_nozzle_form.add(
+            identitas_nozzle
+        )
 
     if not dispenser_records:
         raise ValueError(
