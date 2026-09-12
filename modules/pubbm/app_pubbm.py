@@ -137,6 +137,7 @@ def simpan_atau_update_perusahaan_pubbm(
             ),
             "alamat": alamat,
         })
+        .execute()
     )
 
     if not response.data:
@@ -1671,11 +1672,23 @@ def ambil_riwayat_kegiatan_pubbm(
             ).strip()
 
             dispenser_records.append({
+                # =============================================
+                # ID MASTER NOZZLE
+                #
+                # Tidak ditampilkan ke user.
+                # Dipakai agar mode Edit tetap mengetahui
+                # nozzle/UTTP asli walaupun identitasnya diubah.
+                # =============================================
+                "_uttp_id": row.get(
+                    "uttp_id"
+                ),
+            
                 "No": (
                     no_dispenser
                     if no_dispenser is not None
                     else ""
                 ),
+            
                 "Merk": merk,
                 "Tipe": tipe,
                 "No. Seri": no_seri,
