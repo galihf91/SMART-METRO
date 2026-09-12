@@ -262,6 +262,243 @@ def get_or_create_uttp_pubbm(
         "id"
     ]
 # =========================================================
+# CARI / BUAT UTTP PUBBM PER NOZZLE
+# =========================================================
+def get_or_create_nozzle_pubbm(
+    supabase,
+    perusahaan_id,
+    merk,
+    tipe,
+    nomor_seri,
+    media,
+    posisi,
+):
+    """
+    Konsep baru PUBBM:
+
+    1 NOZZLE = 1 UTTP
+
+    Identitas nozzle ditentukan oleh:
+    - perusahaan
+    - jenis UTTP
+    - tipe
+    - nomor seri
+    - media
+    - posisi
+
+    Merk tetap disimpan sebagai identitas alat,
+    tetapi tidak digunakan sebagai pembeda utama.
+    """
+
+    merk = str(
+        merk or ""
+    ).strip()
+
+    tipe = str(
+        tipe or ""
+    ).strip()
+
+    nomor_seri = str(
+        nomor_seri or ""
+    ).strip()
+
+    media = str(
+        media or ""
+    ).strip()
+
+    posisi = str(
+        posisi or ""
+    ).strip()
+
+    # =====================================================
+    # VALIDASI DATA NOZZLE
+    # =====================================================
+    if not merk:
+        raise ValueError(
+            "Merk dispenser belum diisi."
+        )
+
+    if not tipe:
+        raise ValueError(
+            "Tipe dispenser belum diisi."
+        )
+
+    if not nomor_seri:
+        raise ValueError(
+            "No. Seri dispenser belum diisi."
+        )
+
+    if not media:
+        raise ValueError(
+            "Media nozzle belum diisi."
+        )
+
+    if not posisi:
+        raise ValueError(
+            "Posisi nozzle belum diisi."
+        )
+
+    # =====================================================
+    # NORMALISASI UNTUK PENCARIAN
+    # =====================================================
+    tipe_normal = (
+        tipe
+        .upper()
+        .strip()
+    )
+
+    nomor_seri_normal = (
+        nomor_seri
+        .upper()
+        .strip()
+    )
+
+    media_normal = (
+        media
+        .upper()
+        .strip()
+    )
+
+    posisi_normal = (
+        posisi
+        .upper()
+        .strip()
+    )
+
+    # =====================================================
+    # AMBIL SEMUA UTTP PUBBM PERUSAHAAN INI
+    # =====================================================
+    response = (
+        supabase
+        .table("uttp")
+        .select(
+            "id, perusahaan_id, jenis_uttp, "
+            "merk, tipe, nomor_seri, media, posisi"
+        )
+        .eq(
+            "perusahaan_id",
+            perusahaan_id
+        )
+        .eq(
+            "jenis_uttp",
+            "Pompa Ukur BBM"
+        )
+        .execute()
+    )
+
+    daftar_uttp = (
+        response.data
+        or []
+    )
+
+    # =====================================================
+    # CARI NOZZLE YANG SAMA
+    # =====================================================
+    for uttp in daftar_uttp:
+
+        tipe_lama = str(
+            uttp.get(
+                "tipe",
+                ""
+            )
+            or ""
+        ).upper().strip()
+
+        seri_lama = str(
+            uttp.get(
+                "nomor_seri",
+                ""
+            )
+            or ""
+        ).upper().strip()
+
+        media_lama = str(
+            uttp.get(
+                "media",
+                ""
+            )
+            or ""
+        ).upper().strip()
+
+        posisi_lama = str(
+            uttp.get(
+                "posisi",
+                ""
+            )
+            or ""
+        ).upper().strip()
+
+        if (
+            tipe_lama == tipe_normal
+            and seri_lama == nomor_seri_normal
+            and media_lama == media_normal
+            and posisi_lama == posisi_normal
+        ):
+            uttp_id = uttp[
+                "id"
+            ]
+
+            # =============================================
+            # UPDATE IDENTITAS MASTER TERBARU
+            # =============================================
+            (
+                supabase
+                .table("uttp")
+                .update({
+                    "merk": merk,
+                    "tipe": tipe,
+                    "nomor_seri": nomor_seri,
+                    "media": media,
+                    "posisi": posisi,
+                    "lokasi": "SPBU",
+                    "status": "aktif",
+                })
+                .eq(
+                    "id",
+                    uttp_id
+                )
+                .execute()
+            )
+
+            return uttp_id
+
+    # =====================================================
+    # NOZZLE BELUM ADA → BUAT UTTP BARU
+    # =====================================================
+    response = (
+        supabase
+        .table("uttp")
+        .insert({
+            "perusahaan_id": perusahaan_id,
+
+            "jenis_uttp": (
+                "Pompa Ukur BBM"
+            ),
+
+            "merk": merk,
+            "tipe": tipe,
+            "nomor_seri": nomor_seri,
+
+            "media": media,
+            "posisi": posisi,
+
+            "kapasitas": None,
+
+            "lokasi": "SPBU",
+            "status": "aktif",
+        })
+        .execute()
+    )
+
+    if not response.data:
+        raise RuntimeError(
+            "UTTP nozzle PUBBM gagal disimpan."
+        )
+
+    return response.data[0][
+        "id"
+    ]
+# =========================================================
 # KONVERSI DATAFRAME PUBBM KE JSON
 # =========================================================
 def dataframe_to_records_pubbm(df):
