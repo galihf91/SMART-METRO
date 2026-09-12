@@ -681,6 +681,83 @@ def simpan_pengujian_pubbm_ke_supabase(
         raise ValueError(
             "Data nozzle / dispenser belum tersedia."
         )
+    # =====================================================
+    # VALIDASI SELURUH NOZZLE SEBELUM MENYENTUH DATABASE
+    # =====================================================
+    for urutan, nozzle in enumerate(
+        dispenser_records,
+        start=1
+    ):
+    
+        merk_cek = str(
+            nozzle.get(
+                "Merk",
+                ""
+            )
+            or ""
+        ).strip()
+    
+        tipe_cek = str(
+            nozzle.get(
+                "Tipe",
+                ""
+            )
+            or ""
+        ).strip()
+    
+        nomor_seri_cek = str(
+            nozzle.get(
+                "No. Seri",
+                ""
+            )
+            or ""
+        ).strip()
+    
+        media_cek = str(
+            nozzle.get(
+                "Media",
+                ""
+            )
+            or ""
+        ).strip()
+    
+        posisi_cek = str(
+            nozzle.get(
+                "Posisi",
+                ""
+            )
+            or ""
+        ).strip()
+    
+        if not merk_cek:
+            raise ValueError(
+                f"Nozzle baris {urutan}: "
+                "Merk belum diisi."
+            )
+    
+        if not tipe_cek:
+            raise ValueError(
+                f"Nozzle baris {urutan}: "
+                "Tipe belum diisi."
+            )
+    
+        if not nomor_seri_cek:
+            raise ValueError(
+                f"Nozzle baris {urutan}: "
+                "No. Seri belum diisi."
+            )
+    
+        if not media_cek:
+            raise ValueError(
+                f"Nozzle baris {urutan}: "
+                "Media belum diisi."
+            )
+    
+        if not posisi_cek:
+            raise ValueError(
+                f"Nozzle baris {urutan}: "
+                "Posisi belum diisi."
+            )
 
     # =====================================================
     # 3. ALAT STANDAR
