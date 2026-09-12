@@ -8545,14 +8545,20 @@ def run():
                     if sedang_edit
                     else ""
                 ),
-                'berlaku_sampai': add_one_year_safe(tanggal).strftime('%Y-%m-%d'),
+                'berlaku_sampai': add_one_year_safe(
+                    tanggal_final
+                ).strftime(
+                    "%Y-%m-%d"
+                ),
                 'repetability': repet_data_final,
                 'repetability_sederhana': repet_sederhana,
                 'eksentrisitas': eksen_data_final,
                 'penyetelan_nol': [],
                 'visual': visual_results,
             }
-            st.session_state.tb_test_results = test_results
+            st.session_state.tb_test_results = (
+                test_results_final
+            )
             # =====================================================
             # HASIL PENGUJIAN BARU SUDAH DISIMPAN
             # Tidak perlu dipaksa dihitung ulang lagi
