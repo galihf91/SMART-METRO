@@ -982,39 +982,6 @@ def simpan_pengujian_pubbm_ke_supabase(
             )
 
         # =============================================
-        # VALIDASI PER NOZZLE
-        # =============================================
-        if not merk:
-            raise ValueError(
-                f"Nozzle baris {urutan}: "
-                "Merk belum diisi."
-            )
-
-        if not tipe:
-            raise ValueError(
-                f"Nozzle baris {urutan}: "
-                "Tipe belum diisi."
-            )
-
-        if not nomor_seri:
-            raise ValueError(
-                f"Nozzle baris {urutan}: "
-                "No. Seri belum diisi."
-            )
-
-        if not media:
-            raise ValueError(
-                f"Nozzle baris {urutan}: "
-                "Media belum diisi."
-            )
-
-        if not posisi:
-            raise ValueError(
-                f"Nozzle baris {urutan}: "
-                "Posisi belum diisi."
-            )
-
-        # =============================================
         # TENTUKAN UTTP NOZZLE
         #
         # MODE EDIT:
