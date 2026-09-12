@@ -28,6 +28,7 @@ def simpan_atau_update_perusahaan_pubbm(
     supabase,
     nama_perusahaan,
     alamat,
+    nomor_spbu="",
 ):
     nama_perusahaan = str(
         nama_perusahaan or ""
@@ -35,6 +36,9 @@ def simpan_atau_update_perusahaan_pubbm(
 
     alamat = str(
         alamat or ""
+    ).strip()
+    nomor_spbu = str(
+        nomor_spbu or ""
     ).strip()
 
     if not nama_perusahaan:
@@ -49,7 +53,7 @@ def simpan_atau_update_perusahaan_pubbm(
         supabase
         .table("perusahaan")
         .select(
-            "id, nama_perusahaan, alamat"
+            "id, nama_perusahaan, alamat, nomor_spbu"
         )
         .eq(
             "nama_perusahaan",
@@ -75,25 +79,47 @@ def simpan_atau_update_perusahaan_pubbm(
             )
             or ""
         ).strip()
-
-        # Update alamat jika berubah
+        
+        nomor_spbu_lama = str(
+            perusahaan.get(
+                "nomor_spbu",
+                ""
+            )
+            or ""
+        ).strip()
+        
+        data_update = {}
+        
         if (
             alamat
             and alamat != alamat_lama
         ):
+            data_update[
+                "alamat"
+            ] = alamat
+        
+        if (
+            nomor_spbu
+            and nomor_spbu != nomor_spbu_lama
+        ):
+            data_update[
+                "nomor_spbu"
+            ] = nomor_spbu
+        
+        if data_update:
             (
                 supabase
                 .table("perusahaan")
-                .update({
-                    "alamat": alamat
-                })
+                .update(
+                    data_update
+                )
                 .eq(
                     "id",
                     perusahaan_id
                 )
                 .execute()
             )
-
+        
         return perusahaan_id
 
     # =====================================================
@@ -104,9 +130,13 @@ def simpan_atau_update_perusahaan_pubbm(
         .table("perusahaan")
         .insert({
             "nama_perusahaan": nama_perusahaan,
+            "nomor_spbu": (
+                nomor_spbu
+                if nomor_spbu
+                else None
+            ),
             "alamat": alamat,
         })
-        .execute()
     )
 
     if not response.data:
@@ -938,9 +968,9 @@ def simpan_pengujian_pubbm_ke_supabase(
             supabase=supabase,
             nama_perusahaan=pemilik,
             alamat=alamat,
+            nomor_spbu=nomor_spbu,
         )
     )
-
     # =====================================================
     # 6. TANGGAL
     # =====================================================
