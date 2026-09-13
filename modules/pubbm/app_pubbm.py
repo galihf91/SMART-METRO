@@ -980,12 +980,51 @@ def simpan_pengujian_pubbm_ke_supabase(
         # 1. _uttp_id yang melekat langsung pada baris nozzle
         # 2. Mapping lama sebagai fallback
         # =============================================
+        # =============================================
+        # UTTP ID YANG SUDAH DIKENAL
+        #
+        # Bisa berasal dari:
+        # - Edit pengujian
+        # - Tambah Pengujian Baru dari Riwayat
+        # =============================================
         uttp_id_lama = None
         
-        if sedang_edit:
+        uttp_id_dari_baris = nozzle.get(
+            "_uttp_id"
+        )
         
-            uttp_id_dari_baris = nozzle.get(
-                "_uttp_id"
+        if (
+            uttp_id_dari_baris is not None
+            and str(
+                uttp_id_dari_baris
+            ).strip() != ""
+        ):
+            try:
+                uttp_id_lama = int(
+                    float(
+                        uttp_id_dari_baris
+                    )
+                )
+        
+            except (
+                TypeError,
+                ValueError
+            ):
+                uttp_id_lama = None
+        
+        
+        # =============================================
+        # FALLBACK KHUSUS MODE EDIT
+        # =============================================
+        if (
+            uttp_id_lama is None
+            and sedang_edit
+            and slot_nozzle
+        ):
+            uttp_id_lama = (
+                edit_nozzle_map.get(
+                    slot_nozzle
+                )
             )
         
             if (
@@ -4863,67 +4902,6 @@ def run():
             )
             or []
         )
-        # =====================================================
-        # MAPPING INTERNAL NOZZLE -> UTTP ID
-        #
-        # Dipakai hanya saat Edit Pengujian.
-        # User tidak melihat / mengisi ID ini.
-        # =====================================================
-        nozzle_map = {}
-        
-        urutan_nozzle = {}
-        
-        for item in dispenser_records:
-        
-            uttp_id_asli = item.get(
-                "_uttp_id"
-            )
-        
-            if uttp_id_asli is None:
-                continue
-        
-            no_dispenser_raw = item.get(
-                "No",
-                ""
-            )
-        
-            try:
-                no_dispenser = int(
-                    float(
-                        no_dispenser_raw
-                    )
-                )
-        
-            except (
-                TypeError,
-                ValueError
-            ):
-                continue
-        
-            urutan_nozzle[
-                no_dispenser
-            ] = (
-                urutan_nozzle.get(
-                    no_dispenser,
-                    0
-                )
-                + 1
-            )
-        
-            nomor_nozzle = (
-                urutan_nozzle[
-                    no_dispenser
-                ]
-            )
-        
-            nozzle_map[
-                f"{no_dispenser}_{nomor_nozzle}"
-            ] = uttp_id_asli
-        
-        
-        st.session_state[
-            "pubbm_edit_nozzle_map"
-        ] = nozzle_map
     
         dispenser_df = pd.DataFrame(
             dispenser_records,
