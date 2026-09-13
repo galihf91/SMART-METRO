@@ -1518,12 +1518,30 @@ def simpan_pengujian_pubbm_ke_supabase(
                         "pengujian_uttp"
                     )
                     .update({
+                        "no_dispenser": (
+                            relasi[
+                                "no_dispenser"
+                            ]
+                        ),
+                    
+                        "k_faktor": (
+                            relasi[
+                                "k_faktor"
+                            ]
+                        ),
+                    
                         "urutan": (
-                            relasi["urutan"]
+                            relasi[
+                                "urutan"
+                            ]
                         ),
+                    
                         "hasil": (
-                            relasi["hasil"]
+                            relasi[
+                                "hasil"
+                            ]
                         ),
+                    
                         "data_detail": (
                             relasi[
                                 "data_detail"
