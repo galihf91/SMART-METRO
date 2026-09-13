@@ -7282,9 +7282,8 @@ def run():
                         if (
                             "pengujian_nomor_sertifikat_unique"
                             in pesan_error
-                            or "duplicate key"
-                            in pesan_error.lower()
-                            or "23505" in pesan_error
+                            or "pengujian_nomor_sertifikat_header_unique"
+                            in pesan_error
                         ):
                             st.error(
                                 "❌ Nomor sertifikat sudah pernah "
@@ -7292,15 +7291,15 @@ def run():
                                 "Silakan gunakan nomor sertifikat "
                                 "yang berbeda."
                             )
-                
+                    
                         else:
                             st.error(
                                 "Gagal membuat atau menyimpan "
                                 f"sertifikat: {exc}"
                             )
-                
+                    
                             import traceback
-                
+                    
                             st.code(
                                 traceback.format_exc()
                             )
