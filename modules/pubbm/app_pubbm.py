@@ -2252,14 +2252,6 @@ def ambil_riwayat_kegiatan_pubbm(
                 "data_pengujian"
             ] = detail_gabungan
 
-            # Format baru:
-            # hanya satu row header pengujian.
-            kegiatan[
-                "_pubbm_pengujian_ids"
-            ] = [
-                pengujian_id
-            ]
-
             daftar_kegiatan.append(
                 kegiatan
             )
