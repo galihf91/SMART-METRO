@@ -1946,9 +1946,6 @@ def ambil_riwayat_kegiatan_pubbm(
                 # =====================================
                 # K-FAKTOR SNAPSHOT
                 #
-                # Sumber utama:
-                # pengujian_uttp.k_faktor
-                #
                 # Fallback:
                 # data_detail untuk data lama.
                 # =====================================
@@ -1993,9 +1990,6 @@ def ambil_riwayat_kegiatan_pubbm(
                 # =====================================
                 # MEDIA
                 #
-                # Sumber utama:
-                # pengujian_uttp.media
-                #
                 # Fallback:
                 # data_detail → uttp lama
                 # =====================================
@@ -2012,10 +2006,6 @@ def ambil_riwayat_kegiatan_pubbm(
                 
                 
                 # =====================================
-                # POSISI
-                #
-                # Sumber utama:
-                # pengujian_uttp.posisi
                 #
                 # Fallback:
                 # data_detail → uttp lama
