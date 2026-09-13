@@ -1893,6 +1893,9 @@ def ambil_riwayat_kegiatan_pubbm(
 
             for relasi in relasi_kegiatan:
 
+                # =====================================
+                # ID UTTP
+                # =====================================
                 uttp_id = relasi.get(
                     "uttp_id"
                 )
@@ -1904,26 +1907,11 @@ def ambil_riwayat_kegiatan_pubbm(
 
                 # =====================================
                 # NOMOR DISPENSER
-                #
-                # Sumber utama:
-                # pengujian_uttp.no_dispenser
-                #
-                # Fallback:
-                # data_detail untuk data lama.
+                # Sumber: pengujian_uttp
                 # =====================================
                 no_dispenser = relasi.get(
                     "no_dispenser"
                 )
-                
-                if no_dispenser in (
-                    None,
-                    ""
-                ):
-                    no_dispenser = (
-                        data_detail.get(
-                            "no_dispenser"
-                        )
-                    )
 
                 if no_dispenser not in (
                     None,
@@ -1944,18 +1932,12 @@ def ambil_riwayat_kegiatan_pubbm(
                     )
 
                 # =====================================
-                # K-FAKTOR SNAPSHOT
-                #
-                # Fallback:
-                # data_detail untuk data lama.
+                # K-FAKTOR
+                # Sumber: pengujian_uttp
                 # =====================================
                 k_faktor = str(
                     relasi.get(
                         "k_faktor"
-                    )
-                    or data_detail.get(
-                        "k_faktor",
-                        ""
                     )
                     or ""
                 ).strip()
@@ -1988,42 +1970,25 @@ def ambil_riwayat_kegiatan_pubbm(
                 ).strip()
 
                 # =====================================
-                # MEDIA
-                #
-                # Fallback:
-                # data_detail → uttp lama
+                # DATA PER PENGUJIAN
+                # Sumber: pengujian_uttp
                 # =====================================
                 media = str(
                     relasi.get(
                         "media"
                     )
-                    or data_detail.get(
-                        "media",
-                        ""
-                    )
                     or ""
                 ).strip()
-                
-                
-                # =====================================
-                #
-                # Fallback:
-                # data_detail → uttp lama
-                # =====================================
+
                 posisi = str(
                     relasi.get(
                         "posisi"
-                    )
-                    or data_detail.get(
-                        "posisi",
-                        ""
                     )
                     or ""
                 ).strip()
 
                 # =====================================
-                # _uttp_id HANYA IDENTITAS INTERNAL
-                # MODE EDIT
+                # SUSUN DATA NOZZLE UNTUK FORM
                 # =====================================
                 dispenser_records.append({
                     "_uttp_id": (
@@ -2044,6 +2009,9 @@ def ambil_riwayat_kegiatan_pubbm(
                     "K-Faktor": k_faktor,
                 })
 
+                # =====================================
+                # RINGKASAN MEDIA
+                # =====================================
                 if (
                     media
                     and media not in daftar_media
@@ -2052,6 +2020,9 @@ def ambil_riwayat_kegiatan_pubbm(
                         media
                     )
 
+                # =====================================
+                # RINGKASAN POSISI
+                # =====================================
                 if (
                     posisi
                     and posisi not in daftar_posisi
