@@ -2106,7 +2106,8 @@ def ambil_riwayat_kegiatan_pubbm(
             )
             .select(
                 "id, pengujian_id, uttp_id, "
-                "urutan, hasil, data_detail"
+                "no_dispenser, posisi, media, "
+                "k_faktor, urutan, hasil, data_detail"
             )
             .in_(
                 "pengujian_id",
@@ -2197,12 +2198,26 @@ def ambil_riwayat_kegiatan_pubbm(
 
                 # =====================================
                 # NOMOR DISPENSER
+                #
+                # Sumber utama:
+                # pengujian_uttp.no_dispenser
+                #
+                # Fallback:
+                # data_detail untuk data lama.
                 # =====================================
-                no_dispenser = (
-                    data_detail.get(
-                        "no_dispenser"
-                    )
+                no_dispenser = relasi.get(
+                    "no_dispenser"
                 )
+                
+                if no_dispenser in (
+                    None,
+                    ""
+                ):
+                    no_dispenser = (
+                        data_detail.get(
+                            "no_dispenser"
+                        )
+                    )
 
                 if no_dispenser not in (
                     None,
@@ -2224,9 +2239,18 @@ def ambil_riwayat_kegiatan_pubbm(
 
                 # =====================================
                 # K-FAKTOR SNAPSHOT
+                #
+                # Sumber utama:
+                # pengujian_uttp.k_faktor
+                #
+                # Fallback:
+                # data_detail untuk data lama.
                 # =====================================
                 k_faktor = str(
-                    data_detail.get(
+                    relasi.get(
+                        "k_faktor"
+                    )
+                    or data_detail.get(
                         "k_faktor",
                         ""
                     )
@@ -2260,16 +2284,49 @@ def ambil_riwayat_kegiatan_pubbm(
                     or ""
                 ).strip()
 
+                # =====================================
+                # MEDIA
+                #
+                # Sumber utama:
+                # pengujian_uttp.media
+                #
+                # Fallback:
+                # data_detail → uttp lama
+                # =====================================
                 media = str(
-                    uttp.get(
+                    relasi.get(
+                        "media"
+                    )
+                    or data_detail.get(
+                        "media",
+                        ""
+                    )
+                    or uttp.get(
                         "media",
                         ""
                     )
                     or ""
                 ).strip()
-
+                
+                
+                # =====================================
+                # POSISI
+                #
+                # Sumber utama:
+                # pengujian_uttp.posisi
+                #
+                # Fallback:
+                # data_detail → uttp lama
+                # =====================================
                 posisi = str(
-                    uttp.get(
+                    relasi.get(
+                        "posisi"
+                    )
+                    or data_detail.get(
+                        "posisi",
+                        ""
+                    )
+                    or uttp.get(
                         "posisi",
                         ""
                     )
