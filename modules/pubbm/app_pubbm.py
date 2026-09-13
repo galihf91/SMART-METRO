@@ -480,8 +480,6 @@ def simpan_pengujian_pubbm_ke_supabase(
     #
     # Dilakukan sebelum database diubah.
     # =====================================================
-    identitas_nozzle_form = set()
-
     for urutan, nozzle in enumerate(
         dispenser_records,
         start=1
@@ -537,30 +535,6 @@ def simpan_pengujian_pubbm_ke_supabase(
                 f"Nozzle baris {urutan}: "
                 "Media belum diisi."
             )
-
-        identitas_nozzle = (
-            tipe_cek.upper(),
-            nomor_seri_cek.upper(),
-            media_cek.upper(),
-            posisi_cek.upper(),
-        )
-
-        if (
-            identitas_nozzle
-            in identitas_nozzle_form
-        ):
-            raise ValueError(
-                "Terdapat nozzle yang sama lebih "
-                "dari satu kali pada form:\n\n"
-                f"Tipe: {tipe_cek}\n"
-                f"No. Seri: {nomor_seri_cek}\n"
-                f"Media: {media_cek}\n"
-                f"Posisi: {posisi_cek}"
-            )
-
-        identitas_nozzle_form.add(
-            identitas_nozzle
-        )
 
     # =====================================================
     # 5. ALAT STANDAR
