@@ -1093,12 +1093,6 @@ def simpan_pengujian_pubbm_ke_supabase(
             ),
         
             "hasil": "SAH",
-        
-            # Disiapkan untuk kebutuhan detail teknis
-            # UTTP lain di masa depan.
-            # PUBBM baru tidak perlu menduplikasi
-            # data yang sudah mempunyai kolom sendiri.
-            "data_detail": {},
         })
 
     # =====================================================
@@ -1409,12 +1403,6 @@ def simpan_pengujian_pubbm_ke_supabase(
                         "hasil": (
                             relasi[
                                 "hasil"
-                            ]
-                        ),
-    
-                        "data_detail": (
-                            relasi[
-                                "data_detail"
                             ]
                         ),
                     })
@@ -1837,7 +1825,7 @@ def ambil_riwayat_kegiatan_pubbm(
             .select(
                 "id, pengujian_id, uttp_id, "
                 "no_dispenser, posisi, media, "
-                "k_faktor, urutan, hasil, data_detail"
+                "k_faktor, urutan, hasil"
             )
             .in_(
                 "pengujian_id",
@@ -1917,13 +1905,6 @@ def ambil_riwayat_kegiatan_pubbm(
                 uttp = uttp_map.get(
                     uttp_id,
                     {}
-                )
-
-                data_detail = (
-                    relasi.get(
-                        "data_detail"
-                    )
-                    or {}
                 )
 
                 # =====================================
