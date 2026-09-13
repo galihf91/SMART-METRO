@@ -1278,6 +1278,18 @@ def simpan_pengujian_pubbm_ke_supabase(
                 no_dispenser
             ),
         
+            "posisi": (
+                posisi
+                if posisi
+                else None
+            ),
+        
+            "media": (
+                media
+                if media
+                else None
+            ),
+        
             "k_faktor": (
                 k_faktor
                 if k_faktor
@@ -1290,11 +1302,23 @@ def simpan_pengujian_pubbm_ke_supabase(
         
             "hasil": "SAH",
         
-            # Tetap disimpan juga di data_detail
-            # untuk kompatibilitas data/schema yang sudah ada.
+            # Untuk sementara tetap dipertahankan
+            # agar kompatibel dengan data yang sudah ada.
             "data_detail": {
                 "no_dispenser": (
                     no_dispenser
+                ),
+        
+                "posisi": (
+                    posisi
+                    if posisi
+                    else None
+                ),
+        
+                "media": (
+                    media
+                    if media
+                    else None
                 ),
         
                 "k_faktor": (
@@ -1521,6 +1545,18 @@ def simpan_pengujian_pubbm_ke_supabase(
                         "no_dispenser": (
                             relasi[
                                 "no_dispenser"
+                            ]
+                        ),
+                    
+                        "posisi": (
+                            relasi[
+                                "posisi"
+                            ]
+                        ),
+                    
+                        "media": (
+                            relasi[
+                                "media"
                             ]
                         ),
                     
