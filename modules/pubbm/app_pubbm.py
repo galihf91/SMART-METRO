@@ -717,32 +717,8 @@ def simpan_pengujian_pubbm_ke_supabase(
         "pubbm_edit_pengujian_id"
     )
 
-    edit_ids = (
-        st.session_state.get(
-            "pubbm_edit_pengujian_ids",
-            []
-        )
-        or []
-    )
-
-    if (
-        not edit_ids
-        and edit_id is not None
-    ):
-        edit_ids = [
-            edit_id
-        ]
-
-    sedang_edit = bool(
-        edit_id
-    )
-
-    edit_nozzle_map = (
-        st.session_state.get(
-            "pubbm_edit_nozzle_map",
-            {}
-        )
-        or {}
+    sedang_edit = (
+        edit_id is not None
     )
     # =====================================================
     # 12A. CEK NOMOR SERTIFIKAT DUPLIKAT
@@ -793,11 +769,11 @@ def simpan_pengujian_pubbm_ke_supabase(
         )
     
         id_edit_diizinkan = set()
-    
-        for item in edit_ids:
+
+        if edit_id is not None:
             try:
                 id_edit_diizinkan.add(
-                    int(item)
+                    int(edit_id)
                 )
             except (
                 TypeError,
@@ -985,40 +961,6 @@ def simpan_pengujian_pubbm_ke_supabase(
                 ValueError
             ):
                 uttp_id_lama = None
-        
-        
-        # =============================================
-        # FALLBACK KHUSUS MODE EDIT
-        # =============================================
-        if (
-            uttp_id_lama is None
-            and sedang_edit
-            and slot_nozzle
-        ):
-            uttp_id_lama = (
-                edit_nozzle_map.get(
-                    slot_nozzle
-                )
-            )
-        
-            if (
-                uttp_id_dari_baris is not None
-                and str(
-                    uttp_id_dari_baris
-                ).strip() != ""
-            ):
-                try:
-                    uttp_id_lama = int(
-                        float(
-                            uttp_id_dari_baris
-                        )
-                    )
-        
-                except (
-                    TypeError,
-                    ValueError
-                ):
-                    uttp_id_lama = None
         
             # =========================================
             # FALLBACK MAPPING DATA LAMA
@@ -1562,16 +1504,6 @@ def simpan_pengujian_pubbm_ke_supabase(
     # =====================================================
     st.session_state.pop(
         "pubbm_edit_pengujian_id",
-        None
-    )
-
-    st.session_state.pop(
-        "pubbm_edit_pengujian_ids",
-        None
-    )
-
-    st.session_state.pop(
-        "pubbm_edit_nozzle_map",
         None
     )
     st.session_state.pop(
@@ -3901,8 +3833,6 @@ def run():
             "nomor_spbu_pubbm",
             "pubbm_draft_widget",
             "pubbm_mode_sebelumnya",
-            "pubbm_edit_pengujian_ids",
-            "pubbm_edit_nozzle_map",
             "pubbm_edit_nomor_sertifikat_asli",
         }
 
@@ -3940,46 +3870,25 @@ def run():
         )
     
         # =====================================================
-        # ID PENGUJIAN YANG AKAN DI-UPDATE
+        # ID PENGUJIAN YANG SEDANG DIEDIT
         #
-        # Format baru:
-        # 1 kegiatan PUBBM dapat terdiri dari banyak row
-        # pengujian karena 1 nozzle = 1 row pengujian.
+        # Struktur resmi PUBBM:
+        # 1 kegiatan = 1 row pengujian
         # =====================================================
-        edit_ids = [
-            pengujian_id
-            for pengujian_id in (
-                pengujian.get(
-                    "_pubbm_pengujian_ids",
-                    []
-                )
-                or []
+        edit_id = (
+            pengujian.get(
+                "id"
             )
-            if pengujian_id is not None
-        ]
-        
-        # Fallback data lama
-        if (
-            not edit_ids
-            and pengujian.get("id") is not None
-        ):
-            edit_ids = [
-                pengujian.get("id")
-            ]
-        
-        st.session_state[
-            "pubbm_edit_pengujian_ids"
-        ] = edit_ids
-        
-        # ID pertama tetap dipakai sebagai penanda
-        # bahwa aplikasi sedang berada dalam mode Edit.
+        )
+
+        if edit_id is None:
+            raise ValueError(
+                "ID pengujian PUBBM tidak ditemukan."
+            )
+
         st.session_state[
             "pubbm_edit_pengujian_id"
-        ] = (
-            edit_ids[0]
-            if edit_ids
-            else None
-        )
+        ] = edit_id
         # =====================================================
         # NOMOR SERTIFIKAT ASLI SAAT MASUK MODE EDIT
         #
