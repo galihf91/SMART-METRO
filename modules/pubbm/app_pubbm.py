@@ -156,8 +156,6 @@ def get_or_create_nozzle_pubbm(
     merk,
     tipe,
     nomor_seri,
-    media=None,
-    posisi=None,
 ):
     """
     Master UTTP PUBBM.
@@ -1037,11 +1035,8 @@ def simpan_pengujian_pubbm_ke_supabase(
                     merk=merk,
                     tipe=tipe,
                     nomor_seri=nomor_seri,
-                    media=media,
-                    posisi=posisi,
                 )
             )
-
         # =============================================
         # PENGAMAN DUPLIKAT UTTP
         # =============================================
