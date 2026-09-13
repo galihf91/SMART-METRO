@@ -4570,6 +4570,7 @@ def run():
         dispenser_df = pd.DataFrame(
             dispenser_records,
             columns=[
+                "_uttp_id",
                 "No",
                 "Posisi",
                 "Merk",
