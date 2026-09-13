@@ -798,9 +798,16 @@ def simpan_pengujian_pubbm_ke_supabase(
         )
 
     if sertifikat_duplikat:
+        id_duplikat = [
+            row.get("id")
+            for row in sertifikat_duplikat
+        ]
+    
         raise ValueError(
             "Nomor sertifikat sudah pernah digunakan. "
-            "Silakan gunakan nomor sertifikat yang berbeda."
+            f"edit_id={edit_id}, "
+            f"ID yang memakai nomor ini={id_duplikat}, "
+            f"nomor={nomor_sertifikat}"
         )
     # =====================================================
     # 13. CARI / UPDATE MASTER UTTP NOZZLE
