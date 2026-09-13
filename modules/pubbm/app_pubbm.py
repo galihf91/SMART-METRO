@@ -1273,22 +1273,75 @@ def simpan_pengujian_pubbm_ke_supabase(
     pengujian_anchor = (
         response_anchor.data[0]
     )
-
     # =====================================================
-    # 16A. EDIT FORMAT BARU
+    # PENGAMAN STRUKTUR PUBBM BARU
     #
-    # Header format baru memiliki uttp_id = NULL.
+    # PUBBM resmi sekarang:
+    # pengujian.uttp_id = NULL
+    # relasi nozzle berada di pengujian_uttp.
     # =====================================================
     if (
         pengujian_anchor.get(
             "uttp_id"
         )
-        is None
+        is not None
     ):
+        raise RuntimeError(
+            "Data pengujian PUBBM masih menggunakan "
+            "struktur lama dan tidak dapat diedit."
+        )
+    # =====================================================
+    # PENGAMAN STRUKTUR PUBBM BARU
+    #
+    # PUBBM resmi sekarang:
+    # pengujian.uttp_id = NULL
+    # relasi nozzle berada di pengujian_uttp.
+    # =====================================================
+    if (
+        pengujian_anchor.get(
+            "uttp_id"
+        )
+        is not None
+    ):
+        raise RuntimeError(
+            "Data pengujian PUBBM masih menggunakan "
+            "struktur lama dan tidak dapat diedit."
+        )
+    
+    
+        # =====================================================
+        # 16. EDIT PENGUJIAN PUBBM
+        #
+        # Struktur resmi PUBBM:
+        # - 1 kegiatan = 1 row pengujian
+        # - pengujian.uttp_id = NULL
+        # - nozzle terhubung melalui pengujian_uttp
+        # =====================================================
+    
+        # =====================================================
+        # PENGAMAN STRUKTUR
+        # =====================================================
+        if (
+            pengujian_anchor.get(
+                "uttp_id"
+            )
+            is not None
+        ):
+            raise RuntimeError(
+                "Data pengujian PUBBM masih menggunakan "
+                "struktur lama dan tidak dapat diedit."
+            )
+    
+        # =====================================================
+        # ID PENGUJIAN YANG SEDANG DIEDIT
+        # =====================================================
         pengujian_id = (
             edit_id
         )
-
+    
+        # =====================================================
+        # UPDATE HEADER PENGUJIAN
+        # =====================================================
         response_update_header = (
             supabase
             .table(
@@ -1303,16 +1356,16 @@ def simpan_pengujian_pubbm_ke_supabase(
             )
             .execute()
         )
-
+    
         if not response_update_header.data:
             raise RuntimeError(
                 "Header kegiatan PUBBM "
                 "gagal diperbarui."
             )
-
-        # =============================================
-        # AMBIL RELASI LAMA
-        # =============================================
+    
+        # =====================================================
+        # AMBIL RELASI UTTP LAMA
+        # =====================================================
         response_relasi_lama = (
             supabase
             .table(
@@ -1327,46 +1380,55 @@ def simpan_pengujian_pubbm_ke_supabase(
             )
             .execute()
         )
-
+    
         relasi_lama = (
             response_relasi_lama.data
             or []
         )
-
+    
+        # =====================================================
+        # MAPPING RELASI LAMA BERDASARKAN UTTP ID
+        # =====================================================
         relasi_lama_per_uttp = {
             row.get(
                 "uttp_id"
             ): row
             for row in relasi_lama
         }
-
+    
+        # =====================================================
+        # DAFTAR UTTP YANG MASIH ADA PADA FORM TERBARU
+        # =====================================================
         id_uttp_baru = {
             item[
                 "uttp_id"
             ]
             for item in daftar_relasi
         }
-
+    
         hasil_relasi = []
-
-        # =============================================
-        # UPDATE / INSERT RELASI
-        # =============================================
+    
+        # =====================================================
+        # UPDATE / INSERT RELASI PENGUJIAN - UTTP
+        # =====================================================
         for relasi in daftar_relasi:
-
+    
             uttp_id = relasi[
                 "uttp_id"
             ]
-
+    
             relasi_lama_item = (
                 relasi_lama_per_uttp.get(
                     uttp_id
                 )
             )
-
+    
+            # =================================================
+            # RELASI SUDAH ADA → UPDATE
+            # =================================================
             if relasi_lama_item:
-
-                response = (
+    
+                response_relasi_item = (
                     supabase
                     .table(
                         "pengujian_uttp"
@@ -1377,37 +1439,37 @@ def simpan_pengujian_pubbm_ke_supabase(
                                 "no_dispenser"
                             ]
                         ),
-                    
+    
                         "posisi": (
                             relasi[
                                 "posisi"
                             ]
                         ),
-                    
+    
                         "media": (
                             relasi[
                                 "media"
                             ]
                         ),
-                    
+    
                         "k_faktor": (
                             relasi[
                                 "k_faktor"
                             ]
                         ),
-                    
+    
                         "urutan": (
                             relasi[
                                 "urutan"
                             ]
                         ),
-                    
+    
                         "hasil": (
                             relasi[
                                 "hasil"
                             ]
                         ),
-                    
+    
                         "data_detail": (
                             relasi[
                                 "data_detail"
@@ -1422,10 +1484,14 @@ def simpan_pengujian_pubbm_ke_supabase(
                     )
                     .execute()
                 )
-
+    
+            # =================================================
+            # RELASI BELUM ADA → INSERT
+            # Contoh: user menambahkan nozzle ketika Edit
+            # =================================================
             else:
-
-                response = (
+    
+                response_relasi_item = (
                     supabase
                     .table(
                         "pengujian_uttp"
@@ -1434,26 +1500,33 @@ def simpan_pengujian_pubbm_ke_supabase(
                         "pengujian_id": (
                             pengujian_id
                         ),
+    
                         **relasi,
                     })
                     .execute()
                 )
-
+    
             hasil_relasi.extend(
-                response.data
+                response_relasi_item.data
                 or []
             )
-
-        # =============================================
-        # HAPUS RELASI NOZZLE YANG SUDAH TIDAK ADA
-        # =============================================
-        for relasi_lama_item in (
-            relasi_lama
-        ):
-            if (
+    
+        # =====================================================
+        # HAPUS RELASI NOZZLE YANG SUDAH DIHAPUS DARI FORM
+        #
+        # Hanya relasinya yang dihapus.
+        # Master UTTP tetap dipertahankan.
+        # =====================================================
+        for relasi_lama_item in relasi_lama:
+    
+            uttp_id_lama = (
                 relasi_lama_item.get(
                     "uttp_id"
                 )
+            )
+    
+            if (
+                uttp_id_lama
                 not in id_uttp_baru
             ):
                 (
@@ -1470,119 +1543,17 @@ def simpan_pengujian_pubbm_ke_supabase(
                     )
                     .execute()
                 )
-
+    
+        # =====================================================
+        # HASIL SIMPAN EDIT
+        # =====================================================
         hasil_simpan = {
             "pengujian": (
                 response_update_header.data
             ),
+    
             "pengujian_uttp": (
                 hasil_relasi
-            ),
-        }
-
-    # =====================================================
-    # 16B. EDIT DATA LEGACY
-    #
-    # Data lama:
-    # 1 nozzle = 1 row pengujian.
-    #
-    # Saat diedit, otomatis dimigrasikan menjadi:
-    # 1 header + N relasi.
-    # =====================================================
-    else:
-
-        response_header_baru = (
-            supabase
-            .table(
-                "pengujian"
-            )
-            .insert(
-                payload_pengujian
-            )
-            .execute()
-        )
-
-        if not response_header_baru.data:
-            raise RuntimeError(
-                "Header kegiatan PUBBM baru "
-                "gagal dibuat."
-            )
-
-        pengujian_id = (
-            response_header_baru.data[0][
-                "id"
-            ]
-        )
-
-        payload_relasi = [
-            {
-                "pengujian_id": (
-                    pengujian_id
-                ),
-                **relasi,
-            }
-            for relasi in daftar_relasi
-        ]
-
-        try:
-            response_relasi = (
-                supabase
-                .table(
-                    "pengujian_uttp"
-                )
-                .insert(
-                    payload_relasi
-                )
-                .execute()
-            )
-
-            if not response_relasi.data:
-                raise RuntimeError(
-                    "Detail UTTP hasil migrasi "
-                    "gagal disimpan."
-                )
-
-        except Exception:
-
-            (
-                supabase
-                .table(
-                    "pengujian"
-                )
-                .delete()
-                .eq(
-                    "id",
-                    pengujian_id
-                )
-                .execute()
-            )
-
-            raise
-
-        # =============================================
-        # BARU HAPUS ROW LEGACY SETELAH FORMAT BARU
-        # BERHASIL DISIMPAN
-        # =============================================
-        if edit_ids:
-            (
-                supabase
-                .table(
-                    "pengujian"
-                )
-                .delete()
-                .in_(
-                    "id",
-                    edit_ids
-                )
-                .execute()
-            )
-
-        hasil_simpan = {
-            "pengujian": (
-                response_header_baru.data
-            ),
-            "pengujian_uttp": (
-                response_relasi.data
             ),
         }
 
