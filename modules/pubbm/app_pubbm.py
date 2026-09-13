@@ -204,24 +204,9 @@ def get_or_create_nozzle_pubbm(
             "Merk dispenser belum diisi."
         )
 
-    if not tipe:
-        raise ValueError(
-            "Tipe dispenser belum diisi."
-        )
-
-    if not nomor_seri:
-        raise ValueError(
-            "No. Seri dispenser belum diisi."
-        )
-
     if not media:
         raise ValueError(
             "Media nozzle belum diisi."
-        )
-
-    if not posisi:
-        raise ValueError(
-            "Posisi nozzle belum diisi."
         )
 
     # =====================================================
@@ -332,10 +317,26 @@ def get_or_create_nozzle_pubbm(
                 .table("uttp")
                 .update({
                     "merk": merk,
-                    "tipe": tipe,
-                    "nomor_seri": nomor_seri,
+
+                    "tipe": (
+                        tipe
+                        if tipe
+                        else None
+                    ),
+                    
+                    "nomor_seri": (
+                        nomor_seri
+                        if nomor_seri
+                        else None
+                    ),
+                    
                     "media": media,
-                    "posisi": posisi,
+                    
+                    "posisi": (
+                        posisi
+                        if posisi
+                        else None
+                    ),
                     "lokasi": "SPBU",
                     "status": "aktif",
                 })
@@ -362,11 +363,26 @@ def get_or_create_nozzle_pubbm(
             ),
 
             "merk": merk,
-            "tipe": tipe,
-            "nomor_seri": nomor_seri,
 
+            "tipe": (
+                tipe
+                if tipe
+                else None
+            ),
+            
+            "nomor_seri": (
+                nomor_seri
+                if nomor_seri
+                else None
+            ),
+            
             "media": media,
-            "posisi": posisi,
+            
+            "posisi": (
+                posisi
+                if posisi
+                else None
+            ),
 
             "kapasitas": None,
 
@@ -673,28 +689,10 @@ def simpan_pengujian_pubbm_ke_supabase(
                 "Merk belum diisi."
             )
 
-        if not tipe_cek:
-            raise ValueError(
-                f"Nozzle baris {urutan}: "
-                "Tipe belum diisi."
-            )
-
-        if not nomor_seri_cek:
-            raise ValueError(
-                f"Nozzle baris {urutan}: "
-                "No. Seri belum diisi."
-            )
-
         if not media_cek:
             raise ValueError(
                 f"Nozzle baris {urutan}: "
                 "Media belum diisi."
-            )
-
-        if not posisi_cek:
-            raise ValueError(
-                f"Nozzle baris {urutan}: "
-                "Posisi belum diisi."
             )
 
         identitas_nozzle = (
@@ -1186,10 +1184,26 @@ def simpan_pengujian_pubbm_ke_supabase(
                 .table("uttp")
                 .update({
                     "merk": merk,
-                    "tipe": tipe,
-                    "nomor_seri": nomor_seri,
+
+                    "tipe": (
+                        tipe
+                        if tipe
+                        else None
+                    ),
+                    
+                    "nomor_seri": (
+                        nomor_seri
+                        if nomor_seri
+                        else None
+                    ),
+                    
                     "media": media,
-                    "posisi": posisi,
+                    
+                    "posisi": (
+                        posisi
+                        if posisi
+                        else None
+                    ),
                     "lokasi": "SPBU",
                     "status": "aktif",
                 })
@@ -1259,18 +1273,30 @@ def simpan_pengujian_pubbm_ke_supabase(
             "uttp_id": (
                 uttp_id
             ),
-
+        
+            "no_dispenser": (
+                no_dispenser
+            ),
+        
+            "k_faktor": (
+                k_faktor
+                if k_faktor
+                else None
+            ),
+        
             "urutan": (
                 urutan
             ),
-
+        
             "hasil": "SAH",
-
+        
+            # Tetap disimpan juga di data_detail
+            # untuk kompatibilitas data/schema yang sudah ada.
             "data_detail": {
                 "no_dispenser": (
                     no_dispenser
                 ),
-
+        
                 "k_faktor": (
                     k_faktor
                     if k_faktor
@@ -5328,16 +5354,6 @@ def run():
                     f"Dispenser {nomor_dispenser}: merk belum diisi."
                 )
 
-            if not tipe:
-                errors.append(
-                    f"Dispenser {nomor_dispenser}: tipe belum diisi."
-                )
-
-            if not no_seri:
-                errors.append(
-                    f"Dispenser {nomor_dispenser}: nomor seri belum diisi."
-                )
-
             jumlah_posisi = int(
                 st.session_state.get(
                     f"jumlah_posisi_{nomor_dispenser}",
@@ -5362,13 +5378,6 @@ def run():
                         ""
                     )
                 ).strip()
-
-                if not posisi:
-                    errors.append(
-                        f"Dispenser {nomor_dispenser}, "
-                        f"posisi {posisi_index}: "
-                        "posisi/nozzle belum diisi."
-                    )
 
                 if not pilihan_media:
                     errors.append(
