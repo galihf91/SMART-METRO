@@ -156,24 +156,18 @@ def get_or_create_nozzle_pubbm(
     merk,
     tipe,
     nomor_seri,
-    media,
-    posisi,
+    media=None,
+    posisi=None,
 ):
     """
-    Konsep baru PUBBM:
+    Master UTTP PUBBM.
 
-    1 NOZZLE = 1 UTTP
-
-    Identitas nozzle ditentukan oleh:
-    - perusahaan
-    - jenis UTTP
-    - tipe
-    - nomor seri
-    - media
-    - posisi
-
-    Merk tetap disimpan sebagai identitas alat,
-    tetapi tidak digunakan sebagai pembeda utama.
+    Ketentuan:
+    - 1 nozzle = 1 UTTP
+    - media dan posisi BUKAN identitas master UTTP
+    - media dan posisi disimpan pada pengujian_uttp
+    - fungsi ini dipakai untuk membuat UTTP baru
+      apabila nozzle belum mempunyai _uttp_id
     """
 
     merk = str(
@@ -188,175 +182,31 @@ def get_or_create_nozzle_pubbm(
         nomor_seri or ""
     ).strip()
 
-    media = str(
-        media or ""
-    ).strip()
-
-    posisi = str(
-        posisi or ""
-    ).strip()
-
     # =====================================================
-    # VALIDASI DATA NOZZLE
+    # VALIDASI MASTER NOZZLE
     # =====================================================
     if not merk:
         raise ValueError(
             "Merk dispenser belum diisi."
         )
 
-    if not media:
-        raise ValueError(
-            "Media nozzle belum diisi."
-        )
-
     # =====================================================
-    # NORMALISASI UNTUK PENCARIAN
-    # =====================================================
-    tipe_normal = (
-        tipe
-        .upper()
-        .strip()
-    )
-
-    nomor_seri_normal = (
-        nomor_seri
-        .upper()
-        .strip()
-    )
-
-    media_normal = (
-        media
-        .upper()
-        .strip()
-    )
-
-    posisi_normal = (
-        posisi
-        .upper()
-        .strip()
-    )
-
-    # =====================================================
-    # AMBIL SEMUA UTTP PUBBM PERUSAHAAN INI
-    # =====================================================
-    response = (
-        supabase
-        .table("uttp")
-        .select(
-            "id, perusahaan_id, jenis_uttp, "
-            "merk, tipe, nomor_seri, media, posisi"
-        )
-        .eq(
-            "perusahaan_id",
-            perusahaan_id
-        )
-        .eq(
-            "jenis_uttp",
-            "Pompa Ukur BBM"
-        )
-        .execute()
-    )
-
-    daftar_uttp = (
-        response.data
-        or []
-    )
-
-    # =====================================================
-    # CARI NOZZLE YANG SAMA
-    # =====================================================
-    for uttp in daftar_uttp:
-
-        tipe_lama = str(
-            uttp.get(
-                "tipe",
-                ""
-            )
-            or ""
-        ).upper().strip()
-
-        seri_lama = str(
-            uttp.get(
-                "nomor_seri",
-                ""
-            )
-            or ""
-        ).upper().strip()
-
-        media_lama = str(
-            uttp.get(
-                "media",
-                ""
-            )
-            or ""
-        ).upper().strip()
-
-        posisi_lama = str(
-            uttp.get(
-                "posisi",
-                ""
-            )
-            or ""
-        ).upper().strip()
-
-        if (
-            tipe_lama == tipe_normal
-            and seri_lama == nomor_seri_normal
-            and media_lama == media_normal
-            and posisi_lama == posisi_normal
-        ):
-            uttp_id = uttp[
-                "id"
-            ]
-
-            # =============================================
-            # UPDATE IDENTITAS MASTER TERBARU
-            # =============================================
-            (
-                supabase
-                .table("uttp")
-                .update({
-                    "merk": merk,
-
-                    "tipe": (
-                        tipe
-                        if tipe
-                        else None
-                    ),
-                    
-                    "nomor_seri": (
-                        nomor_seri
-                        if nomor_seri
-                        else None
-                    ),
-                    
-                    "media": media,
-                    
-                    "posisi": (
-                        posisi
-                        if posisi
-                        else None
-                    ),
-                    "lokasi": "SPBU",
-                    "status": "aktif",
-                })
-                .eq(
-                    "id",
-                    uttp_id
-                )
-                .execute()
-            )
-
-            return uttp_id
-
-    # =====================================================
-    # NOZZLE BELUM ADA → BUAT UTTP BARU
+    # BUAT UTTP BARU
+    #
+    # Tidak mencari berdasarkan media / posisi,
+    # karena keduanya merupakan data per pengujian.
+    #
+    # Tidak mencari berdasarkan tipe / nomor seri,
+    # karena keduanya boleh kosong dan beberapa nozzle
+    # dapat memiliki nilai yang sama.
     # =====================================================
     response = (
         supabase
         .table("uttp")
         .insert({
-            "perusahaan_id": perusahaan_id,
+            "perusahaan_id": (
+                perusahaan_id
+            ),
 
             "jenis_uttp": (
                 "Pompa Ukur BBM"
@@ -369,24 +219,17 @@ def get_or_create_nozzle_pubbm(
                 if tipe
                 else None
             ),
-            
+
             "nomor_seri": (
                 nomor_seri
                 if nomor_seri
-                else None
-            ),
-            
-            "media": media,
-            
-            "posisi": (
-                posisi
-                if posisi
                 else None
             ),
 
             "kapasitas": None,
 
             "lokasi": "SPBU",
+
             "status": "aktif",
         })
         .execute()
@@ -1184,27 +1027,21 @@ def simpan_pengujian_pubbm_ke_supabase(
                 .table("uttp")
                 .update({
                     "merk": merk,
-
+            
                     "tipe": (
                         tipe
                         if tipe
                         else None
                     ),
-                    
+            
                     "nomor_seri": (
                         nomor_seri
                         if nomor_seri
                         else None
                     ),
-                    
-                    "media": media,
-                    
-                    "posisi": (
-                        posisi
-                        if posisi
-                        else None
-                    ),
+            
                     "lokasi": "SPBU",
+            
                     "status": "aktif",
                 })
                 .eq(
