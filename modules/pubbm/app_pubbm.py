@@ -721,98 +721,87 @@ def simpan_pengujian_pubbm_ke_supabase(
     # =====================================================
     # 12A. CEK NOMOR SERTIFIKAT DUPLIKAT
     #
-    # Saat Edit:
-    # nomor sertifikat asli milik kegiatan tersebut
-    # tetap diperbolehkan.
+    # Aturan:
+    # - Pengujian baru: nomor sertifikat tidak boleh
+    #   sudah digunakan.
+    #
+    # - Edit: nomor sertifikat milik pengujian yang
+    #   sedang diedit sendiri diperbolehkan.
     # =====================================================
-    nomor_sertifikat_asli = str(
-        st.session_state.get(
-            "pubbm_edit_nomor_sertifikat_asli",
-            ""
+    response_sertifikat = (
+        supabase
+        .table("pengujian")
+        .select(
+            "id, nomor_sertifikat"
         )
-        or ""
-    ).strip()
-    
-    sertifikat_tetap_sama = (
-        sedang_edit
-        and nomor_sertifikat_asli
-        and nomor_sertifikat
-        == nomor_sertifikat_asli
+        .eq(
+            "nomor_sertifikat",
+            nomor_sertifikat
+        )
+        .execute()
     )
-    
-    # =====================================================
-    # CEK DUPLIKAT HANYA JIKA:
-    # - data baru
-    # ATAU
-    # - Edit tetapi nomor sertifikat diubah
-    # =====================================================
-    if not sertifikat_tetap_sama:
-    
-        response_sertifikat = (
-            supabase
-            .table("pengujian")
-            .select(
-                "id, nomor_sertifikat"
-            )
-            .eq(
-                "nomor_sertifikat",
-                nomor_sertifikat
-            )
-            .execute()
-        )
-    
-        daftar_sertifikat_sama = (
-            response_sertifikat.data
-            or []
-        )
-    
-        id_edit_diizinkan = set()
 
-        if edit_id is not None:
-            try:
-                id_edit_diizinkan.add(
-                    int(edit_id)
-                )
-            except (
-                TypeError,
-                ValueError
-            ):
-                pass
-    
-        sertifikat_duplikat = []
-    
-        for row in daftar_sertifikat_sama:
-    
-            try:
-                row_id = int(
-                    row.get(
-                        "id"
-                    )
-                )
-            except (
-                TypeError,
-                ValueError
-            ):
-                row_id = row.get(
-                    "id"
-                )
-    
-            if (
-                sedang_edit
-                and row_id
-                in id_edit_diizinkan
-            ):
-                continue
-    
-            sertifikat_duplikat.append(
-                row
+    daftar_sertifikat_sama = (
+        response_sertifikat.data
+        or []
+    )
+
+    sertifikat_duplikat = []
+
+    for row in daftar_sertifikat_sama:
+
+        row_id = row.get(
+            "id"
+        )
+
+        # =============================================
+        # NORMALISASI ID
+        # =============================================
+        try:
+            row_id_int = int(
+                row_id
             )
-    
-        if sertifikat_duplikat:
-            raise ValueError(
-                "Nomor sertifikat sudah pernah digunakan. "
-                "Silakan gunakan nomor sertifikat yang berbeda."
+        except (
+            TypeError,
+            ValueError
+        ):
+            row_id_int = None
+
+        try:
+            edit_id_int = (
+                int(edit_id)
+                if edit_id is not None
+                else None
             )
+        except (
+            TypeError,
+            ValueError
+        ):
+            edit_id_int = None
+
+        # =============================================
+        # SAAT EDIT:
+        # ROW MILIK DIRINYA SENDIRI BOLEH
+        # =============================================
+        if (
+            sedang_edit
+            and edit_id_int is not None
+            and row_id_int == edit_id_int
+        ):
+            continue
+
+        # =============================================
+        # SELAIN ROW SENDIRI = DUPLIKAT
+        # =============================================
+        sertifikat_duplikat.append(
+            row
+        )
+
+    if sertifikat_duplikat:
+        raise ValueError(
+            "Nomor sertifikat sudah pernah digunakan. "
+            "Silakan gunakan nomor sertifikat yang berbeda."
+        )
     # =====================================================
     # 13. CARI / UPDATE MASTER UTTP NOZZLE
     # =====================================================
