@@ -4214,14 +4214,6 @@ def run():
         )
         
         st.session_state.pop(
-            "pubbm_edit_pengujian_ids",
-            None
-        )
-        st.session_state.pop(
-            "pubbm_edit_nozzle_map",
-            None
-        )
-        st.session_state.pop(
             "pubbm_edit_nomor_sertifikat_asli",
             None
         )
