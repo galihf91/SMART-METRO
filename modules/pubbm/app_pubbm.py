@@ -809,8 +809,6 @@ def simpan_pengujian_pubbm_ke_supabase(
 
     uttp_id_dalam_form = set()
 
-    urutan_nozzle_form = {}
-
     for urutan, nozzle in enumerate(
         dispenser_records,
         start=1
@@ -885,31 +883,6 @@ def simpan_pengujian_pubbm_ke_supabase(
             no_dispenser = None
 
         # =============================================
-        # SLOT INTERNAL NOZZLE
-        #
-        # Hanya digunakan untuk mempertahankan UTTP ID
-        # saat Edit.
-        # =============================================
-        slot_nozzle = None
-
-        if no_dispenser is not None:
-
-            urutan_nozzle_form[
-                no_dispenser
-            ] = (
-                urutan_nozzle_form.get(
-                    no_dispenser,
-                    0
-                )
-                + 1
-            )
-
-            slot_nozzle = (
-                f"{no_dispenser}_"
-                f"{urutan_nozzle_form[no_dispenser]}"
-            )
-
-        # =============================================
         # MODE EDIT:
         # PERTAHANKAN UTTP ID LAMA
         #
@@ -948,19 +921,6 @@ def simpan_pengujian_pubbm_ke_supabase(
                 ValueError
             ):
                 uttp_id_lama = None
-        
-            # =========================================
-            # FALLBACK MAPPING DATA LAMA
-            # =========================================
-            if (
-                uttp_id_lama is None
-                and slot_nozzle
-            ):
-                uttp_id_lama = (
-                    edit_nozzle_map.get(
-                        slot_nozzle
-                    )
-                )
 
         if uttp_id_lama is not None:
 
@@ -3385,7 +3345,9 @@ def run():
 
         else:
             dispenser_df = pd.DataFrame(
+                dispenser_records,
                 columns=[
+                    "_uttp_id",
                     "No",
                     "Posisi",
                     "Merk",
@@ -4027,6 +3989,7 @@ def run():
             "jumlah_posisi_",
             "bejana_select_",
             "k_faktor_",
+            "uttp_id_",
         )
         
         for key in list(
