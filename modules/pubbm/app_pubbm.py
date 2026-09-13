@@ -932,53 +932,98 @@ def simpan_pengujian_pubbm_ke_supabase(
     # =====================================================
     # 12A. CEK NOMOR SERTIFIKAT DUPLIKAT
     #
-    # Dilakukan sebelum master UTTP/nozzle disentuh.
-    #
-    # Struktur baru:
-    # 1 kegiatan = 1 row pengujian
-    # dan header mempunyai uttp_id = NULL.
+    # Saat Edit:
+    # nomor sertifikat asli milik kegiatan tersebut
+    # tetap diperbolehkan.
     # =====================================================
-    query_sertifikat = (
-        supabase
-        .table("pengujian")
-        .select(
-            "id, nomor_sertifikat"
+    nomor_sertifikat_asli = str(
+        st.session_state.get(
+            "pubbm_edit_nomor_sertifikat_asli",
+            ""
         )
-        .eq(
-            "nomor_sertifikat",
-            nomor_sertifikat
-        )
-        .is_(
-            "uttp_id",
-            "null"
-        )
+        or ""
+    ).strip()
+    
+    sertifikat_tetap_sama = (
+        sedang_edit
+        and nomor_sertifikat_asli
+        and nomor_sertifikat
+        == nomor_sertifikat_asli
     )
     
     # =====================================================
-    # SAAT EDIT:
-    # sertifikat milik kegiatan yang sedang diedit
-    # tidak dianggap duplikat.
+    # CEK DUPLIKAT HANYA JIKA:
+    # - data baru
+    # ATAU
+    # - Edit tetapi nomor sertifikat diubah
     # =====================================================
-    if edit_id is not None:
-        query_sertifikat = (
-            query_sertifikat
-            .neq(
-                "id",
-                edit_id
+    if not sertifikat_tetap_sama:
+    
+        response_sertifikat = (
+            supabase
+            .table("pengujian")
+            .select(
+                "id, nomor_sertifikat"
             )
+            .eq(
+                "nomor_sertifikat",
+                nomor_sertifikat
+            )
+            .execute()
         )
     
-    response_sertifikat = (
-        query_sertifikat
-        .limit(1)
-        .execute()
-    )
-    
-    if response_sertifikat.data:
-        raise ValueError(
-            "Nomor sertifikat sudah pernah digunakan. "
-            "Silakan gunakan nomor sertifikat yang berbeda."
+        daftar_sertifikat_sama = (
+            response_sertifikat.data
+            or []
         )
+    
+        id_edit_diizinkan = set()
+    
+        for item in edit_ids:
+            try:
+                id_edit_diizinkan.add(
+                    int(item)
+                )
+            except (
+                TypeError,
+                ValueError
+            ):
+                pass
+    
+        sertifikat_duplikat = []
+    
+        for row in daftar_sertifikat_sama:
+    
+            try:
+                row_id = int(
+                    row.get(
+                        "id"
+                    )
+                )
+            except (
+                TypeError,
+                ValueError
+            ):
+                row_id = row.get(
+                    "id"
+                )
+    
+            if (
+                sedang_edit
+                and row_id
+                in id_edit_diizinkan
+            ):
+                continue
+    
+            sertifikat_duplikat.append(
+                row
+            )
+    
+        if sertifikat_duplikat:
+            raise ValueError(
+                "Nomor sertifikat sudah pernah digunakan. "
+                "Silakan gunakan nomor sertifikat yang berbeda."
+            )
     # =====================================================
     # 13. CARI / UPDATE MASTER UTTP NOZZLE
     # =====================================================
@@ -1646,6 +1691,10 @@ def simpan_pengujian_pubbm_ke_supabase(
 
     st.session_state.pop(
         "pubbm_edit_nozzle_map",
+        None
+    )
+    st.session_state.pop(
+        "pubbm_edit_nomor_sertifikat_asli",
         None
     )
 
@@ -4404,6 +4453,7 @@ def run():
             "pubbm_mode_sebelumnya",
             "pubbm_edit_pengujian_ids",
             "pubbm_edit_nozzle_map",
+            "pubbm_edit_nomor_sertifikat_asli",
         }
 
         for key in list(st.session_state.keys()):
@@ -4480,6 +4530,21 @@ def run():
             if edit_ids
             else None
         )
+        # =====================================================
+        # NOMOR SERTIFIKAT ASLI SAAT MASUK MODE EDIT
+        #
+        # Dipakai agar sertifikat milik pengujian ini sendiri
+        # tidak dianggap sebagai duplikat.
+        # =====================================================
+        st.session_state[
+            "pubbm_edit_nomor_sertifikat_asli"
+        ] = str(
+            pengujian.get(
+                "nomor_sertifikat",
+                ""
+            )
+            or ""
+        ).strip()
         # =====================================================
         # HAPUS DRAFT INPUT LAMA
         #
@@ -4794,6 +4859,10 @@ def run():
         )
         st.session_state.pop(
             "pubbm_edit_nozzle_map",
+            None
+        )
+        st.session_state.pop(
+            "pubbm_edit_nomor_sertifikat_asli",
             None
         )
         
@@ -7170,6 +7239,7 @@ def run():
                                 data_pubbm
                             )
                         )
+                        
                         # =================================================
                         # REFRESH MASTER SPBU
                         #
