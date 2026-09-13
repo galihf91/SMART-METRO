@@ -1778,8 +1778,7 @@ def ambil_riwayat_kegiatan_pubbm(
         .table("uttp")
         .select(
             "id, perusahaan_id, jenis_uttp, "
-            "merk, tipe, nomor_seri, "
-            "media, posisi"
+            "merk, tipe, nomor_seri"
         )
         .eq(
             "perusahaan_id",
@@ -1913,6 +1912,56 @@ def ambil_riwayat_kegiatan_pubbm(
                 row
             )
 
+    # =====================================================
+    # DATA TAMBAHAN UTTP KHUSUS LEGACY
+    #
+    # Format lama masih mungkin menyimpan:
+    # - media
+    # - posisi
+    #
+    # pada tabel uttp.
+    #
+    # Format baru TIDAK menggunakan data ini.
+    # =====================================================
+    uttp_legacy_map = {}
+    
+    if pengujian_legacy:
+    
+        legacy_uttp_ids = list({
+            row.get(
+                "uttp_id"
+            )
+            for row in pengujian_legacy
+            if row.get(
+                "uttp_id"
+            ) is not None
+        })
+    
+        if legacy_uttp_ids:
+    
+            response_uttp_legacy = (
+                supabase
+                .table("uttp")
+                .select(
+                    "id, media, posisi"
+                )
+                .in_(
+                    "id",
+                    legacy_uttp_ids
+                )
+                .execute()
+            )
+    
+            uttp_legacy_map = {
+                row["id"]: row
+                for row in (
+                    response_uttp_legacy.data
+                    or []
+                )
+                if row.get(
+                    "id"
+                ) is not None
+            }
     daftar_kegiatan = []
 
     # =====================================================
@@ -2131,10 +2180,6 @@ def ambil_riwayat_kegiatan_pubbm(
                         "media",
                         ""
                     )
-                    or uttp.get(
-                        "media",
-                        ""
-                    )
                     or ""
                 ).strip()
                 
@@ -2153,10 +2198,6 @@ def ambil_riwayat_kegiatan_pubbm(
                         "posisi"
                     )
                     or data_detail.get(
-                        "posisi",
-                        ""
-                    )
-                    or uttp.get(
                         "posisi",
                         ""
                     )
@@ -2556,6 +2597,12 @@ def ambil_riwayat_kegiatan_pubbm(
                 uttp_id,
                 {}
             )
+            uttp_legacy = (
+                uttp_legacy_map.get(
+                    uttp_id,
+                    {}
+                )
+            )
 
             detail = (
                 row.get(
@@ -2611,7 +2658,7 @@ def ambil_riwayat_kegiatan_pubbm(
             ).strip()
 
             media = str(
-                uttp.get(
+                uttp_legacy.get(
                     "media",
                     ""
                 )
@@ -2619,7 +2666,7 @@ def ambil_riwayat_kegiatan_pubbm(
             ).strip()
 
             posisi = str(
-                uttp.get(
+                uttp_legacy.get(
                     "posisi",
                     ""
                 )
