@@ -1152,31 +1152,11 @@ def simpan_pengujian_pubbm_ke_supabase(
         
             "hasil": "SAH",
         
-            # Untuk sementara tetap dipertahankan
-            # agar kompatibel dengan data yang sudah ada.
-            "data_detail": {
-                "no_dispenser": (
-                    no_dispenser
-                ),
-        
-                "posisi": (
-                    posisi
-                    if posisi
-                    else None
-                ),
-        
-                "media": (
-                    media
-                    if media
-                    else None
-                ),
-        
-                "k_faktor": (
-                    k_faktor
-                    if k_faktor
-                    else None
-                ),
-            },
+            # Disiapkan untuk kebutuhan detail teknis
+            # UTTP lain di masa depan.
+            # PUBBM baru tidak perlu menduplikasi
+            # data yang sudah mempunyai kolom sendiri.
+            "data_detail": {},
         })
 
     # =====================================================
