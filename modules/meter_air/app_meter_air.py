@@ -531,26 +531,25 @@ def get_or_create_master_meter_air(
     )
 
 # =========================================================
-# SIMPAN PENGUJIAN METER AIR KE SUPABASE
+# SIMPAN / UPDATE PENGUJIAN METER AIR KE SUPABASE
 # =========================================================
 def simpan_pengujian_meter_air_ke_supabase(
     data
 ):
     """
-    Struktur database:
+    DATA BARU
+    ---------
+    perusahaan      → insert/update
+    uttp             → insert/update master
+    pengujian        → INSERT
+    pengujian_uttp   → INSERT
 
-    perusahaan
-        → pemilik Meter Air
-
-    uttp
-        → master Meter Air
-
-    pengujian
-        → satu kegiatan / satu sertifikat
-
-    pengujian_uttp
-        → relasi pengujian dengan Meter Air
-        → data_detail berisi hasil teknis pengujian
+    EDIT
+    ----
+    perusahaan      → update bila berubah
+    uttp             → UPDATE master lama
+    pengujian        → UPDATE
+    pengujian_uttp   → UPDATE
     """
 
     if not data:
@@ -559,6 +558,33 @@ def simpan_pengujian_meter_air_ke_supabase(
         )
 
     supabase = get_supabase_meter_air()
+
+    # =====================================================
+    # STATUS EDIT
+    # =====================================================
+    edit_id = st.session_state.get(
+        "ma_edit_pengujian_id"
+    )
+
+    if edit_id is None:
+        edit_id = data.get(
+            "_edit_pengujian_id"
+        )
+
+    if edit_id is not None:
+        try:
+            edit_id = int(
+                float(edit_id)
+            )
+        except (
+            TypeError,
+            ValueError
+        ):
+            edit_id = None
+
+    sedang_edit = (
+        edit_id is not None
+    )
 
     # =====================================================
     # DATA UTAMA
@@ -631,7 +657,7 @@ def simpan_pengujian_meter_air_ke_supabase(
     )
 
     # =====================================================
-    # VALIDASI DASAR
+    # VALIDASI
     # =====================================================
     if not pemilik:
         raise ValueError(
@@ -665,8 +691,11 @@ def simpan_pengujian_meter_air_ke_supabase(
 
     # =====================================================
     # CEK NOMOR SERTIFIKAT
+    #
+    # Saat Edit, nomor sertifikat miliknya sendiri
+    # tidak dianggap duplikat.
     # =====================================================
-    response_sertifikat = (
+    query_sertifikat = (
         supabase
         .table("pengujian")
         .select("id")
@@ -674,6 +703,19 @@ def simpan_pengujian_meter_air_ke_supabase(
             "nomor_sertifikat",
             nomor_sertifikat
         )
+    )
+
+    if sedang_edit:
+        query_sertifikat = (
+            query_sertifikat
+            .neq(
+                "id",
+                edit_id
+            )
+        )
+
+    response_sertifikat = (
+        query_sertifikat
         .limit(1)
         .execute()
     )
@@ -685,7 +727,57 @@ def simpan_pengujian_meter_air_ke_supabase(
         )
 
     # =====================================================
-    # 1. SIMPAN / UPDATE PERUSAHAAN
+    # JIKA EDIT, PASTIKAN DATA LAMA ADA
+    # =====================================================
+    if sedang_edit:
+
+        response_anchor = (
+            supabase
+            .table("pengujian")
+            .select(
+                "id, uttp_id, data_pengujian"
+            )
+            .eq(
+                "id",
+                edit_id
+            )
+            .limit(1)
+            .execute()
+        )
+
+        if not response_anchor.data:
+            raise RuntimeError(
+                "Pengujian Meter Air yang akan diedit "
+                "tidak ditemukan."
+            )
+
+        anchor = (
+            response_anchor.data[0]
+        )
+
+        detail_anchor = (
+            anchor.get(
+                "data_pengujian"
+            )
+            or {}
+        )
+
+        schema_anchor = str(
+            detail_anchor.get(
+                "schema_meter_air",
+                ""
+            )
+            or ""
+        ).strip()
+
+        if schema_anchor != "1":
+            raise RuntimeError(
+                "Data yang dipilih bukan pengujian "
+                "Meter Air struktur baru."
+            )
+
+    # =====================================================
+    # PERUSAHAAN
     # =====================================================
     perusahaan_id = (
         simpan_atau_update_perusahaan_meter_air(
@@ -695,21 +787,24 @@ def simpan_pengujian_meter_air_ke_supabase(
         )
     )
 
-    # =====================================================
-    # 2. CARI / BUAT MASTER METER AIR
-    # =====================================================
     uttp_id = None
     uttp_dibuat_baru = False
     pengujian_id = None
 
     try:
+
+        # =================================================
+        # MASTER METER AIR
+        # =================================================
         (
             uttp_id,
             uttp_dibuat_baru
-        ) = get_or_create_master_meter_air(
-            supabase=supabase,
-            perusahaan_id=perusahaan_id,
-            data=data,
+        ) = (
+            get_or_create_master_meter_air(
+                supabase=supabase,
+                perusahaan_id=perusahaan_id,
+                data=data,
+            )
         )
 
         # =================================================
@@ -743,9 +838,7 @@ def simpan_pengujian_meter_air_ke_supabase(
         )
 
         # =================================================
-        # 3. DATA HEADER PENGUJIAN
-        #
-        # Data yang bersifat kegiatan / snapshot.
+        # HEADER JSON
         # =================================================
         data_pengujian_header = {
             "schema_meter_air": 1,
@@ -764,9 +857,6 @@ def simpan_pengujian_meter_air_ke_supabase(
                 )
             ),
 
-            # =============================================
-            # BEJANA UKUR STANDAR
-            # =============================================
             "bejana_merek": (
                 data.get(
                     "bejana_merek",
@@ -823,9 +913,6 @@ def simpan_pengujian_meter_air_ke_supabase(
                 )
             ),
 
-            # =============================================
-            # PENERA
-            # =============================================
             "nip_penera_1": str(
                 data.get(
                     "nip_penera",
@@ -850,14 +937,13 @@ def simpan_pengujian_meter_air_ke_supabase(
         }
 
         # =================================================
-        # 4. HEADER PENGUJIAN
+        # PAYLOAD PENGUJIAN
         # =================================================
         payload_pengujian = {
             "perusahaan_id": (
                 perusahaan_id
             ),
 
-            # Relasi alat menggunakan pengujian_uttp
             "uttp_id": None,
 
             "tanggal_pengujian": (
@@ -899,27 +985,8 @@ def simpan_pengujian_meter_air_ke_supabase(
             ),
         }
 
-        response_pengujian = (
-            supabase
-            .table("pengujian")
-            .insert(
-                payload_pengujian
-            )
-            .execute()
-        )
-
-        if not response_pengujian.data:
-            raise RuntimeError(
-                "Pengujian Meter Air gagal disimpan."
-            )
-
-        pengujian_id = (
-            response_pengujian
-            .data[0]["id"]
-        )
-
         # =================================================
-        # 5. DATA DETAIL HASIL PENGUJIAN
+        # DATA DETAIL HASIL PENGUJIAN
         # =================================================
         data_detail = {
             "schema_meter_air_detail": 1,
@@ -929,14 +996,7 @@ def simpan_pengujian_meter_air_ke_supabase(
             ),
         }
 
-        # =================================================
-        # 6. HUBUNGKAN PENGUJIAN DENGAN MASTER METER AIR
-        # =================================================
         payload_relasi = {
-            "pengujian_id": (
-                pengujian_id
-            ),
-
             "uttp_id": (
                 uttp_id
             ),
@@ -951,33 +1011,195 @@ def simpan_pengujian_meter_air_ke_supabase(
                 data_detail
             ),
 
-            # Kolom khusus PUBBM
+            # Khusus PUBBM → kosong
             "no_dispenser": None,
             "posisi": None,
             "media": None,
             "k_faktor": None,
         }
 
-        response_relasi = (
+        # =================================================
+        # DATA BARU
+        # =================================================
+        if not sedang_edit:
+
+            response_pengujian = (
+                supabase
+                .table("pengujian")
+                .insert(
+                    payload_pengujian
+                )
+                .execute()
+            )
+
+            if not response_pengujian.data:
+                raise RuntimeError(
+                    "Pengujian Meter Air "
+                    "gagal disimpan."
+                )
+
+            pengujian_id = (
+                response_pengujian
+                .data[0]["id"]
+            )
+
+            response_relasi = (
+                supabase
+                .table("pengujian_uttp")
+                .insert({
+                    "pengujian_id": (
+                        pengujian_id
+                    ),
+                    **payload_relasi,
+                })
+                .execute()
+            )
+
+            if not response_relasi.data:
+                raise RuntimeError(
+                    "Relasi pengujian Meter Air "
+                    "gagal disimpan."
+                )
+
+            return {
+                "mode": "baru",
+
+                "pengujian": (
+                    response_pengujian.data
+                ),
+
+                "pengujian_uttp": (
+                    response_relasi.data
+                ),
+
+                "uttp_id": (
+                    uttp_id
+                ),
+
+                "perusahaan_id": (
+                    perusahaan_id
+                ),
+            }
+
+        # =================================================
+        # MODE EDIT
+        # =================================================
+        pengujian_id = (
+            edit_id
+        )
+
+        # =================================================
+        # UPDATE HEADER PENGUJIAN
+        # =================================================
+        response_pengujian = (
             supabase
-            .table("pengujian_uttp")
-            .insert(
-                payload_relasi
+            .table("pengujian")
+            .update(
+                payload_pengujian
+            )
+            .eq(
+                "id",
+                pengujian_id
             )
             .execute()
         )
 
-        if not response_relasi.data:
+        if not response_pengujian.data:
             raise RuntimeError(
-                "Relasi pengujian Meter Air "
-                "gagal disimpan."
+                "Pengujian Meter Air "
+                "gagal diperbarui."
             )
 
         # =================================================
-        # BERHASIL
+        # AMBIL RELASI LAMA
         # =================================================
-        return {
-            "mode": "baru",
+        response_relasi_lama = (
+            supabase
+            .table("pengujian_uttp")
+            .select(
+                "id, uttp_id"
+            )
+            .eq(
+                "pengujian_id",
+                pengujian_id
+            )
+            .order(
+                "id"
+            )
+            .execute()
+        )
+
+        relasi_lama = (
+            response_relasi_lama.data
+            or []
+        )
+
+        # =================================================
+        # RELASI SUDAH ADA → UPDATE
+        # =================================================
+        if relasi_lama:
+
+            relasi_utama = (
+                relasi_lama[0]
+            )
+
+            response_relasi = (
+                supabase
+                .table("pengujian_uttp")
+                .update(
+                    payload_relasi
+                )
+                .eq(
+                    "id",
+                    relasi_utama["id"]
+                )
+                .execute()
+            )
+
+            # Jika sebelumnya secara tidak sengaja ada
+            # lebih dari satu relasi, sisakan satu saja.
+            for relasi_tambahan in (
+                relasi_lama[1:]
+            ):
+                (
+                    supabase
+                    .table("pengujian_uttp")
+                    .delete()
+                    .eq(
+                        "id",
+                        relasi_tambahan["id"]
+                    )
+                    .execute()
+                )
+
+        # =================================================
+        # RELASI BELUM ADA → INSERT
+        # =================================================
+        else:
+
+            response_relasi = (
+                supabase
+                .table("pengujian_uttp")
+                .insert({
+                    "pengujian_id": (
+                        pengujian_id
+                    ),
+                    **payload_relasi,
+                })
+                .execute()
+            )
+
+        if not response_relasi.data:
+            raise RuntimeError(
+                "Relasi pengujian Meter Air "
+                "gagal diperbarui."
+            )
+
+        # =================================================
+        # SELESAI EDIT
+        # =================================================
+        hasil_simpan = {
+            "mode": "edit",
 
             "pengujian": (
                 response_pengujian.data
@@ -996,12 +1218,24 @@ def simpan_pengujian_meter_air_ke_supabase(
             ),
         }
 
+        st.session_state.pop(
+            "ma_edit_pengujian_id",
+            None
+        )
+
+        return hasil_simpan
+
     except Exception:
 
         # =================================================
-        # ROLLBACK HEADER PENGUJIAN
+        # ROLLBACK HEADER BARU
+        #
+        # Jangan menghapus pengujian lama saat Edit.
         # =================================================
-        if pengujian_id is not None:
+        if (
+            not sedang_edit
+            and pengujian_id is not None
+        ):
             try:
                 (
                     supabase
@@ -1017,10 +1251,7 @@ def simpan_pengujian_meter_air_ke_supabase(
                 pass
 
         # =================================================
-        # JIKA MASTER UTTP BARU DIBUAT,
-        # HAPUS KEMBALI JIKA PROSES GAGAL
-        #
-        # Master lama tidak pernah dihapus.
+        # MASTER BARU YANG GAGAL DIGUNAKAN
         # =================================================
         if (
             uttp_dibuat_baru
@@ -2734,6 +2965,24 @@ def run():
                 ).strip()
             )
             data_meter_air = {
+                # =====================================================
+                # ID INTERNAL DATABASE
+                # Tidak digunakan pada PDF.
+                # =====================================================
+                "_edit_pengujian_id": (
+                    st.session_state.get(
+                        "ma_edit_pengujian_id"
+                    )
+                    or saved.get(
+                        "_edit_pengujian_id"
+                    )
+                ),
+            
+                "_uttp_id": (
+                    saved.get(
+                        "_uttp_id"
+                    )
+                ),
                 "nama_alat": "Meter Air",
                 "pemilik": pemilik,
                 "alamat": alamat,
