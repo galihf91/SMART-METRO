@@ -65,18 +65,196 @@ def generate_cerapan_pdf(data, filename):
     offset = 0.4*cm
     center_x = width/2 + offset
 
-    # Title
-    c.setFont("Helvetica-Bold", 12)
-    c.drawCentredString(center_x, y, "CERAPAN PENERAAN TIMBANGAN JEMBATAN ELEKTRONIK")
-    y -= 0.8*cm
-
-    # Garis ganda
-    c.setLineWidth(2)
-    c.line(margin, y, width - margin, y)
-    y -= 0.1*cm
-    c.setLineWidth(0.8)
-    c.line(margin, y, width - margin, y)
-    y -= 0.45*cm
+    # --------------------------------------------------------
+    # HEADER CERAPAN
+    # --------------------------------------------------------
+    
+    # Posisi dan ukuran header
+    header_x = margin
+    header_top = y
+    
+    header_height = 1.20 * cm
+    row_height = header_height / 2
+    
+    # Karena pada Timbangan Jembatan belum tentu ada
+    # variabel available_width
+    header_width = width - (2 * margin)
+    
+    # Lebar area kanan
+    right_width = 5.40 * cm
+    
+    # Lebar kolom label dan nilai di area kanan
+    right_label_width = 2.80 * cm
+    right_value_width = (
+        right_width
+        - right_label_width
+    )
+    
+    # Posisi area kanan
+    right_x = (
+        header_x
+        + header_width
+        - right_width
+    )
+    
+    right_value_x = (
+        right_x
+        + right_label_width
+    )
+    
+    header_bottom = (
+        header_top
+        - header_height
+    )
+    
+    # ========================================================
+    # GARIS LUAR HEADER
+    # ========================================================
+    c.setLineWidth(0.55)
+    
+    c.rect(
+        header_x,
+        header_bottom,
+        header_width,
+        header_height,
+        stroke=1,
+        fill=0
+    )
+    
+    # ========================================================
+    # GARIS VERTIKAL PEMBATAS JUDUL DAN AREA KANAN
+    # ========================================================
+    c.line(
+        right_x,
+        header_bottom,
+        right_x,
+        header_top
+    )
+    
+    # ========================================================
+    # GARIS VERTIKAL LABEL DAN NILAI
+    # ========================================================
+    c.line(
+        right_value_x,
+        header_bottom,
+        right_value_x,
+        header_top
+    )
+    
+    # ========================================================
+    # GARIS HORIZONTAL AREA KANAN
+    # Judul kiri merge 2 baris
+    # ========================================================
+    c.line(
+        right_x,
+        header_top - row_height,
+        header_x + header_width,
+        header_top - row_height
+    )
+    
+    # ========================================================
+    # JUDUL KIRI
+    # ========================================================
+    judul_center_x = (
+        header_x
+        + (
+            right_x
+            - header_x
+        ) / 2
+    )
+    
+    judul_center_y = (
+        header_bottom
+        + header_height / 2
+        - 3
+    )
+    
+    c.setFont(
+        "Helvetica-Bold",
+        8.5
+    )
+    
+    c.drawCentredString(
+        judul_center_x,
+        judul_center_y,
+        "CERAPAN PENERAAN TIMBANGAN JEMBATAN ELEKTRONIK"
+    )
+    
+    # ========================================================
+    # BARIS 1 KANAN — HALAMAN
+    # ========================================================
+    baris_1_y = (
+        header_top
+        - row_height / 2
+        - 2.5
+    )
+    
+    c.setFont(
+        "Helvetica",
+        8
+    )
+    
+    c.drawCentredString(
+        right_x
+        + right_label_width / 2,
+        baris_1_y,
+        "Halaman"
+    )
+    
+    c.drawCentredString(
+        right_value_x
+        + right_value_width / 2,
+        baris_1_y,
+        "1 dari 1"
+    )
+    
+    # ========================================================
+    # BARIS 2 KANAN — NOMOR ORDER
+    # ========================================================
+    baris_2_y = (
+        header_bottom
+        + row_height / 2
+        - 2.5
+    )
+    
+    c.setFont(
+        "Helvetica",
+        8
+    )
+    
+    c.drawCentredString(
+        right_x
+        + right_label_width / 2,
+        baris_2_y,
+        "Nomor Order"
+    )
+    
+    nomor_order = safe_str(
+        data.get(
+            "nomor_order",
+            ""
+        )
+    )
+    
+    c.setFont(
+        "Helvetica",
+        7
+    )
+    
+    c.drawCentredString(
+        right_value_x
+        + right_value_width / 2,
+        baris_2_y,
+        nomor_order
+    )
+    
+    # ========================================================
+    # POSISI SETELAH HEADER
+    # ========================================================
+    y = (
+        header_bottom
+        - 0.24 * cm
+    )
 
     # ======================== TABEL INFO UTAMA ========================
     label_x = margin
