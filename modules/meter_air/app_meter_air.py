@@ -2003,8 +2003,23 @@ def init_meter_air_state():
         "ma_tanggal_pengujian": t_uji,
         "ma_tanggal_sertifikat": t_ttd,
         "ma_masa_berlaku": masa,
-        "ma_nomor_sertifikat": saved.get("nomor_sertifikat", generate_nomor_sertifikat(t_uji)),
-        "ma_nomor_order": saved.get("nomor_order", generate_nomor_order(t_uji)),
+        "ma_nomor_sertifikat": (
+            saved.get(
+                "nomor_sertifikat"
+            )
+            or generate_nomor_sertifikat(
+                t_uji
+            )
+        ),
+        
+        "ma_nomor_order": (
+            saved.get(
+                "nomor_order"
+            )
+            or generate_nomor_order(
+                t_uji
+            )
+        ),
         "ma_penera_select": saved.get("nama_penera", ""),
         "ma_nama_penera": saved.get("nama_penera", ""),
         "ma_nip_penera": saved.get("nip_penera", ""),
