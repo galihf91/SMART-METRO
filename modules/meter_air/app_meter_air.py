@@ -1040,6 +1040,58 @@ def simpan_pengujian_meter_air_ke_supabase(
                 pass
 
         raise
+# =========================================================
+# PASTIKAN PENGUJIAN METER AIR HANYA DISIMPAN SEKALI
+# =========================================================
+def pastikan_meter_air_tersimpan_db(
+    data
+):
+    # Sudah pernah disimpan pada session ini
+    if st.session_state.get(
+        "ma_sudah_disimpan_db",
+        False
+    ):
+        return {
+            "mode": "sudah_tersimpan",
+            "pengujian_id": (
+                st.session_state.get(
+                    "ma_last_pengujian_id"
+                )
+            ),
+        }
+
+    hasil_simpan = (
+        simpan_pengujian_meter_air_ke_supabase(
+            data
+        )
+    )
+
+    pengujian_rows = (
+        hasil_simpan.get(
+            "pengujian",
+            []
+        )
+        or []
+    )
+
+    pengujian_id = None
+
+    if pengujian_rows:
+        pengujian_id = (
+            pengujian_rows[0].get(
+                "id"
+            )
+        )
+
+    st.session_state[
+        "ma_sudah_disimpan_db"
+    ] = True
+
+    st.session_state[
+        "ma_last_pengujian_id"
+    ] = pengujian_id
+
+    return hasil_simpan
 def tambah_5_tahun(tanggal):
     try:
         return date(
@@ -1269,6 +1321,8 @@ def init_meter_air_state():
         "ma_nama_penera": saved.get("nama_penera", ""),
         "ma_nip_penera": saved.get("nip_penera", ""),
         "ma_golongan_penera": saved.get("golongan_penera", ""),
+        "ma_sudah_disimpan_db": False,
+        "ma_last_pengujian_id": None,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -1911,9 +1965,25 @@ def run():
                     st.write(f"- {pesan}")
                 st.stop()
 
-            st.session_state.ma_saved_data = data_meter_air
+            st.session_state.ma_saved_data = (
+                data_meter_air
+            )
+            
             st.session_state.ma_generated_files = {}
-            st.success("✅ Data Meter Air berhasil disimpan.")
+            
+            # Data form berubah / baru.
+            # Belum dikirim ke database.
+            st.session_state[
+                "ma_sudah_disimpan_db"
+            ] = False
+            
+            st.session_state[
+                "ma_last_pengujian_id"
+            ] = None
+            
+            st.success(
+                "✅ Data Meter Air berhasil disimpan."
+            )
             st.balloons()
 
     elif mode == MODE_GENERATE:
@@ -1971,9 +2041,30 @@ def run():
                 st.session_state.ma_generated_files["cerapan"] = str(cerapan_file)
 
                 sertifikat_file = OUTPUT_DIR / f"{format_nama_file_dokumen(data, 'Sertifikat')}.pdf"
-                generate_sertifikat_meter_air_pdf(data, str(sertifikat_file))
-                st.session_state.ma_generated_files["sertifikat"] = str(sertifikat_file)
-                st.success("✅ Cerapan dan sertifikat berhasil dibuat.")
+                generate_sertifikat_meter_air_pdf(
+                    data,
+                    str(sertifikat_file)
+                )
+                
+                st.session_state.ma_generated_files[
+                    "sertifikat"
+                ] = str(
+                    sertifikat_file
+                )
+                
+                # =====================================================
+                # SIMPAN KE SUPABASE
+                # =====================================================
+                hasil_simpan = (
+                    pastikan_meter_air_tersimpan_db(
+                        data
+                    )
+                )
+                
+                st.success(
+                    "✅ Cerapan dan sertifikat berhasil dibuat "
+                    "serta pengujian berhasil disimpan."
+                )
             except Exception as exc:
                 st.error(f"❌ Gagal membuat dokumen: {exc}")
                 st.code(traceback.format_exc())
@@ -2016,9 +2107,30 @@ def run():
                     try:
                         OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
                         filename = OUTPUT_DIR / f"{format_nama_file_dokumen(data, 'Sertifikat')}.pdf"
-                        generate_sertifikat_meter_air_pdf(data, str(filename))
-                        st.session_state.ma_generated_files["sertifikat"] = str(filename)
-                        st.success("✅ Sertifikat berhasil dibuat.")
+                        generate_sertifikat_meter_air_pdf(
+                            data,
+                            str(filename)
+                        )
+                        
+                        st.session_state.ma_generated_files[
+                            "sertifikat"
+                        ] = str(
+                            filename
+                        )
+                        
+                        # =====================================================
+                        # SIMPAN KE SUPABASE
+                        # =====================================================
+                        hasil_simpan = (
+                            pastikan_meter_air_tersimpan_db(
+                                data
+                            )
+                        )
+                        
+                        st.success(
+                            "✅ Sertifikat berhasil dibuat dan "
+                            "pengujian berhasil disimpan."
+                        )
                     except Exception as exc:
                         st.error(f"❌ Gagal membuat sertifikat: {exc}")
                         st.code(traceback.format_exc())
