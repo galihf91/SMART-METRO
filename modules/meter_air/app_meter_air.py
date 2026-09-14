@@ -1761,7 +1761,407 @@ def get_saved_test(saved, idx):
         return items[idx]
     return {}
 
+# =========================================================
+# GUNAKAN RIWAYAT UNTUK EDIT METER AIR
+# =========================================================
+def gunakan_data_lama_untuk_edit_meter_air(
+    riwayat
+):
+    pengujian_id = riwayat.get(
+        "id"
+    )
 
+    data_riwayat = dict(
+        riwayat.get(
+            "data",
+            {}
+        )
+        or {}
+    )
+
+    if pengujian_id is None:
+        raise ValueError(
+            "ID pengujian Meter Air tidak ditemukan."
+        )
+
+    # =====================================================
+    # TANDAI SEBAGAI EDIT
+    # =====================================================
+    data_riwayat[
+        "_edit_pengujian_id"
+    ] = pengujian_id
+
+    # =====================================================
+    # BERSIHKAN STATE FORM LAMA
+    # =====================================================
+    for key in list(
+        st.session_state.keys()
+    ):
+        if key.startswith(
+            "ma_"
+        ):
+            st.session_state.pop(
+                key,
+                None
+            )
+
+    # =====================================================
+    # MASUKKAN DATA RIWAYAT KE FORM
+    # =====================================================
+    st.session_state[
+        "ma_saved_data"
+    ] = data_riwayat
+
+    st.session_state[
+        "ma_edit_pengujian_id"
+    ] = pengujian_id
+
+    st.session_state[
+        "ma_sudah_disimpan_db"
+    ] = False
+
+    st.session_state[
+        "ma_last_pengujian_id"
+    ] = None
+
+    st.session_state[
+        "ma_generated_files"
+    ] = {}
+
+    st.session_state[
+        "ma_mode"
+    ] = MODE_INPUT
+
+# =========================================================
+# GUNAKAN RIWAYAT UNTUK PENGUJIAN BARU METER AIR
+# =========================================================
+def gunakan_riwayat_untuk_pengujian_baru_meter_air(
+    riwayat
+):
+    data_lama = dict(
+        riwayat.get(
+            "data",
+            {}
+        )
+        or {}
+    )
+
+    uttp_id = (
+        data_lama.get(
+            "_uttp_id"
+        )
+    )
+
+    if uttp_id is None:
+        raise ValueError(
+            "Master Meter Air pada riwayat "
+            "tidak ditemukan."
+        )
+
+    tanggal_baru = date.today()
+
+    # =====================================================
+    # DATA BARU
+    #
+    # Identitas Meter Air tetap.
+    # Hasil pengujian lama DIKOSONGKAN.
+    # =====================================================
+    data_baru = {
+        "_edit_pengujian_id": None,
+
+        # Master Meter Air lama tetap digunakan
+        "_uttp_id": uttp_id,
+
+        # =================================================
+        # PERUSAHAAN
+        # =================================================
+        "pemilik": (
+            data_lama.get(
+                "pemilik",
+                ""
+            )
+        ),
+
+        "alamat": (
+            data_lama.get(
+                "alamat",
+                ""
+            )
+        ),
+
+        # =================================================
+        # IDENTITAS METER AIR
+        # =================================================
+        "nama_alat": "Meter Air",
+
+        "merek": (
+            data_lama.get(
+                "merek",
+                ""
+            )
+        ),
+
+        "model_tipe": (
+            data_lama.get(
+                "model_tipe",
+                ""
+            )
+        ),
+
+        "model": (
+            data_lama.get(
+                "model_tipe",
+                ""
+            )
+        ),
+
+        "nomor_seri": (
+            data_lama.get(
+                "nomor_seri",
+                ""
+            )
+        ),
+
+        "no_seri": (
+            data_lama.get(
+                "nomor_seri",
+                ""
+            )
+        ),
+
+        "kapasitas": (
+            data_lama.get(
+                "kapasitas",
+                ""
+            )
+        ),
+
+        "diameter": (
+            data_lama.get(
+                "diameter",
+                ""
+            )
+        ),
+
+        "kelas": (
+            data_lama.get(
+                "kelas",
+                ""
+            )
+        ),
+
+        # =================================================
+        # KEGIATAN BARU
+        # =================================================
+        "jenis_pengujian": "Tera Ulang",
+
+        "lokasi_pengujian": (
+            data_lama.get(
+                "lokasi_pengujian",
+                "Perusahaan"
+            )
+        ),
+
+        "tanggal_pengujian": (
+            tanggal_baru.isoformat()
+        ),
+
+        "tanggal": (
+            tanggal_baru.isoformat()
+        ),
+
+        "tanggal_penera": (
+            format_tanggal_indonesia(
+                tanggal_baru
+            )
+        ),
+
+        "tanggal_sertifikat": (
+            tanggal_baru.isoformat()
+        ),
+
+        "masa_berlaku": (
+            tambah_5_tahun(
+                tanggal_baru
+            ).isoformat()
+        ),
+
+        "masa_berlaku_indonesia": (
+            format_tanggal_indonesia(
+                tambah_5_tahun(
+                    tanggal_baru
+                )
+            )
+        ),
+
+        "nomor_sertifikat": (
+            generate_nomor_sertifikat(
+                tanggal_baru
+            )
+        ),
+
+        "nomor_order": (
+            generate_nomor_order(
+                tanggal_baru
+            )
+        ),
+
+        # =================================================
+        # BEJANA
+        # Boleh memakai pilihan sebelumnya sebagai default.
+        # =================================================
+        "bejana_merek": (
+            data_lama.get(
+                "bejana_merek",
+                ""
+            )
+        ),
+
+        "bejana_tipe": (
+            data_lama.get(
+                "bejana_tipe",
+                ""
+            )
+        ),
+
+        "bejana_nomor_seri": (
+            data_lama.get(
+                "bejana_nomor_seri",
+                ""
+            )
+        ),
+
+        "bejana_volume_nominal": (
+            data_lama.get(
+                "bejana_volume_nominal",
+                "100 L"
+            )
+        ),
+
+        "bejana_koefisien_muai": (
+            data_lama.get(
+                "bejana_koefisien_muai",
+                ""
+            )
+        ),
+
+        "bejana_sb": (
+            data_lama.get(
+                "bejana_sb",
+                0
+            )
+        ),
+
+        "bejana_waktu_tetesan": (
+            data_lama.get(
+                "bejana_waktu_tetesan",
+                "30 s"
+            )
+        ),
+
+        "jenis_cairan": "Air",
+
+        # =================================================
+        # PENERA
+        # =================================================
+        "nama_penera": (
+            data_lama.get(
+                "nama_penera",
+                ""
+            )
+        ),
+
+        "penera_1": (
+            data_lama.get(
+                "nama_penera",
+                ""
+            )
+        ),
+
+        "nip_penera": (
+            data_lama.get(
+                "nip_penera_1",
+                ""
+            )
+        ),
+
+        "nip_penera_1": (
+            data_lama.get(
+                "nip_penera_1",
+                ""
+            )
+        ),
+
+        "golongan_penera": (
+            data_lama.get(
+                "golongan_penera_1",
+                ""
+            )
+        ),
+
+        "golongan_penera_1": (
+            data_lama.get(
+                "golongan_penera_1",
+                ""
+            )
+        ),
+
+        # =================================================
+        # PENTING:
+        # HASIL LAMA TIDAK DIBAWA
+        # =================================================
+        "hasil_pengujian": [],
+
+        "hasil_akhir": (
+            "BELUM LENGKAP"
+        ),
+
+        "hasil": (
+            "BELUM LENGKAP"
+        ),
+    }
+
+    # =====================================================
+    # BERSIHKAN STATE
+    # =====================================================
+    for key in list(
+        st.session_state.keys()
+    ):
+        if key.startswith(
+            "ma_"
+        ):
+            st.session_state.pop(
+                key,
+                None
+            )
+
+    # =====================================================
+    # INI BUKAN EDIT
+    # =====================================================
+    st.session_state.pop(
+        "ma_edit_pengujian_id",
+        None
+    )
+
+    st.session_state[
+        "ma_saved_data"
+    ] = data_baru
+
+    st.session_state[
+        "ma_sudah_disimpan_db"
+    ] = False
+
+    st.session_state[
+        "ma_last_pengujian_id"
+    ] = None
+
+    st.session_state[
+        "ma_generated_files"
+    ] = {}
+
+    st.session_state[
+        "ma_mode"
+    ] = MODE_INPUT
 def run():
     init_meter_air_state()
 
@@ -1797,6 +2197,13 @@ def run():
 
     if mode == MODE_INPUT:
         st.header("Masukkan Data Pengujian Meter Air")
+        if st.session_state.get(
+            "ma_edit_pengujian_id"
+        ):
+            st.warning(
+                "✏️ Anda sedang mengedit pengujian "
+                "Meter Air yang sudah tersimpan."
+            )
         saved = st.session_state.ma_saved_data
 
         col1, col2, col3 = st.columns(3)
@@ -2849,7 +3256,48 @@ def run():
                         use_container_width=True,
                         hide_index=True,
                     )
+                st.markdown("---")
 
+                col_edit, col_baru = (
+                    st.columns(2)
+                )
+
+                # =========================================
+                # EDIT PENGUJIAN
+                # =========================================
+                with col_edit:
+                    if st.button(
+                        "✏️ Edit Pengujian",
+                        type="primary",
+                        use_container_width=True,
+                        key=(
+                            "ma_edit_riwayat_"
+                            f"{riwayat.get('id')}"
+                        ),
+                    ):
+                        gunakan_data_lama_untuk_edit_meter_air(
+                            riwayat
+                        )
+
+                        st.rerun()
+
+                # =========================================
+                # PENGUJIAN BARU
+                # =========================================
+                with col_baru:
+                    if st.button(
+                        "➕ Pengujian Baru",
+                        use_container_width=True,
+                        key=(
+                            "ma_baru_riwayat_"
+                            f"{riwayat.get('id')}"
+                        ),
+                    ):
+                        gunakan_riwayat_untuk_pengujian_baru_meter_air(
+                            riwayat
+                        )
+
+                        st.rerun()
         except Exception as exc:
             st.error(
                 "Gagal membaca riwayat "
