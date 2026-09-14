@@ -801,14 +801,18 @@ def simpan_pengujian_uttp_umum_ke_supabase(
             or ""
         ).strip(),
     }
-
     # =====================================================
     # MASTER UTTP + RELASI
     # =====================================================
     daftar_relasi = []
     uttp_baru_dibuat = []
+    uttp_id_dalam_form = set()
 
     try:
+
+        # =================================================
+        # 1. SIAPKAN MASTER UTTP
+        # =================================================
         for urutan, rincian in enumerate(
             daftar_rincian,
             start=1
@@ -822,6 +826,25 @@ def simpan_pengujian_uttp_umum_ke_supabase(
                     perusahaan_id=perusahaan_id,
                     rincian=rincian,
                 )
+            )
+
+            # =============================================
+            # PENGAMAN:
+            # UTTP YANG SAMA TIDAK BOLEH MUNCUL 2 KALI
+            # DALAM SATU KEGIATAN
+            # =============================================
+            if (
+                uttp_id
+                in uttp_id_dalam_form
+            ):
+                raise ValueError(
+                    "UTTP yang sama ditemukan "
+                    "lebih dari satu kali dalam "
+                    "satu pengujian."
+                )
+
+            uttp_id_dalam_form.add(
+                uttp_id
             )
 
             if dibuat_baru:
@@ -844,14 +867,14 @@ def simpan_pengujian_uttp_umum_ke_supabase(
             })
 
         # =================================================
-        # HEADER PENGUJIAN
+        # 2. PAYLOAD HEADER PENGUJIAN
         # =================================================
         payload_pengujian = {
             "perusahaan_id": (
                 perusahaan_id
             ),
 
-            # Banyak UTTP dapat berada dalam 1 sertifikat
+            # Relasi alat berada pada pengujian_uttp
             "uttp_id": None,
 
             "tanggal_pengujian": (
@@ -897,64 +920,334 @@ def simpan_pengujian_uttp_umum_ke_supabase(
             ),
         }
 
-        response_pengujian = (
+        # =================================================
+        # 3. DATA BARU
+        # =================================================
+        if not sedang_edit:
+
+            response_pengujian = (
+                supabase
+                .table(
+                    "pengujian"
+                )
+                .insert(
+                    payload_pengujian
+                )
+                .execute()
+            )
+
+            if not response_pengujian.data:
+                raise RuntimeError(
+                    "Header pengujian UTTP "
+                    "gagal disimpan."
+                )
+
+            pengujian_id = (
+                response_pengujian
+                .data[0]["id"]
+            )
+
+            payload_relasi = [
+                {
+                    "pengujian_id": (
+                        pengujian_id
+                    ),
+                    **relasi,
+                }
+                for relasi in daftar_relasi
+            ]
+
+            response_relasi = (
+                supabase
+                .table(
+                    "pengujian_uttp"
+                )
+                .insert(
+                    payload_relasi
+                )
+                .execute()
+            )
+
+            if not response_relasi.data:
+                raise RuntimeError(
+                    "Relasi pengujian dan UTTP "
+                    "gagal disimpan."
+                )
+
+            return {
+                "mode": "baru",
+
+                "pengujian": (
+                    response_pengujian.data
+                ),
+
+                "pengujian_uttp": (
+                    response_relasi.data
+                ),
+
+                "uttp_ids": [
+                    item["uttp_id"]
+                    for item in daftar_relasi
+                ],
+            }
+
+        # =================================================
+        # 4. MODE EDIT
+        # =================================================
+
+        # =================================================
+        # PASTIKAN HEADER LAMA ADA
+        # =================================================
+        response_anchor = (
             supabase
             .table(
                 "pengujian"
             )
-            .insert(
+            .select(
+                "id, uttp_id, data_pengujian"
+            )
+            .eq(
+                "id",
+                edit_id
+            )
+            .limit(1)
+            .execute()
+        )
+
+        if not response_anchor.data:
+            raise RuntimeError(
+                "Pengujian UTTP yang akan diedit "
+                "tidak ditemukan."
+            )
+
+        pengujian_anchor = (
+            response_anchor.data[0]
+        )
+
+        # =================================================
+        # PENGAMAN STRUKTUR BARU
+        # =================================================
+        detail_anchor = (
+            pengujian_anchor.get(
+                "data_pengujian"
+            )
+            or {}
+        )
+
+        schema_anchor = str(
+            detail_anchor.get(
+                "schema_uttp_umum",
+                ""
+            )
+            or ""
+        ).strip()
+
+        if schema_anchor != "1":
+            raise RuntimeError(
+                "Data yang dipilih bukan pengujian "
+                "UTTP Umum struktur baru."
+            )
+
+        if (
+            pengujian_anchor.get(
+                "uttp_id"
+            )
+            is not None
+        ):
+            raise RuntimeError(
+                "Pengujian masih menggunakan "
+                "struktur lama dan belum dapat diedit."
+            )
+
+        pengujian_id = (
+            edit_id
+        )
+
+        # =================================================
+        # 5. UPDATE HEADER PENGUJIAN
+        # =================================================
+        response_update_header = (
+            supabase
+            .table(
+                "pengujian"
+            )
+            .update(
                 payload_pengujian
+            )
+            .eq(
+                "id",
+                pengujian_id
             )
             .execute()
         )
 
-        if not response_pengujian.data:
+        if not response_update_header.data:
             raise RuntimeError(
-                "Header pengujian UTTP gagal disimpan."
+                "Header pengujian UTTP "
+                "gagal diperbarui."
             )
 
-        pengujian_id = (
-            response_pengujian
-            .data[0]["id"]
-        )
-
         # =================================================
-        # RELASI PENGUJIAN - UTTP
+        # 6. AMBIL RELASI LAMA
         # =================================================
-        payload_relasi = [
-            {
-                "pengujian_id": (
-                    pengujian_id
-                ),
-                **relasi,
-            }
-            for relasi in daftar_relasi
-        ]
-
-        response_relasi = (
+        response_relasi_lama = (
             supabase
             .table(
                 "pengujian_uttp"
             )
-            .insert(
-                payload_relasi
+            .select(
+                "id, uttp_id"
+            )
+            .eq(
+                "pengujian_id",
+                pengujian_id
             )
             .execute()
         )
 
-        if not response_relasi.data:
-            raise RuntimeError(
-                "Relasi pengujian dan UTTP "
-                "gagal disimpan."
+        relasi_lama = (
+            response_relasi_lama.data
+            or []
+        )
+
+        relasi_lama_per_uttp = {
+            row.get(
+                "uttp_id"
+            ): row
+            for row in relasi_lama
+        }
+
+        id_uttp_sekarang = {
+            item[
+                "uttp_id"
+            ]
+            for item in daftar_relasi
+        }
+
+        hasil_relasi = []
+
+        # =================================================
+        # 7. UPDATE / INSERT RELASI
+        # =================================================
+        for relasi in daftar_relasi:
+
+            uttp_id = relasi[
+                "uttp_id"
+            ]
+
+            relasi_lama_item = (
+                relasi_lama_per_uttp.get(
+                    uttp_id
+                )
             )
 
-        return {
+            # =============================================
+            # RELASI SUDAH ADA
+            # =============================================
+            if relasi_lama_item:
+
+                response_relasi_item = (
+                    supabase
+                    .table(
+                        "pengujian_uttp"
+                    )
+                    .update({
+                        "urutan": (
+                            relasi[
+                                "urutan"
+                            ]
+                        ),
+
+                        "hasil": (
+                            relasi[
+                                "hasil"
+                            ]
+                        ),
+
+                        "data_detail": (
+                            relasi[
+                                "data_detail"
+                            ]
+                        ),
+                    })
+                    .eq(
+                        "id",
+                        relasi_lama_item[
+                            "id"
+                        ]
+                    )
+                    .execute()
+                )
+
+            # =============================================
+            # UTTP BARU DITAMBAHKAN SAAT EDIT
+            # =============================================
+            else:
+
+                response_relasi_item = (
+                    supabase
+                    .table(
+                        "pengujian_uttp"
+                    )
+                    .insert({
+                        "pengujian_id": (
+                            pengujian_id
+                        ),
+                        **relasi,
+                    })
+                    .execute()
+                )
+
+            hasil_relasi.extend(
+                response_relasi_item.data
+                or []
+            )
+
+        # =================================================
+        # 8. HAPUS RELASI UTTP YANG DIHAPUS DARI FORM
+        #
+        # Master UTTP tidak dihapus.
+        # Hanya relasinya terhadap kegiatan ini.
+        # =================================================
+        for relasi_lama_item in relasi_lama:
+
+            uttp_id_lama = (
+                relasi_lama_item.get(
+                    "uttp_id"
+                )
+            )
+
+            if (
+                uttp_id_lama
+                not in id_uttp_sekarang
+            ):
+                (
+                    supabase
+                    .table(
+                        "pengujian_uttp"
+                    )
+                    .delete()
+                    .eq(
+                        "id",
+                        relasi_lama_item[
+                            "id"
+                        ]
+                    )
+                    .execute()
+                )
+
+        # =================================================
+        # 9. SELESAI EDIT
+        # =================================================
+        hasil_simpan = {
+            "mode": "edit",
+
             "pengujian": (
-                response_pengujian.data
+                response_update_header.data
             ),
 
             "pengujian_uttp": (
-                response_relasi.data
+                hasil_relasi
             ),
 
             "uttp_ids": [
@@ -963,7 +1256,64 @@ def simpan_pengujian_uttp_umum_ke_supabase(
             ],
         }
 
+        st.session_state.pop(
+            "uttp_edit_pengujian_id",
+            None
+        )
+
+        return hasil_simpan
+
     except Exception:
+
+        # =================================================
+        # ROLLBACK HEADER BARU
+        #
+        # Hanya untuk mode DATA BARU.
+        # Jangan hapus header lama saat Edit.
+        # =================================================
+        if (
+            not sedang_edit
+            and "pengujian_id" in locals()
+        ):
+            (
+                supabase
+                .table(
+                    "pengujian"
+                )
+                .delete()
+                .eq(
+                    "id",
+                    pengujian_id
+                )
+                .execute()
+            )
+
+        # =================================================
+        # HAPUS UTTP YANG BENAR-BENAR BARU DIBUAT
+        #
+        # UTTP lama tidak dihapus.
+        # =================================================
+        for uttp_id_baru in (
+            uttp_baru_dibuat
+        ):
+            try:
+                (
+                    supabase
+                    .table(
+                        "uttp"
+                    )
+                    .delete()
+                    .eq(
+                        "id",
+                        uttp_id_baru
+                    )
+                    .execute()
+                )
+
+            except Exception:
+                pass
+
+        raise
 
         # =================================================
         # ROLLBACK HEADER JIKA SUDAH TERBUAT
@@ -3259,6 +3609,11 @@ def run():
                     ...
                 }
             st.session_state.uttp_saved_data = {
+                "_edit_pengujian_id": (
+                    st.session_state.get(
+                        "uttp_edit_pengujian_id"
+                    )
+                ),
                 "pemilik": pemilik,
                 "alamat": alamat,
                 "daftar_alat_uttp": daftar_alat_uttp,
