@@ -1218,11 +1218,6 @@ def simpan_pengujian_meter_air_ke_supabase(
             ),
         }
 
-        st.session_state.pop(
-            "ma_edit_pengujian_id",
-            None
-        )
-
         return hasil_simpan
 
     except Exception:
@@ -1273,12 +1268,67 @@ def simpan_pengujian_meter_air_ke_supabase(
 
         raise
 # =========================================================
-# PASTIKAN PENGUJIAN METER AIR HANYA DISIMPAN SEKALI
+# SIMPAN METER AIR DENGAN PENGAMAN DUPLIKASI
 # =========================================================
 def pastikan_meter_air_tersimpan_db(
     data
 ):
-    # Sudah pernah disimpan pada session ini
+    # =====================================================
+    # CEK APAKAH SEDANG EDIT
+    # =====================================================
+    edit_id = (
+        st.session_state.get(
+            "ma_edit_pengujian_id"
+        )
+        or data.get(
+            "_edit_pengujian_id"
+        )
+    )
+
+    sedang_edit = (
+        edit_id is not None
+        and str(edit_id).strip() != ""
+    )
+
+    # =====================================================
+    # MODE EDIT
+    #
+    # Generate boleh berkali-kali.
+    # Setiap klik = UPDATE pengujian yang sama.
+    # =====================================================
+    if sedang_edit:
+
+        hasil_simpan = (
+            simpan_pengujian_meter_air_ke_supabase(
+                data
+            )
+        )
+
+        pengujian_rows = (
+            hasil_simpan.get(
+                "pengujian",
+                []
+            )
+            or []
+        )
+
+        if pengujian_rows:
+            st.session_state[
+                "ma_last_pengujian_id"
+            ] = (
+                pengujian_rows[0].get(
+                    "id"
+                )
+            )
+
+        return hasil_simpan
+
+    # =====================================================
+    # MODE DATA BARU
+    #
+    # Sudah pernah INSERT pada session ini
+    # → jangan INSERT lagi.
+    # =====================================================
     if st.session_state.get(
         "ma_sudah_disimpan_db",
         False
@@ -1292,6 +1342,9 @@ def pastikan_meter_air_tersimpan_db(
             ),
         }
 
+    # =====================================================
+    # INSERT DATA BARU
+    # =====================================================
     hasil_simpan = (
         simpan_pengujian_meter_air_ke_supabase(
             data
