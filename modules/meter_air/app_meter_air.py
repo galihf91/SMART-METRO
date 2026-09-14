@@ -15,6 +15,7 @@ from modules.meter_air.form_peminjaman_ctt_meter_air_generator import (
 
 MODE_INPUT = "📝 Input Data Pengujian"
 MODE_GENERATE = "📄 Generate Dokumen"
+MODE_HISTORY = "📚 Riwayat Meter Air"
 OUTPUT_DIR = Path("output/meter_air")
 DEFAULT_BKD = [4.0, 4.0, 10.0]
 BEJANA_PRESET = {
@@ -1092,6 +1093,409 @@ def pastikan_meter_air_tersimpan_db(
     ] = pengujian_id
 
     return hasil_simpan
+
+# =========================================================
+# AMBIL RIWAYAT PENGUJIAN METER AIR
+# =========================================================
+def ambil_riwayat_meter_air():
+    supabase = get_supabase_meter_air()
+
+    # =====================================================
+    # 1. AMBIL PENGUJIAN
+    # =====================================================
+    response_pengujian = (
+        supabase
+        .table("pengujian")
+        .select("*")
+        .order(
+            "tanggal_pengujian",
+            desc=True
+        )
+        .execute()
+    )
+
+    semua_pengujian = (
+        response_pengujian.data
+        or []
+    )
+
+    # =====================================================
+    # HANYA METER AIR
+    # =====================================================
+    daftar_pengujian = []
+
+    for row in semua_pengujian:
+
+        detail = (
+            row.get(
+                "data_pengujian"
+            )
+            or {}
+        )
+
+        schema_meter_air = str(
+            detail.get(
+                "schema_meter_air",
+                ""
+            )
+            or ""
+        ).strip()
+
+        if schema_meter_air == "1":
+            daftar_pengujian.append(
+                row
+            )
+
+    if not daftar_pengujian:
+        return []
+
+    # =====================================================
+    # 2. AMBIL RELASI PENGUJIAN - UTTP
+    # =====================================================
+    daftar_pengujian_id = [
+        row["id"]
+        for row in daftar_pengujian
+        if row.get("id") is not None
+    ]
+
+    response_relasi = (
+        supabase
+        .table("pengujian_uttp")
+        .select(
+            "id, pengujian_id, uttp_id, "
+            "urutan, hasil, data_detail"
+        )
+        .in_(
+            "pengujian_id",
+            daftar_pengujian_id
+        )
+        .execute()
+    )
+
+    semua_relasi = (
+        response_relasi.data
+        or []
+    )
+
+    relasi_map = {}
+
+    for relasi in semua_relasi:
+        relasi_map[
+            relasi.get(
+                "pengujian_id"
+            )
+        ] = relasi
+
+    # =====================================================
+    # 3. AMBIL MASTER UTTP
+    # =====================================================
+    daftar_uttp_id = list({
+        row.get("uttp_id")
+        for row in semua_relasi
+        if row.get("uttp_id") is not None
+    })
+
+    uttp_map = {}
+
+    if daftar_uttp_id:
+
+        response_uttp = (
+            supabase
+            .table("uttp")
+            .select(
+                "id, perusahaan_id, jenis_uttp, "
+                "merk, tipe, nomor_seri, "
+                "kapasitas, satuan_kapasitas, "
+                "diameter, satuan_diameter, "
+                "kelas, status"
+            )
+            .in_(
+                "id",
+                daftar_uttp_id
+            )
+            .execute()
+        )
+
+        uttp_map = {
+            row["id"]: row
+            for row in (
+                response_uttp.data
+                or []
+            )
+        }
+
+    # =====================================================
+    # 4. AMBIL MASTER PERUSAHAAN
+    # =====================================================
+    daftar_perusahaan_id = list({
+        row.get("perusahaan_id")
+        for row in daftar_pengujian
+        if row.get("perusahaan_id") is not None
+    })
+
+    perusahaan_map = {}
+
+    if daftar_perusahaan_id:
+
+        response_perusahaan = (
+            supabase
+            .table("perusahaan")
+            .select(
+                "id, nama_perusahaan, alamat"
+            )
+            .in_(
+                "id",
+                daftar_perusahaan_id
+            )
+            .execute()
+        )
+
+        perusahaan_map = {
+            row["id"]: row
+            for row in (
+                response_perusahaan.data
+                or []
+            )
+        }
+
+    # =====================================================
+    # 5. BANGUN DATA RIWAYAT
+    # =====================================================
+    hasil = []
+
+    for header in daftar_pengujian:
+
+        pengujian_id = (
+            header.get("id")
+        )
+
+        perusahaan = (
+            perusahaan_map.get(
+                header.get(
+                    "perusahaan_id"
+                ),
+                {}
+            )
+        )
+
+        relasi = (
+            relasi_map.get(
+                pengujian_id,
+                {}
+            )
+            or {}
+        )
+
+        uttp_id = (
+            relasi.get(
+                "uttp_id"
+            )
+        )
+
+        alat = (
+            uttp_map.get(
+                uttp_id,
+                {}
+            )
+        )
+
+        data_detail = (
+            relasi.get(
+                "data_detail"
+            )
+            or {}
+        )
+
+        detail_header = dict(
+            header.get(
+                "data_pengujian"
+            )
+            or {}
+        )
+
+        # =================================================
+        # IDENTITAS PERUSAHAAN
+        # =================================================
+        detail_header[
+            "pemilik"
+        ] = str(
+            perusahaan.get(
+                "nama_perusahaan",
+                ""
+            )
+            or ""
+        ).strip()
+
+        detail_header[
+            "alamat"
+        ] = str(
+            perusahaan.get(
+                "alamat",
+                ""
+            )
+            or ""
+        ).strip()
+
+        # =================================================
+        # IDENTITAS METER AIR
+        # =================================================
+        detail_header[
+            "_uttp_id"
+        ] = uttp_id
+
+        detail_header[
+            "nama_alat"
+        ] = "Meter Air"
+
+        detail_header[
+            "merek"
+        ] = str(
+            alat.get(
+                "merk",
+                ""
+            )
+            or ""
+        ).strip()
+
+        detail_header[
+            "model_tipe"
+        ] = str(
+            alat.get(
+                "tipe",
+                ""
+            )
+            or ""
+        ).strip()
+
+        detail_header[
+            "nomor_seri"
+        ] = str(
+            alat.get(
+                "nomor_seri",
+                ""
+            )
+            or ""
+        ).strip()
+
+        detail_header[
+            "kapasitas"
+        ] = str(
+            alat.get(
+                "kapasitas",
+                ""
+            )
+            or ""
+        ).strip()
+
+        detail_header[
+            "diameter"
+        ] = str(
+            alat.get(
+                "diameter",
+                ""
+            )
+            or ""
+        ).strip()
+
+        detail_header[
+            "kelas"
+        ] = str(
+            alat.get(
+                "kelas",
+                ""
+            )
+            or ""
+        ).strip()
+
+        # =================================================
+        # HASIL TEKNIS
+        # =================================================
+        detail_header[
+            "hasil_pengujian"
+        ] = (
+            data_detail.get(
+                "hasil_pengujian",
+                []
+            )
+            or []
+        )
+
+        # =================================================
+        # DATA HEADER PENGUJIAN
+        # =================================================
+        detail_header[
+            "jenis_pengujian"
+        ] = header.get(
+            "jenis_pengujian",
+            ""
+        )
+
+        detail_header[
+            "tanggal_pengujian"
+        ] = header.get(
+            "tanggal_pengujian"
+        )
+
+        detail_header[
+            "tanggal_sertifikat"
+        ] = header.get(
+            "tanggal_sertifikat"
+        )
+
+        detail_header[
+            "nomor_order"
+        ] = header.get(
+            "nomor_order",
+            ""
+        )
+
+        detail_header[
+            "nomor_sertifikat"
+        ] = header.get(
+            "nomor_sertifikat",
+            ""
+        )
+
+        detail_header[
+            "masa_berlaku"
+        ] = header.get(
+            "berlaku_sampai"
+        )
+
+        detail_header[
+            "nama_penera"
+        ] = header.get(
+            "penera_1",
+            ""
+        )
+
+        detail_header[
+            "penera_1"
+        ] = header.get(
+            "penera_1",
+            ""
+        )
+
+        detail_header[
+            "hasil_akhir"
+        ] = header.get(
+            "hasil",
+            ""
+        )
+
+        detail_header[
+            "hasil"
+        ] = header.get(
+            "hasil",
+            ""
+        )
+
+        hasil.append({
+            "id": pengujian_id,
+            "data": detail_header,
+        })
+
+    return hasil
 def tambah_5_tahun(tanggal):
     try:
         return date(
@@ -1381,7 +1785,15 @@ def run():
 
     with st.sidebar:
         st.header("📋 Menu Navigasi")
-        mode = st.radio("Pilih Mode:", [MODE_INPUT, MODE_GENERATE], key="ma_mode")
+        mode = st.radio(
+            "Pilih Mode:",
+            [
+                MODE_INPUT,
+                MODE_GENERATE,
+                MODE_HISTORY,
+            ],
+            key="ma_mode"
+        )
 
     if mode == MODE_INPUT:
         st.header("Masukkan Data Pengujian Meter Air")
@@ -2214,6 +2626,240 @@ def run():
                         "Form CTT belum digenerate."
                     )
 
+    # =========================================================
+    # RIWAYAT METER AIR
+    # =========================================================
+    elif mode == MODE_HISTORY:
+
+        st.header(
+            "📚 Riwayat Pengujian Meter Air"
+        )
+
+        try:
+            daftar_riwayat = (
+                ambil_riwayat_meter_air()
+            )
+
+            if not daftar_riwayat:
+                st.info(
+                    "Belum ada riwayat "
+                    "pengujian Meter Air."
+                )
+                return
+
+            # =================================================
+            # PILIH RIWAYAT
+            # =================================================
+            opsi_riwayat = {}
+
+            for item in daftar_riwayat:
+
+                data_riwayat = (
+                    item.get(
+                        "data",
+                        {}
+                    )
+                    or {}
+                )
+
+                label = (
+                    f"{data_riwayat.get('tanggal_pengujian', '')}"
+                    f" | "
+                    f"{data_riwayat.get('pemilik', '')}"
+                    f" | "
+                    f"{data_riwayat.get('nomor_sertifikat', '')}"
+                )
+
+                opsi_riwayat[
+                    label
+                ] = item
+
+            pilihan = st.selectbox(
+                "Pilih Riwayat Pengujian",
+                options=[
+                    ""
+                ] + list(
+                    opsi_riwayat.keys()
+                ),
+                key="ma_riwayat_pilih",
+            )
+
+            # =================================================
+            # DETAIL RIWAYAT
+            # =================================================
+            if pilihan:
+
+                riwayat = (
+                    opsi_riwayat[
+                        pilihan
+                    ]
+                )
+
+                data_riwayat = (
+                    riwayat.get(
+                        "data",
+                        {}
+                    )
+                    or {}
+                )
+
+                st.subheader(
+                    "Detail Pengujian"
+                )
+
+                col1, col2 = (
+                    st.columns(2)
+                )
+
+                with col1:
+                    st.write(
+                        "**Pemilik:**",
+                        data_riwayat.get(
+                            "pemilik",
+                            "-"
+                        )
+                    )
+
+                    st.write(
+                        "**Alamat:**",
+                        data_riwayat.get(
+                            "alamat",
+                            "-"
+                        )
+                    )
+
+                    st.write(
+                        "**Merek:**",
+                        data_riwayat.get(
+                            "merek",
+                            "-"
+                        )
+                    )
+
+                    st.write(
+                        "**Model / Tipe:**",
+                        data_riwayat.get(
+                            "model_tipe",
+                            "-"
+                        )
+                    )
+
+                    st.write(
+                        "**Nomor Seri:**",
+                        data_riwayat.get(
+                            "nomor_seri",
+                            "-"
+                        )
+                    )
+
+                    st.write(
+                        "**Kapasitas:**",
+                        (
+                            f"{data_riwayat.get('kapasitas', '-')} "
+                            "m³/h"
+                        )
+                    )
+
+                    st.write(
+                        "**Diameter:**",
+                        (
+                            f"{data_riwayat.get('diameter', '-')} "
+                            "mm"
+                        )
+                    )
+
+                    st.write(
+                        "**Kelas:**",
+                        data_riwayat.get(
+                            "kelas",
+                            "-"
+                        )
+                    )
+
+                with col2:
+                    st.write(
+                        "**Tanggal Pengujian:**",
+                        data_riwayat.get(
+                            "tanggal_pengujian",
+                            "-"
+                        )
+                    )
+
+                    st.write(
+                        "**Jenis Pengujian:**",
+                        data_riwayat.get(
+                            "jenis_pengujian",
+                            "-"
+                        )
+                    )
+
+                    st.write(
+                        "**Nomor Order:**",
+                        data_riwayat.get(
+                            "nomor_order",
+                            "-"
+                        )
+                    )
+
+                    st.write(
+                        "**Nomor Sertifikat:**",
+                        data_riwayat.get(
+                            "nomor_sertifikat",
+                            "-"
+                        )
+                    )
+
+                    st.write(
+                        "**Penera:**",
+                        data_riwayat.get(
+                            "nama_penera",
+                            "-"
+                        )
+                    )
+
+                    st.write(
+                        "**Hasil:**",
+                        data_riwayat.get(
+                            "hasil_akhir",
+                            "-"
+                        )
+                    )
+
+                # =================================================
+                # HASIL PENGUJIAN
+                # =================================================
+                hasil_pengujian = (
+                    data_riwayat.get(
+                        "hasil_pengujian",
+                        []
+                    )
+                    or []
+                )
+
+                if hasil_pengujian:
+
+                    st.markdown(
+                        "### Hasil Pengujian"
+                    )
+
+                    st.dataframe(
+                        pd.DataFrame(
+                            hasil_pengujian
+                        ),
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+
+        except Exception as exc:
+            st.error(
+                "Gagal membaca riwayat "
+                f"Meter Air: {exc}"
+            )
+
+            st.code(
+                traceback.format_exc()
+            )
+    
     st.markdown("---")
     st.markdown(
         """
