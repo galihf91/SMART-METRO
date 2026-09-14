@@ -944,8 +944,9 @@ def simpan_pengujian_meter_air_ke_supabase(
                 perusahaan_id
             ),
 
-            "uttp_id": None,
-
+            "uttp_id": (
+                uttp_id
+            ),
             "tanggal_pengujian": (
                 tanggal_pengujian.isoformat()
             ),
