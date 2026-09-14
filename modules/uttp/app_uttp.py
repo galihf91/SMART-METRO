@@ -2250,14 +2250,14 @@ def init_uttp_state():
             1,
             len(rincian_saved)
         ),
-
+        
         "uttp_jenis_pengujian": saved.get(
             "jenis_pengujian",
             "Tera Ulang"
         ),
-        "uttp_jenis_pengujian": saved.get(
-            "jenis_pengujian",
-            "Tera Ulang"
+        "uttp_lokasi_pengujian": saved.get(
+            "lokasi_pengujian",
+            "Perusahaan"
         ),
         "uttp_tanggal_pengujian": (
             tanggal_pengujian_saved
@@ -2724,7 +2724,264 @@ def gunakan_data_lama_untuk_edit_uttp(
     st.session_state[
         "uttp_mode"
     ] = "📝 Input Data Pengujian"
+# =========================================================
+# GUNAKAN RIWAYAT UNTUK PENGUJIAN BARU
+# =========================================================
+def gunakan_riwayat_untuk_pengujian_baru_uttp(
+    pengujian
+):
+    detail = (
+        pengujian.get(
+            "data_pengujian"
+        )
+        or {}
+    )
 
+    daftar_rincian = (
+        detail.get(
+            "daftar_rincian_uttp",
+            []
+        )
+        or []
+    )
+
+    if not daftar_rincian:
+        raise ValueError(
+            "Riwayat tidak memiliki rincian UTTP."
+        )
+
+    # =====================================================
+    # TENTUKAN JENIS ALAT UTAMA
+    # =====================================================
+    daftar_jenis = {
+        str(
+            item.get(
+                "nama_alat",
+                ""
+            )
+            or ""
+        ).strip()
+        for item in daftar_rincian
+        if str(
+            item.get(
+                "nama_alat",
+                ""
+            )
+            or ""
+        ).strip()
+    }
+
+    if len(daftar_jenis) == 1:
+        nama_alat = next(
+            iter(
+                daftar_jenis
+            )
+        )
+    else:
+        nama_alat = "Timbangan"
+
+    # =====================================================
+    # TANGGAL PENGUJIAN BARU
+    # =====================================================
+    tanggal_baru = date.today()
+
+    # =====================================================
+    # COPY RINCIAN
+    #
+    # _uttp_id TETAP DIPERTAHANKAN
+    # supaya menggunakan master alat yang sama.
+    # =====================================================
+    rincian_baru = []
+
+    for nomor, item in enumerate(
+        daftar_rincian,
+        start=1
+    ):
+        item_baru = dict(
+            item
+        )
+
+        item_baru[
+            "no"
+        ] = nomor
+
+        rincian_baru.append(
+            item_baru
+        )
+
+    # =====================================================
+    # DATA BARU
+    # =====================================================
+    data_baru = {
+        # PENTING:
+        # Tidak ada _edit_pengujian_id.
+        # Ini kegiatan baru.
+        "_edit_pengujian_id": None,
+
+        "pemilik": (
+            detail.get(
+                "pemilik",
+                ""
+            )
+        ),
+
+        "alamat": (
+            detail.get(
+                "alamat",
+                ""
+            )
+        ),
+
+        "nama_alat": (
+            nama_alat
+        ),
+
+        "jumlah_alat": len(
+            rincian_baru
+        ),
+
+        "daftar_alat_uttp": [
+            {
+                "nama_alat": (
+                    nama_alat
+                ),
+                "jumlah": len(
+                    rincian_baru
+                ),
+                "keterangan": "Terlampir",
+            }
+        ],
+
+        "daftar_rincian_uttp": (
+            rincian_baru
+        ),
+
+        "alat_standar": (
+            detail.get(
+                "alat_standar",
+                []
+            )
+            or []
+        ),
+
+        # Pengujian berikutnya umumnya Tera Ulang.
+        "jenis_pengujian": "Tera Ulang",
+
+        "lokasi_pengujian": (
+            detail.get(
+                "lokasi_pengujian",
+                "Perusahaan"
+            )
+        ),
+
+        "tanggal_pengujian": (
+            tanggal_baru.isoformat()
+        ),
+
+        "tanggal_sertifikat": (
+            tanggal_baru.isoformat()
+        ),
+
+        # Nomor dibuat baru.
+        "nomor_sertifikat": (
+            generate_nomor_sertifikat(
+                tanggal_baru
+            )
+        ),
+
+        "nomor_order": (
+            generate_nomor_order(
+                tanggal_baru
+            )
+        ),
+
+        # Penera boleh memakai data sebelumnya,
+        # nanti tetap dapat diubah di form.
+        "jumlah_penera": (
+            2
+            if str(
+                pengujian.get(
+                    "penera_2",
+                    ""
+                )
+                or ""
+            ).strip()
+            else 1
+        ),
+
+        "penera_1": (
+            pengujian.get(
+                "penera_1",
+                ""
+            )
+        ),
+
+        "nip_penera_1": (
+            detail.get(
+                "nip_penera_1",
+                ""
+            )
+        ),
+
+        "golongan_penera_1": (
+            detail.get(
+                "golongan_penera_1",
+                ""
+            )
+        ),
+
+        "penera_2": (
+            pengujian.get(
+                "penera_2",
+                ""
+            )
+            or ""
+        ),
+
+        "nip_penera_2": (
+            detail.get(
+                "nip_penera_2",
+                ""
+            )
+        ),
+
+        "golongan_penera_2": (
+            detail.get(
+                "golongan_penera_2",
+                ""
+            )
+        ),
+    }
+
+    # =====================================================
+    # BERSIHKAN STATE FORM
+    # =====================================================
+    for key in list(
+        st.session_state.keys()
+    ):
+        if key.startswith(
+            "uttp_"
+        ):
+            st.session_state.pop(
+                key,
+                None
+            )
+
+    # =====================================================
+    # PASTIKAN BUKAN MODE EDIT
+    # =====================================================
+    st.session_state.pop(
+        "uttp_edit_pengujian_id",
+        None
+    )
+
+    st.session_state[
+        "uttp_saved_data"
+    ] = data_baru
+
+    st.session_state[
+        "uttp_mode"
+    ] = "📝 Input Data Pengujian"
 def run():
     init_uttp_state()
 
@@ -4180,30 +4437,30 @@ def run():
                         hide_index=True,
                     )
 
-            st.markdown("---")
-
-            if st.button(
-                "✏️ Edit Pengujian",
-                type="primary",
-                use_container_width=True,
-                key=(
-                    "uttp_edit_riwayat_"
-                    f"{pengujian.get('id')}"
-                ),
-            ):
-                gunakan_data_lama_untuk_edit_uttp(
-                    pengujian
+                st.markdown("---")
+    
+                if st.button(
+                    "✏️ Edit Pengujian",
+                    type="primary",
+                    use_container_width=True,
+                    key=(
+                        "uttp_edit_riwayat_"
+                        f"{pengujian.get('id')}"
+                    ),
+                ):
+                    gunakan_data_lama_untuk_edit_uttp(
+                        pengujian
+                    )
+                
+                    st.rerun()
+            except Exception as exc:
+                st.error(
+                    "Gagal membaca riwayat UTTP: "
+                    f"{exc}"
                 )
-            
-                st.rerun()
-        except Exception as exc:
-            st.error(
-                "Gagal membaca riwayat UTTP: "
-                f"{exc}"
-            )
-
-            st.code(
-                traceback.format_exc()
-            )
+    
+                st.code(
+                    traceback.format_exc()
+                )
 if __name__ == "__main__":
     run()
