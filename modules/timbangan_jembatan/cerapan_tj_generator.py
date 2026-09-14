@@ -253,7 +253,7 @@ def generate_cerapan_pdf(data, filename):
     # ========================================================
     y = (
         header_bottom
-        - 0.24 * cm
+        - 0.45 * cm
     )
 
     # ======================== TABEL INFO UTAMA ========================
