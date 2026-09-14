@@ -1314,47 +1314,6 @@ def simpan_pengujian_uttp_umum_ke_supabase(
                 pass
 
         raise
-
-        # =================================================
-        # ROLLBACK HEADER JIKA SUDAH TERBUAT
-        # =================================================
-        if "pengujian_id" in locals():
-            (
-                supabase
-                .table(
-                    "pengujian"
-                )
-                .delete()
-                .eq(
-                    "id",
-                    pengujian_id
-                )
-                .execute()
-            )
-
-        # =================================================
-        # HAPUS MASTER UTTP YANG BARU DIBUAT
-        #
-        # UTTP lama yang hanya diperbarui tidak dihapus.
-        # =================================================
-        for uttp_id_baru in (
-            uttp_baru_dibuat
-        ):
-            (
-                supabase
-                .table(
-                    "uttp"
-                )
-                .delete()
-                .eq(
-                    "id",
-                    uttp_id_baru
-                )
-                .execute()
-            )
-
-        raise
-
 # =========================================================
 # AMBIL RIWAYAT PENGUJIAN UTTP UMUM
 # =========================================================
@@ -3839,33 +3798,150 @@ def run():
             )
 
         if simpan:
-            if simpan:
-                daftar_error = validasi_data_uttp(
-                    pemilik=pemilik,
-                    alamat=alamat,
-                    daftar_rincian=daftar_rincian_uttp,
-                    alat_standar=alat_standar,
-                    penera_1=penera_1,
-                    jumlah_penera=jumlah_penera,
-                    penera_2=penera_2,
+            # =================================================
+            # VALIDASI
+            # =================================================
+            daftar_error = validasi_data_uttp(
+                pemilik=pemilik,
+                alamat=alamat,
+                daftar_rincian=daftar_rincian_uttp,
+                alat_standar=alat_standar,
+                penera_1=penera_1,
+                jumlah_penera=jumlah_penera,
+                penera_2=penera_2,
+            )
+
+            if daftar_error:
+                st.error(
+                    "Data belum dapat disimpan. "
+                    "Periksa bagian berikut:"
                 )
 
-                if daftar_error:
-                    st.error(
-                        "Data belum dapat disimpan. "
-                        "Periksa bagian berikut:"
+                for pesan in daftar_error:
+                    st.write(
+                        f"- {pesan}"
                     )
 
-                    for pesan in daftar_error:
-                        st.write(
-                            f"- {pesan}"
-                        )
+                st.stop()
 
-                    st.stop()
+            # =================================================
+            # SIMPAN DATA FORM KE SESSION STATE
+            # =================================================
+            st.session_state.uttp_saved_data = {
+                "_edit_pengujian_id": (
+                    st.session_state.get(
+                        "uttp_edit_pengujian_id"
+                    )
+                ),
 
-                st.session_state.uttp_saved_data = {
-                    ...
-                }
+                "pemilik": pemilik,
+                "alamat": alamat,
+
+                "daftar_alat_uttp": (
+                    daftar_alat_uttp
+                ),
+
+                "daftar_rincian_uttp": (
+                    daftar_rincian_uttp
+                ),
+
+                "alat_standar": (
+                    alat_standar
+                ),
+
+                "nama_alat": (
+                    daftar_alat_uttp[0][
+                        "nama_alat"
+                    ]
+                ),
+
+                "jumlah_alat": (
+                    daftar_alat_uttp[0][
+                        "jumlah"
+                    ]
+                ),
+
+                "jenis_pengujian": (
+                    jenis_pengujian
+                ),
+
+                "lokasi_pengujian": (
+                    lokasi_pengujian
+                ),
+
+                "tanggal_pengujian": (
+                    tanggal_pengujian.strftime(
+                        "%Y-%m-%d"
+                    )
+                ),
+
+                "tanggal_sertifikat": (
+                    tanggal_sertifikat.strftime(
+                        "%Y-%m-%d"
+                    )
+                ),
+
+                "nomor_sertifikat": (
+                    nomor_sertifikat
+                ),
+
+                "nomor_order": (
+                    nomor_order
+                ),
+
+                "jumlah_penera": (
+                    jumlah_penera
+                ),
+
+                "penera_1": (
+                    penera_1
+                ),
+
+                "nip_penera_1": (
+                    nip_penera_1
+                ),
+
+                "golongan_penera_1": (
+                    golongan_penera_1
+                ),
+
+                "penera_2": (
+                    penera_2
+                ),
+
+                "nip_penera_2": (
+                    nip_penera_2
+                ),
+
+                "golongan_penera_2": (
+                    golongan_penera_2
+                ),
+            }
+
+            # =================================================
+            # DATA BERUBAH → DOKUMEN LAMA TIDAK BERLAKU
+            # =================================================
+            st.session_state[
+                "uttp_generated_files"
+            ] = {}
+
+            # =================================================
+            # DATA BARU / HASIL EDIT BELUM DIKIRIM KE DATABASE
+            # =================================================
+            st.session_state[
+                "uttp_sudah_disimpan_db"
+            ] = False
+
+            st.session_state[
+                "uttp_last_pengujian_id"
+            ] = None
+
+            st.success(
+                "✅ Data berhasil disimpan! "
+                "Silakan buka Preview & Generate Data."
+            )
+
+            st.balloons()
             st.session_state.uttp_saved_data = {
                 "_edit_pengujian_id": (
                     st.session_state.get(
