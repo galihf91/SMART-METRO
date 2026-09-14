@@ -528,6 +528,518 @@ def get_or_create_master_meter_air(
         response_insert.data[0]["id"],
         True
     )
+
+# =========================================================
+# SIMPAN PENGUJIAN METER AIR KE SUPABASE
+# =========================================================
+def simpan_pengujian_meter_air_ke_supabase(
+    data
+):
+    """
+    Struktur database:
+
+    perusahaan
+        → pemilik Meter Air
+
+    uttp
+        → master Meter Air
+
+    pengujian
+        → satu kegiatan / satu sertifikat
+
+    pengujian_uttp
+        → relasi pengujian dengan Meter Air
+        → data_detail berisi hasil teknis pengujian
+    """
+
+    if not data:
+        raise ValueError(
+            "Data pengujian Meter Air belum tersedia."
+        )
+
+    supabase = get_supabase_meter_air()
+
+    # =====================================================
+    # DATA UTAMA
+    # =====================================================
+    pemilik = str(
+        data.get(
+            "pemilik",
+            ""
+        )
+        or ""
+    ).strip()
+
+    alamat = str(
+        data.get(
+            "alamat",
+            ""
+        )
+        or ""
+    ).strip()
+
+    nomor_sertifikat = str(
+        data.get(
+            "nomor_sertifikat",
+            ""
+        )
+        or ""
+    ).strip()
+
+    nomor_order = str(
+        data.get(
+            "nomor_order",
+            ""
+        )
+        or ""
+    ).strip()
+
+    jenis_pengujian = str(
+        data.get(
+            "jenis_pengujian",
+            "Tera Ulang"
+        )
+        or "Tera Ulang"
+    ).strip()
+
+    nama_penera = str(
+        data.get(
+            "nama_penera",
+            ""
+        )
+        or ""
+    ).strip()
+
+    hasil_akhir = str(
+        data.get(
+            "hasil_akhir",
+            data.get(
+                "hasil",
+                ""
+            )
+        )
+        or ""
+    ).strip()
+
+    hasil_pengujian = (
+        data.get(
+            "hasil_pengujian",
+            []
+        )
+        or []
+    )
+
+    # =====================================================
+    # VALIDASI DASAR
+    # =====================================================
+    if not pemilik:
+        raise ValueError(
+            "Nama pemilik / perusahaan belum diisi."
+        )
+
+    if not alamat:
+        raise ValueError(
+            "Alamat perusahaan belum diisi."
+        )
+
+    if not nomor_sertifikat:
+        raise ValueError(
+            "Nomor sertifikat belum diisi."
+        )
+
+    if not nomor_order:
+        raise ValueError(
+            "Nomor order belum diisi."
+        )
+
+    if not nama_penera:
+        raise ValueError(
+            "Penera belum dipilih."
+        )
+
+    if not hasil_pengujian:
+        raise ValueError(
+            "Hasil pengujian Meter Air belum tersedia."
+        )
+
+    # =====================================================
+    # CEK NOMOR SERTIFIKAT
+    # =====================================================
+    response_sertifikat = (
+        supabase
+        .table("pengujian")
+        .select("id")
+        .eq(
+            "nomor_sertifikat",
+            nomor_sertifikat
+        )
+        .limit(1)
+        .execute()
+    )
+
+    if response_sertifikat.data:
+        raise ValueError(
+            "Nomor sertifikat sudah pernah digunakan. "
+            "Silakan gunakan nomor sertifikat yang berbeda."
+        )
+
+    # =====================================================
+    # 1. SIMPAN / UPDATE PERUSAHAAN
+    # =====================================================
+    perusahaan_id = (
+        simpan_atau_update_perusahaan_meter_air(
+            supabase=supabase,
+            nama_perusahaan=pemilik,
+            alamat=alamat,
+        )
+    )
+
+    # =====================================================
+    # 2. CARI / BUAT MASTER METER AIR
+    # =====================================================
+    uttp_id = None
+    uttp_dibuat_baru = False
+    pengujian_id = None
+
+    try:
+        (
+            uttp_id,
+            uttp_dibuat_baru
+        ) = get_or_create_master_meter_air(
+            supabase=supabase,
+            perusahaan_id=perusahaan_id,
+            data=data,
+        )
+
+        # =================================================
+        # TANGGAL
+        # =================================================
+        tanggal_pengujian = (
+            parse_date_value(
+                data.get(
+                    "tanggal_pengujian"
+                )
+            )
+        )
+
+        tanggal_sertifikat = (
+            parse_date_value(
+                data.get(
+                    "tanggal_sertifikat"
+                )
+            )
+        )
+
+        masa_berlaku = (
+            parse_date_value(
+                data.get(
+                    "masa_berlaku"
+                ),
+                tambah_5_tahun(
+                    tanggal_pengujian
+                )
+            )
+        )
+
+        # =================================================
+        # 3. DATA HEADER PENGUJIAN
+        #
+        # Data yang bersifat kegiatan / snapshot.
+        # =================================================
+        data_pengujian_header = {
+            "schema_meter_air": 1,
+
+            "lokasi_pengujian": (
+                data.get(
+                    "lokasi_pengujian",
+                    ""
+                )
+            ),
+
+            "lokasi_kegiatan": (
+                data.get(
+                    "lokasi_kegiatan",
+                    ""
+                )
+            ),
+
+            # =============================================
+            # BEJANA UKUR STANDAR
+            # =============================================
+            "bejana_merek": (
+                data.get(
+                    "bejana_merek",
+                    ""
+                )
+            ),
+
+            "bejana_tipe": (
+                data.get(
+                    "bejana_tipe",
+                    ""
+                )
+            ),
+
+            "bejana_nomor_seri": (
+                data.get(
+                    "bejana_nomor_seri",
+                    ""
+                )
+            ),
+
+            "bejana_volume_nominal": (
+                data.get(
+                    "bejana_volume_nominal",
+                    ""
+                )
+            ),
+
+            "bejana_koefisien_muai": (
+                data.get(
+                    "bejana_koefisien_muai",
+                    ""
+                )
+            ),
+
+            "bejana_sb": (
+                data.get(
+                    "bejana_sb",
+                    0
+                )
+            ),
+
+            "bejana_waktu_tetesan": (
+                data.get(
+                    "bejana_waktu_tetesan",
+                    ""
+                )
+            ),
+
+            "jenis_cairan": (
+                data.get(
+                    "jenis_cairan",
+                    "Air"
+                )
+            ),
+
+            # =============================================
+            # PENERA
+            # =============================================
+            "nip_penera_1": str(
+                data.get(
+                    "nip_penera",
+                    data.get(
+                        "nip_penera_1",
+                        ""
+                    )
+                )
+                or ""
+            ).strip(),
+
+            "golongan_penera_1": str(
+                data.get(
+                    "golongan_penera",
+                    data.get(
+                        "golongan_penera_1",
+                        ""
+                    )
+                )
+                or ""
+            ).strip(),
+        }
+
+        # =================================================
+        # 4. HEADER PENGUJIAN
+        # =================================================
+        payload_pengujian = {
+            "perusahaan_id": (
+                perusahaan_id
+            ),
+
+            # Relasi alat menggunakan pengujian_uttp
+            "uttp_id": None,
+
+            "tanggal_pengujian": (
+                tanggal_pengujian.isoformat()
+            ),
+
+            "tanggal_sertifikat": (
+                tanggal_sertifikat.isoformat()
+            ),
+
+            "jenis_pengujian": (
+                jenis_pengujian
+            ),
+
+            "hasil": (
+                hasil_akhir
+            ),
+
+            "nomor_order": (
+                nomor_order
+            ),
+
+            "nomor_sertifikat": (
+                nomor_sertifikat
+            ),
+
+            "penera_1": (
+                nama_penera
+            ),
+
+            "penera_2": None,
+
+            "berlaku_sampai": (
+                masa_berlaku.isoformat()
+            ),
+
+            "data_pengujian": (
+                data_pengujian_header
+            ),
+        }
+
+        response_pengujian = (
+            supabase
+            .table("pengujian")
+            .insert(
+                payload_pengujian
+            )
+            .execute()
+        )
+
+        if not response_pengujian.data:
+            raise RuntimeError(
+                "Pengujian Meter Air gagal disimpan."
+            )
+
+        pengujian_id = (
+            response_pengujian
+            .data[0]["id"]
+        )
+
+        # =================================================
+        # 5. DATA DETAIL HASIL PENGUJIAN
+        # =================================================
+        data_detail = {
+            "schema_meter_air_detail": 1,
+
+            "hasil_pengujian": (
+                hasil_pengujian
+            ),
+        }
+
+        # =================================================
+        # 6. HUBUNGKAN PENGUJIAN DENGAN MASTER METER AIR
+        # =================================================
+        payload_relasi = {
+            "pengujian_id": (
+                pengujian_id
+            ),
+
+            "uttp_id": (
+                uttp_id
+            ),
+
+            "urutan": 1,
+
+            "hasil": (
+                hasil_akhir
+            ),
+
+            "data_detail": (
+                data_detail
+            ),
+
+            # Kolom khusus PUBBM
+            "no_dispenser": None,
+            "posisi": None,
+            "media": None,
+            "k_faktor": None,
+        }
+
+        response_relasi = (
+            supabase
+            .table("pengujian_uttp")
+            .insert(
+                payload_relasi
+            )
+            .execute()
+        )
+
+        if not response_relasi.data:
+            raise RuntimeError(
+                "Relasi pengujian Meter Air "
+                "gagal disimpan."
+            )
+
+        # =================================================
+        # BERHASIL
+        # =================================================
+        return {
+            "mode": "baru",
+
+            "pengujian": (
+                response_pengujian.data
+            ),
+
+            "pengujian_uttp": (
+                response_relasi.data
+            ),
+
+            "uttp_id": (
+                uttp_id
+            ),
+
+            "perusahaan_id": (
+                perusahaan_id
+            ),
+        }
+
+    except Exception:
+
+        # =================================================
+        # ROLLBACK HEADER PENGUJIAN
+        # =================================================
+        if pengujian_id is not None:
+            try:
+                (
+                    supabase
+                    .table("pengujian")
+                    .delete()
+                    .eq(
+                        "id",
+                        pengujian_id
+                    )
+                    .execute()
+                )
+            except Exception:
+                pass
+
+        # =================================================
+        # JIKA MASTER UTTP BARU DIBUAT,
+        # HAPUS KEMBALI JIKA PROSES GAGAL
+        #
+        # Master lama tidak pernah dihapus.
+        # =================================================
+        if (
+            uttp_dibuat_baru
+            and uttp_id is not None
+        ):
+            try:
+                (
+                    supabase
+                    .table("uttp")
+                    .delete()
+                    .eq(
+                        "id",
+                        uttp_id
+                    )
+                    .execute()
+                )
+            except Exception:
+                pass
+
+        raise
 def tambah_5_tahun(tanggal):
     try:
         return date(
