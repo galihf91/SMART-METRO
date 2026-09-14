@@ -4590,23 +4590,48 @@ def run():
                         use_container_width=True,
                         hide_index=True,
                     )
-
-                st.markdown("---")
     
-                if st.button(
-                    "✏️ Edit Pengujian",
-                    type="primary",
-                    use_container_width=True,
-                    key=(
-                        "uttp_edit_riwayat_"
-                        f"{pengujian.get('id')}"
-                    ),
-                ):
-                    gunakan_data_lama_untuk_edit_uttp(
-                        pengujian
-                    )
+                st.markdown("---")
+
+                col_edit, col_baru = st.columns(2)
                 
-                    st.rerun()
+                # =========================================================
+                # EDIT PENGUJIAN
+                # =========================================================
+                with col_edit:
+                    if st.button(
+                        "✏️ Edit Pengujian",
+                        type="primary",
+                        use_container_width=True,
+                        key=(
+                            "uttp_edit_riwayat_"
+                            f"{pengujian.get('id')}"
+                        ),
+                    ):
+                        gunakan_data_lama_untuk_edit_uttp(
+                            pengujian
+                        )
+                
+                        st.rerun()
+                
+                
+                # =========================================================
+                # PENGUJIAN BARU DARI RIWAYAT
+                # =========================================================
+                with col_baru:
+                    if st.button(
+                        "➕ Pengujian Baru",
+                        use_container_width=True,
+                        key=(
+                            "uttp_baru_riwayat_"
+                            f"{pengujian.get('id')}"
+                        ),
+                    ):
+                        gunakan_riwayat_untuk_pengujian_baru_uttp(
+                            pengujian
+                        )
+                
+                        st.rerun()
         except Exception as exc:
             st.error(
                 "Gagal membaca riwayat UTTP: "
