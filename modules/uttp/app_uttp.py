@@ -123,6 +123,23 @@ def simpan_atau_update_perusahaan_uttp(
     nama_perusahaan,
     alamat,
 ):
+    """
+    Aturan:
+
+    1. Perusahaan belum ada
+       → INSERT perusahaan baru.
+
+    2. Perusahaan sudah ada, alamat berubah
+       → UPDATE alamat.
+
+    3. Perusahaan sudah ada, alamat sama
+       → gunakan ID perusahaan lama.
+
+    Berlaku baik untuk:
+    - perusahaan yang dipilih dari daftar;
+    - perusahaan yang diinput manual.
+    """
+
     nama_perusahaan = str(
         nama_perusahaan
         or ""
@@ -138,18 +155,26 @@ def simpan_atau_update_perusahaan_uttp(
             "Nama pemilik / perusahaan belum diisi."
         )
 
-    # =====================================================
-    # CARI PERUSAHAAN
-    # =====================================================
-    response = (
-        supabase
-        .table(
-            "perusahaan"
+    if not alamat:
+        raise ValueError(
+            "Alamat pemilik / perusahaan belum diisi."
         )
+
+    # =====================================================
+    # CARI PERUSAHAAN BERDASARKAN NAMA
+    #
+    # ilike digunakan supaya:
+    # PT ABC
+    # pt abc
+    # dianggap perusahaan yang sama.
+    # =====================================================
+    response_cari = (
+        supabase
+        .table("perusahaan")
         .select(
             "id, nama_perusahaan, alamat"
         )
-        .eq(
+        .ilike(
             "nama_perusahaan",
             nama_perusahaan
         )
@@ -158,37 +183,62 @@ def simpan_atau_update_perusahaan_uttp(
     )
 
     # =====================================================
-    # SUDAH ADA
+    # PERUSAHAAN SUDAH ADA
     # =====================================================
-    if response.data:
-        perusahaan = (
-            response.data[0]
+    if response_cari.data:
+
+        perusahaan_lama = (
+            response_cari.data[0]
         )
 
         perusahaan_id = (
-            perusahaan["id"]
+            perusahaan_lama["id"]
         )
 
+        nama_lama = str(
+            perusahaan_lama.get(
+                "nama_perusahaan",
+                ""
+            )
+            or ""
+        ).strip()
+
         alamat_lama = str(
-            perusahaan.get(
+            perusahaan_lama.get(
                 "alamat",
                 ""
             )
             or ""
         ).strip()
 
-        if (
-            alamat
-            and alamat != alamat_lama
-        ):
-            (
+        # =================================================
+        # CEK APAKAH ADA PERUBAHAN
+        # =================================================
+        payload_update = {}
+
+        # Nama ikut diperbarui agar kapitalisasi / penulisan
+        # mengikuti input terbaru user.
+        if nama_perusahaan != nama_lama:
+            payload_update[
+                "nama_perusahaan"
+            ] = nama_perusahaan
+
+        if alamat != alamat_lama:
+            payload_update[
+                "alamat"
+            ] = alamat
+
+        # =================================================
+        # ADA PERUBAHAN → UPDATE
+        # =================================================
+        if payload_update:
+
+            response_update = (
                 supabase
-                .table(
-                    "perusahaan"
+                .table("perusahaan")
+                .update(
+                    payload_update
                 )
-                .update({
-                    "alamat": alamat
-                })
                 .eq(
                     "id",
                     perusahaan_id
@@ -196,16 +246,19 @@ def simpan_atau_update_perusahaan_uttp(
                 .execute()
             )
 
+            if not response_update.data:
+                raise RuntimeError(
+                    "Data perusahaan gagal diperbarui."
+                )
+
         return perusahaan_id
 
     # =====================================================
-    # PERUSAHAAN BARU
+    # PERUSAHAAN BELUM ADA → INSERT BARU
     # =====================================================
-    response = (
+    response_insert = (
         supabase
-        .table(
-            "perusahaan"
-        )
+        .table("perusahaan")
         .insert({
             "nama_perusahaan": (
                 nama_perusahaan
@@ -215,12 +268,13 @@ def simpan_atau_update_perusahaan_uttp(
         .execute()
     )
 
-    if not response.data:
+    if not response_insert.data:
         raise RuntimeError(
-            "Master perusahaan gagal disimpan."
+            "Perusahaan baru gagal disimpan "
+            "ke Supabase."
         )
 
-    return response.data[0][
+    return response_insert.data[0][
         "id"
     ]
 
