@@ -4695,14 +4695,14 @@ def run():
                     )
                 
                     st.rerun()
-            except Exception as exc:
-                st.error(
-                    "Gagal membaca riwayat UTTP: "
-                    f"{exc}"
-                )
-    
-                st.code(
-                    traceback.format_exc()
-                )
+        except Exception as exc:
+            st.error(
+                "Gagal membaca riwayat UTTP: "
+                f"{exc}"
+            )
+
+            st.code(
+                traceback.format_exc()
+            )
 if __name__ == "__main__":
     run()
