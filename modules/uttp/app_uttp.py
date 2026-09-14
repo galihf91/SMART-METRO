@@ -399,7 +399,64 @@ def get_or_create_master_uttp_umum(
 
         "status": "aktif",
     }
+    # =====================================================
+    # PRIORITAS UTTP ID YANG SUDAH DIKENAL
+    #
+    # Berasal dari Edit atau penggunaan riwayat.
+    # =====================================================
+    uttp_id_lama = (
+        rincian.get(
+            "_uttp_id"
+        )
+    )
 
+    if (
+        uttp_id_lama is not None
+        and str(
+            uttp_id_lama
+        ).strip() != ""
+    ):
+        try:
+            uttp_id_lama = int(
+                float(
+                    uttp_id_lama
+                )
+            )
+        except (
+            TypeError,
+            ValueError
+        ):
+            uttp_id_lama = None
+
+    if uttp_id_lama is not None:
+
+        response_update = (
+            supabase
+            .table("uttp")
+            .update(
+                payload_uttp
+            )
+            .eq(
+                "id",
+                uttp_id_lama
+            )
+            .eq(
+                "perusahaan_id",
+                perusahaan_id
+            )
+            .execute()
+        )
+
+        if not response_update.data:
+            raise RuntimeError(
+                "Master UTTP lama tidak ditemukan "
+                "atau tidak sesuai dengan perusahaan."
+            )
+
+        return (
+            uttp_id_lama,
+            False
+        )
     # =====================================================
     # CARI MASTER YANG SUDAH ADA
     # =====================================================
@@ -511,7 +568,34 @@ def simpan_pengujian_uttp_umum_ke_supabase(
         )
 
     supabase = get_supabase_uttp()
+    # =====================================================
+    # STATUS EDIT
+    # =====================================================
+    edit_id = st.session_state.get(
+        "uttp_edit_pengujian_id"
+    )
 
+    if edit_id is None:
+        edit_id = data.get(
+            "_edit_pengujian_id"
+        )
+
+    if edit_id is not None:
+        try:
+            edit_id = int(
+                float(
+                    edit_id
+                )
+            )
+        except (
+            TypeError,
+            ValueError
+        ):
+            edit_id = None
+
+    sedang_edit = (
+        edit_id is not None
+    )
     # =====================================================
     # DATA HEADER
     # =====================================================
@@ -606,18 +690,27 @@ def simpan_pengujian_uttp_umum_ke_supabase(
     # CEK NOMOR SERTIFIKAT
     # Dilakukan sebelum database lain diubah.
     # =====================================================
-    response_sertifikat = (
+    query_sertifikat = (
         supabase
-        .table(
-            "pengujian"
-        )
-        .select(
-            "id"
-        )
+        .table("pengujian")
+        .select("id")
         .eq(
             "nomor_sertifikat",
             nomor_sertifikat
         )
+    )
+
+    if sedang_edit:
+        query_sertifikat = (
+            query_sertifikat
+            .neq(
+                "id",
+                edit_id
+            )
+        )
+
+    response_sertifikat = (
+        query_sertifikat
         .limit(1)
         .execute()
     )
@@ -2043,7 +2136,244 @@ def validasi_data_uttp(
 
     return errors
     
+# =========================================================
+# GUNAKAN RIWAYAT UNTUK EDIT UTTP UMUM
+# =========================================================
+def gunakan_data_lama_untuk_edit_uttp(
+    pengujian
+):
+    detail = (
+        pengujian.get(
+            "data_pengujian"
+        )
+        or {}
+    )
 
+    pengujian_id = (
+        pengujian.get(
+            "id"
+        )
+    )
+
+    if pengujian_id is None:
+        raise ValueError(
+            "ID pengujian tidak ditemukan."
+        )
+
+    daftar_rincian = (
+        detail.get(
+            "daftar_rincian_uttp",
+            []
+        )
+        or []
+    )
+
+    # =====================================================
+    # TENTUKAN JENIS ALAT UTAMA
+    # =====================================================
+    daftar_jenis = {
+        str(
+            item.get(
+                "nama_alat",
+                ""
+            )
+            or ""
+        ).strip()
+        for item in daftar_rincian
+        if str(
+            item.get(
+                "nama_alat",
+                ""
+            )
+            or ""
+        ).strip()
+    }
+
+    if len(daftar_jenis) == 1:
+        nama_alat = next(
+            iter(
+                daftar_jenis
+            )
+        )
+
+    else:
+        nama_alat = "Timbangan"
+
+    data_edit = {
+        "_edit_pengujian_id": (
+            pengujian_id
+        ),
+
+        "pemilik": (
+            detail.get(
+                "pemilik",
+                ""
+            )
+        ),
+
+        "alamat": (
+            detail.get(
+                "alamat",
+                ""
+            )
+        ),
+
+        "nama_alat": (
+            nama_alat
+        ),
+
+        "jumlah_alat": len(
+            daftar_rincian
+        ),
+
+        "daftar_alat_uttp": [
+            {
+                "nama_alat": (
+                    nama_alat
+                ),
+                "jumlah": len(
+                    daftar_rincian
+                ),
+                "keterangan": "Terlampir",
+            }
+        ],
+
+        "daftar_rincian_uttp": (
+            daftar_rincian
+        ),
+
+        "alat_standar": (
+            detail.get(
+                "alat_standar",
+                []
+            )
+            or []
+        ),
+
+        "jenis_pengujian": (
+            pengujian.get(
+                "jenis_pengujian",
+                "Tera Ulang"
+            )
+        ),
+
+        "lokasi_pengujian": (
+            detail.get(
+                "lokasi_pengujian",
+                "Perusahaan"
+            )
+        ),
+
+        "tanggal_pengujian": (
+            pengujian.get(
+                "tanggal_pengujian"
+            )
+        ),
+
+        "tanggal_sertifikat": (
+            pengujian.get(
+                "tanggal_sertifikat"
+            )
+        ),
+
+        "nomor_sertifikat": (
+            pengujian.get(
+                "nomor_sertifikat",
+                ""
+            )
+        ),
+
+        "nomor_order": (
+            pengujian.get(
+                "nomor_order",
+                ""
+            )
+        ),
+
+        "jumlah_penera": (
+            2
+            if str(
+                pengujian.get(
+                    "penera_2",
+                    ""
+                )
+                or ""
+            ).strip()
+            else 1
+        ),
+
+        "penera_1": (
+            pengujian.get(
+                "penera_1",
+                ""
+            )
+        ),
+
+        "nip_penera_1": (
+            detail.get(
+                "nip_penera_1",
+                ""
+            )
+        ),
+
+        "golongan_penera_1": (
+            detail.get(
+                "golongan_penera_1",
+                ""
+            )
+        ),
+
+        "penera_2": (
+            pengujian.get(
+                "penera_2",
+                ""
+            )
+            or ""
+        ),
+
+        "nip_penera_2": (
+            detail.get(
+                "nip_penera_2",
+                ""
+            )
+        ),
+
+        "golongan_penera_2": (
+            detail.get(
+                "golongan_penera_2",
+                ""
+            )
+        ),
+    }
+
+    # =====================================================
+    # HAPUS STATE FORM LAMA
+    # =====================================================
+    for key in list(
+        st.session_state.keys()
+    ):
+        if key.startswith(
+            "uttp_"
+        ):
+            st.session_state.pop(
+                key,
+                None
+            )
+
+    # =====================================================
+    # AKTIFKAN DATA EDIT
+    # =====================================================
+    st.session_state[
+        "uttp_saved_data"
+    ] = data_edit
+
+    st.session_state[
+        "uttp_edit_pengujian_id"
+    ] = pengujian_id
+
+    st.session_state[
+        "uttp_mode"
+    ] = "📝 Input Data Pengujian"
 
 def run():
     init_uttp_state()
@@ -2085,6 +2415,14 @@ def run():
 
     if mode == "📝 Input Data Pengujian":
         st.header("Masukkan Data Pengujian UTTP")
+
+        if st.session_state.get(
+            "uttp_edit_pengujian_id"
+        ):
+            st.warning(
+                "✏️ Anda sedang mengedit pengujian "
+                "yang sudah tersimpan."
+            )
 
         col1, col2 = st.columns(2)
 
@@ -2633,6 +2971,10 @@ def run():
                             "tidak sesuai klasifikasi kelas timbangan."
                         )
                 daftar_rincian_uttp.append({
+                    "_uttp_id": data_lama.get(
+                        "_uttp_id"
+                    ),
+                
                     "no": index + 1,
                     "nama_alat": nama_alat_rincian,
                     "merek": merek_rincian,
@@ -3483,6 +3825,22 @@ def run():
                         hide_index=True,
                     )
 
+            st.markdown("---")
+
+            if st.button(
+                "✏️ Edit Pengujian",
+                type="primary",
+                use_container_width=True,
+                key=(
+                    "uttp_edit_riwayat_"
+                    f"{pengujian.get('id')}"
+                ),
+            ):
+                gunakan_data_lama_untuk_edit_uttp(
+                    pengujian
+                )
+            
+                st.rerun()
         except Exception as exc:
             st.error(
                 "Gagal membaca riwayat UTTP: "
