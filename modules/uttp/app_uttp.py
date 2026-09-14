@@ -2182,43 +2182,77 @@ def init_uttp_state():
         rincian_saved = []
 
     defaults = {
+        # =================================================
+        # FILE / STATUS DATABASE
+        # =================================================
         "uttp_generated_files": {},
 
-        "uttp_data_penera": load_data_penera(),
+        "uttp_sudah_disimpan_db": False,
+
+        "uttp_last_pengujian_id": None,
+
+        # =================================================
+        # MASTER DATA
+        # =================================================
+        "uttp_data_penera": (
+            load_data_penera()
+        ),
+
         "uttp_data_perusahaan": (
             load_data_perusahaan()
         ),
-        "uttp_sudah_disimpan_db": False,
-        "uttp_last_pengujian_id": None,
-        "uttp_nama_perusahaan": saved.get(
-            "pemilik",
-            ""
+
+        # =================================================
+        # PEMILIK
+        # =================================================
+        "uttp_nama_perusahaan": (
+            saved.get(
+                "pemilik",
+                ""
+            )
         ),
-        
-        "uttp_alamat_input": saved.get(
-            "alamat",
-            ""
+
+        "uttp_alamat_input": (
+            saved.get(
+                "alamat",
+                ""
+            )
         ),
 
         "uttp_manual_perusahaan": False,
 
+        # =================================================
+        # NAVIGASI
+        # =================================================
         "uttp_mode": (
             "📝 Input Data Pengujian"
         ),
 
+        # =================================================
+        # JUMLAH RINCIAN
+        # =================================================
         "uttp_jumlah_rincian_alat": max(
             1,
             len(rincian_saved)
         ),
-        
-        "uttp_jenis_pengujian": saved.get(
-            "jenis_pengujian",
-            "Tera Ulang"
+
+        # =================================================
+        # DATA PENGUJIAN
+        # =================================================
+        "uttp_jenis_pengujian": (
+            saved.get(
+                "jenis_pengujian",
+                "Tera Ulang"
+            )
         ),
-        "uttp_lokasi_pengujian": saved.get(
-            "lokasi_pengujian",
-            "Perusahaan"
+
+        "uttp_lokasi_pengujian": (
+            saved.get(
+                "lokasi_pengujian",
+                "Perusahaan"
+            )
         ),
+
         "uttp_tanggal_pengujian": (
             tanggal_pengujian_saved
         ),
@@ -2227,57 +2261,84 @@ def init_uttp_state():
             tanggal_sertifikat_saved
         ),
 
-        "uttp_nomor_sertifikat": saved.get(
-            "nomor_sertifikat",
-            generate_nomor_sertifikat(
-                tanggal_pengujian_saved
+        "uttp_nomor_sertifikat": (
+            saved.get(
+                "nomor_sertifikat",
+                generate_nomor_sertifikat(
+                    tanggal_pengujian_saved
+                )
             )
         ),
 
-        "uttp_nomor_order": saved.get(
-            "nomor_order",
-            generate_nomor_order(
-                tanggal_pengujian_saved
+        "uttp_nomor_order": (
+            saved.get(
+                "nomor_order",
+                generate_nomor_order(
+                    tanggal_pengujian_saved
+                )
             )
         ),
 
-        "uttp_alat_standar": saved.get(
-            "alat_standar",
-            []
+        # =================================================
+        # ALAT STANDAR
+        # =================================================
+        "uttp_alat_standar": (
+            saved.get(
+                "alat_standar",
+                []
+            )
         ),
 
-        "uttp_jumlah_penera": saved.get(
-            "jumlah_penera",
-            1
+        # =================================================
+        # PENERA
+        # =================================================
+        "uttp_jumlah_penera": (
+            saved.get(
+                "jumlah_penera",
+                1
+            )
         ),
 
-        "uttp_penera_1": saved.get(
-            "penera_1",
-            ""
+        "uttp_penera_1": (
+            saved.get(
+                "penera_1",
+                ""
+            )
         ),
 
-        "uttp_penera_2": saved.get(
-            "penera_2",
-            ""
-        ),
-        "uttp_nip_penera_1": saved.get(
-            "nip_penera_1",
-            ""
+        "uttp_penera_2": (
+            saved.get(
+                "penera_2",
+                ""
+            )
         ),
 
-        "uttp_golongan_penera_1": saved.get(
-            "golongan_penera_1",
-            ""
+        "uttp_nip_penera_1": (
+            saved.get(
+                "nip_penera_1",
+                ""
+            )
         ),
 
-        "uttp_nip_penera_2": saved.get(
-            "nip_penera_2",
-            ""
+        "uttp_golongan_penera_1": (
+            saved.get(
+                "golongan_penera_1",
+                ""
+            )
         ),
 
-        "uttp_golongan_penera_2": saved.get(
-            "golongan_penera_2",
-            ""
+        "uttp_nip_penera_2": (
+            saved.get(
+                "nip_penera_2",
+                ""
+            )
+        ),
+
+        "uttp_golongan_penera_2": (
+            saved.get(
+                "golongan_penera_2",
+                ""
+            )
         ),
     }
 
@@ -2681,6 +2742,20 @@ def gunakan_data_lama_untuk_edit_uttp(
         "uttp_edit_pengujian_id"
     ] = pengujian_id
 
+    # Pengujian lama akan diedit,
+    # jadi hasil Generate sebelumnya tidak berlaku.
+    st.session_state[
+        "uttp_sudah_disimpan_db"
+    ] = False
+
+    st.session_state[
+        "uttp_last_pengujian_id"
+    ] = None
+
+    st.session_state[
+        "uttp_generated_files"
+    ] = {}
+
     st.session_state[
         "uttp_mode"
     ] = "📝 Input Data Pengujian"
@@ -2938,6 +3013,18 @@ def gunakan_riwayat_untuk_pengujian_baru_uttp(
     st.session_state[
         "uttp_saved_data"
     ] = data_baru
+
+    st.session_state[
+        "uttp_sudah_disimpan_db"
+    ] = False
+
+    st.session_state[
+        "uttp_last_pengujian_id"
+    ] = None
+
+    st.session_state[
+        "uttp_generated_files"
+    ] = {}
 
     st.session_state[
         "uttp_mode"
