@@ -387,6 +387,7 @@ def get_or_create_master_meter_air(
         ),
 
         "kelas": kelas,
+        "lokasi": "Dalam Kantor",
 
         "status": "aktif",
     }
