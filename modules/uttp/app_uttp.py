@@ -2,6 +2,7 @@ import re
 import traceback
 from datetime import date
 from pathlib import Path
+from supabase import create_client
 
 import pandas as pd
 import streamlit as st
@@ -23,7 +24,1261 @@ def find_project_root():
 
 PROJECT_ROOT = find_project_root()
 OUTPUT_DIR = PROJECT_ROOT / "output" / "uttp"
+# =========================================================
+# SUPABASE UTTP UMUM
+# =========================================================
+def get_supabase_uttp():
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_KEY"]
 
+    return create_client(
+        url,
+        key
+    )
+
+
+# =========================================================
+# KONVERSI NILAI NUMERIK
+# =========================================================
+def angka_numeric_uttp(value):
+    """
+    Mengubah:
+    0,005 -> 0.005
+    0.005 -> 0.005
+
+    Nilai kosong / "-" -> None
+    """
+
+    if value is None:
+        return None
+
+    text = str(
+        value
+    ).strip()
+
+    if (
+        not text
+        or text == "-"
+    ):
+        return None
+
+    text = text.replace(
+        ",",
+        "."
+    )
+
+    try:
+        return float(
+            text
+        )
+
+    except (
+        TypeError,
+        ValueError
+    ):
+        return None
+
+
+# =========================================================
+# BERLAKU SAMPAI
+# =========================================================
+def berlaku_sampai_uttp(
+    tanggal_pengujian
+):
+    tanggal_obj = parse_tanggal_uttp(
+        tanggal_pengujian
+    )
+
+    try:
+        tanggal_berlaku = (
+            tanggal_obj.replace(
+                year=(
+                    tanggal_obj.year
+                    + 1
+                )
+            )
+        )
+
+    except ValueError:
+        # Kasus 29 Februari
+        tanggal_berlaku = (
+            tanggal_obj.replace(
+                year=(
+                    tanggal_obj.year
+                    + 1
+                ),
+                month=2,
+                day=28,
+            )
+        )
+
+    return tanggal_berlaku.isoformat()
+
+
+# =========================================================
+# SIMPAN / UPDATE MASTER PERUSAHAAN
+# =========================================================
+def simpan_atau_update_perusahaan_uttp(
+    supabase,
+    nama_perusahaan,
+    alamat,
+):
+    nama_perusahaan = str(
+        nama_perusahaan
+        or ""
+    ).strip()
+
+    alamat = str(
+        alamat
+        or ""
+    ).strip()
+
+    if not nama_perusahaan:
+        raise ValueError(
+            "Nama pemilik / perusahaan belum diisi."
+        )
+
+    # =====================================================
+    # CARI PERUSAHAAN
+    # =====================================================
+    response = (
+        supabase
+        .table(
+            "perusahaan"
+        )
+        .select(
+            "id, nama_perusahaan, alamat"
+        )
+        .eq(
+            "nama_perusahaan",
+            nama_perusahaan
+        )
+        .limit(1)
+        .execute()
+    )
+
+    # =====================================================
+    # SUDAH ADA
+    # =====================================================
+    if response.data:
+        perusahaan = (
+            response.data[0]
+        )
+
+        perusahaan_id = (
+            perusahaan["id"]
+        )
+
+        alamat_lama = str(
+            perusahaan.get(
+                "alamat",
+                ""
+            )
+            or ""
+        ).strip()
+
+        if (
+            alamat
+            and alamat != alamat_lama
+        ):
+            (
+                supabase
+                .table(
+                    "perusahaan"
+                )
+                .update({
+                    "alamat": alamat
+                })
+                .eq(
+                    "id",
+                    perusahaan_id
+                )
+                .execute()
+            )
+
+        return perusahaan_id
+
+    # =====================================================
+    # PERUSAHAAN BARU
+    # =====================================================
+    response = (
+        supabase
+        .table(
+            "perusahaan"
+        )
+        .insert({
+            "nama_perusahaan": (
+                nama_perusahaan
+            ),
+            "alamat": alamat,
+        })
+        .execute()
+    )
+
+    if not response.data:
+        raise RuntimeError(
+            "Master perusahaan gagal disimpan."
+        )
+
+    return response.data[0][
+        "id"
+    ]
+
+
+# =========================================================
+# CARI / BUAT MASTER UTTP UMUM
+# =========================================================
+def get_or_create_master_uttp_umum(
+    supabase,
+    perusahaan_id,
+    rincian,
+):
+    """
+    1 rincian UTTP = 1 master UTTP.
+
+    Prioritas identitas:
+    perusahaan_id + jenis_uttp + nomor_seri
+
+    Jika sudah ada:
+    master diperbarui dan ID lama digunakan kembali.
+
+    Jika belum:
+    dibuat master UTTP baru.
+    """
+
+    jenis_uttp = str(
+        rincian.get(
+            "nama_alat",
+            ""
+        )
+        or ""
+    ).strip()
+
+    merk = str(
+        rincian.get(
+            "merek",
+            ""
+        )
+        or ""
+    ).strip()
+
+    tipe = str(
+        rincian.get(
+            "model_tipe",
+            ""
+        )
+        or ""
+    ).strip()
+
+    nomor_seri = str(
+        rincian.get(
+            "nomor_seri",
+            ""
+        )
+        or ""
+    ).strip()
+
+    kapasitas = str(
+        rincian.get(
+            "kapasitas",
+            ""
+        )
+        or ""
+    ).strip()
+
+    satuan = str(
+        rincian.get(
+            "satuan",
+            ""
+        )
+        or ""
+    ).strip()
+
+    kelas = str(
+        rincian.get(
+            "kelas",
+            ""
+        )
+        or ""
+    ).strip()
+
+    tanpa_daya_baca = bool(
+        rincian.get(
+            "tanpa_daya_baca",
+            False
+        )
+    )
+
+    if tanpa_daya_baca:
+        daya_baca = None
+        satuan_daya_baca = None
+
+    else:
+        daya_baca = angka_numeric_uttp(
+            rincian.get(
+                "daya_baca"
+            )
+        )
+
+        satuan_daya_baca = (
+            satuan
+            if satuan
+            else None
+        )
+
+    # =====================================================
+    # VALIDASI IDENTITAS MASTER
+    # =====================================================
+    if not jenis_uttp:
+        raise ValueError(
+            "Jenis UTTP belum diisi."
+        )
+
+    if not merk:
+        raise ValueError(
+            "Merek UTTP belum diisi."
+        )
+
+    if not nomor_seri:
+        raise ValueError(
+            "Nomor seri UTTP belum diisi."
+        )
+
+    # =====================================================
+    # PAYLOAD MASTER UTTP
+    # =====================================================
+    payload_uttp = {
+        "perusahaan_id": (
+            perusahaan_id
+        ),
+
+        "jenis_uttp": (
+            jenis_uttp
+        ),
+
+        "merk": merk,
+
+        "tipe": (
+            tipe
+            if tipe
+            else None
+        ),
+
+        "nomor_seri": (
+            nomor_seri
+        ),
+
+        "kapasitas": (
+            kapasitas
+            if kapasitas
+            else None
+        ),
+
+        "satuan_kapasitas": (
+            satuan
+            if satuan
+            else None
+        ),
+
+        "daya_baca": (
+            daya_baca
+        ),
+
+        "satuan_daya_baca": (
+            satuan_daya_baca
+        ),
+
+        # Belum ada input e pada form.
+        "interval_skala_verifikasi": None,
+
+        "kelas": (
+            kelas
+            if kelas
+            else None
+        ),
+
+        "status": "aktif",
+    }
+
+    # =====================================================
+    # CARI MASTER YANG SUDAH ADA
+    # =====================================================
+    response_existing = (
+        supabase
+        .table(
+            "uttp"
+        )
+        .select(
+            "id"
+        )
+        .eq(
+            "perusahaan_id",
+            perusahaan_id
+        )
+        .eq(
+            "jenis_uttp",
+            jenis_uttp
+        )
+        .eq(
+            "nomor_seri",
+            nomor_seri
+        )
+        .limit(1)
+        .execute()
+    )
+
+    # =====================================================
+    # SUDAH ADA → UPDATE MASTER
+    # =====================================================
+    if response_existing.data:
+        uttp_id = (
+            response_existing
+            .data[0]["id"]
+        )
+
+        response_update = (
+            supabase
+            .table(
+                "uttp"
+            )
+            .update(
+                payload_uttp
+            )
+            .eq(
+                "id",
+                uttp_id
+            )
+            .execute()
+        )
+
+        if not response_update.data:
+            raise RuntimeError(
+                "Master UTTP lama gagal diperbarui."
+            )
+
+        return (
+            uttp_id,
+            False
+        )
+
+    # =====================================================
+    # BELUM ADA → BUAT MASTER BARU
+    # =====================================================
+    response_insert = (
+        supabase
+        .table(
+            "uttp"
+        )
+        .insert(
+            payload_uttp
+        )
+        .execute()
+    )
+
+    if not response_insert.data:
+        raise RuntimeError(
+            "Master UTTP gagal disimpan."
+        )
+
+    return (
+        response_insert.data[0]["id"],
+        True
+    )
+
+
+# =========================================================
+# SIMPAN PENGUJIAN UTTP UMUM
+# =========================================================
+def simpan_pengujian_uttp_umum_ke_supabase(
+    data
+):
+    """
+    Struktur:
+
+    1 sertifikat / kegiatan
+        = 1 row pengujian
+
+    1 rincian alat
+        = 1 row master uttp
+
+    hubungan kegiatan dengan alat
+        = pengujian_uttp
+    """
+
+    if not data:
+        raise ValueError(
+            "Data pengujian UTTP belum tersedia."
+        )
+
+    supabase = get_supabase_uttp()
+
+    # =====================================================
+    # DATA HEADER
+    # =====================================================
+    pemilik = str(
+        data.get(
+            "pemilik",
+            ""
+        )
+        or ""
+    ).strip()
+
+    alamat = str(
+        data.get(
+            "alamat",
+            ""
+        )
+        or ""
+    ).strip()
+
+    nomor_sertifikat = str(
+        data.get(
+            "nomor_sertifikat",
+            ""
+        )
+        or ""
+    ).strip()
+
+    nomor_order = str(
+        data.get(
+            "nomor_order",
+            ""
+        )
+        or ""
+    ).strip()
+
+    jenis_pengujian = str(
+        data.get(
+            "jenis_pengujian",
+            "Tera Ulang"
+        )
+        or "Tera Ulang"
+    ).strip()
+
+    lokasi_pengujian = str(
+        data.get(
+            "lokasi_pengujian",
+            ""
+        )
+        or ""
+    ).strip()
+
+    penera_1 = str(
+        data.get(
+            "penera_1",
+            ""
+        )
+        or ""
+    ).strip()
+
+    penera_2 = str(
+        data.get(
+            "penera_2",
+            ""
+        )
+        or ""
+    ).strip()
+
+    daftar_rincian = (
+        data.get(
+            "daftar_rincian_uttp",
+            []
+        )
+        or []
+    )
+
+    if not nomor_sertifikat:
+        raise ValueError(
+            "Nomor sertifikat belum diisi."
+        )
+
+    if not nomor_order:
+        raise ValueError(
+            "Nomor order belum diisi."
+        )
+
+    if not daftar_rincian:
+        raise ValueError(
+            "Daftar rincian UTTP belum tersedia."
+        )
+
+    # =====================================================
+    # CEK NOMOR SERTIFIKAT
+    # Dilakukan sebelum database lain diubah.
+    # =====================================================
+    response_sertifikat = (
+        supabase
+        .table(
+            "pengujian"
+        )
+        .select(
+            "id"
+        )
+        .eq(
+            "nomor_sertifikat",
+            nomor_sertifikat
+        )
+        .limit(1)
+        .execute()
+    )
+
+    if response_sertifikat.data:
+        raise ValueError(
+            "Nomor sertifikat sudah pernah digunakan. "
+            "Silakan gunakan nomor sertifikat yang berbeda."
+        )
+
+    # =====================================================
+    # PERUSAHAAN
+    # =====================================================
+    perusahaan_id = (
+        simpan_atau_update_perusahaan_uttp(
+            supabase=supabase,
+            nama_perusahaan=pemilik,
+            alamat=alamat,
+        )
+    )
+
+    # =====================================================
+    # TANGGAL
+    # =====================================================
+    tanggal_pengujian = (
+        parse_tanggal_uttp(
+            data.get(
+                "tanggal_pengujian"
+            )
+        )
+    )
+
+    tanggal_sertifikat = (
+        parse_tanggal_uttp(
+            data.get(
+                "tanggal_sertifikat"
+            )
+        )
+    )
+
+    # =====================================================
+    # DATA HEADER JSON
+    # =====================================================
+    data_pengujian_header = {
+        "schema_uttp_umum": 1,
+
+        "lokasi_pengujian": (
+            lokasi_pengujian
+        ),
+
+        "alat_standar": (
+            data.get(
+                "alat_standar",
+                []
+            )
+            or []
+        ),
+
+        "nip_penera_1": str(
+            data.get(
+                "nip_penera_1",
+                ""
+            )
+            or ""
+        ).strip(),
+
+        "golongan_penera_1": str(
+            data.get(
+                "golongan_penera_1",
+                ""
+            )
+            or ""
+        ).strip(),
+
+        "nip_penera_2": str(
+            data.get(
+                "nip_penera_2",
+                ""
+            )
+            or ""
+        ).strip(),
+
+        "golongan_penera_2": str(
+            data.get(
+                "golongan_penera_2",
+                ""
+            )
+            or ""
+        ).strip(),
+    }
+
+    # =====================================================
+    # MASTER UTTP + RELASI
+    # =====================================================
+    daftar_relasi = []
+    uttp_baru_dibuat = []
+
+    try:
+        for urutan, rincian in enumerate(
+            daftar_rincian,
+            start=1
+        ):
+            (
+                uttp_id,
+                dibuat_baru
+            ) = (
+                get_or_create_master_uttp_umum(
+                    supabase=supabase,
+                    perusahaan_id=perusahaan_id,
+                    rincian=rincian,
+                )
+            )
+
+            if dibuat_baru:
+                uttp_baru_dibuat.append(
+                    uttp_id
+                )
+
+            daftar_relasi.append({
+                "uttp_id": (
+                    uttp_id
+                ),
+
+                "urutan": (
+                    urutan
+                ),
+
+                "hasil": "SAH",
+
+                "data_detail": {},
+            })
+
+        # =================================================
+        # HEADER PENGUJIAN
+        # =================================================
+        payload_pengujian = {
+            "perusahaan_id": (
+                perusahaan_id
+            ),
+
+            # Banyak UTTP dapat berada dalam 1 sertifikat
+            "uttp_id": None,
+
+            "tanggal_pengujian": (
+                tanggal_pengujian.isoformat()
+            ),
+
+            "tanggal_sertifikat": (
+                tanggal_sertifikat.isoformat()
+            ),
+
+            "jenis_pengujian": (
+                jenis_pengujian
+            ),
+
+            "hasil": "SAH",
+
+            "nomor_order": (
+                nomor_order
+            ),
+
+            "nomor_sertifikat": (
+                nomor_sertifikat
+            ),
+
+            "penera_1": (
+                penera_1
+            ),
+
+            "penera_2": (
+                penera_2
+                if penera_2
+                else None
+            ),
+
+            "berlaku_sampai": (
+                berlaku_sampai_uttp(
+                    tanggal_pengujian
+                )
+            ),
+
+            "data_pengujian": (
+                data_pengujian_header
+            ),
+        }
+
+        response_pengujian = (
+            supabase
+            .table(
+                "pengujian"
+            )
+            .insert(
+                payload_pengujian
+            )
+            .execute()
+        )
+
+        if not response_pengujian.data:
+            raise RuntimeError(
+                "Header pengujian UTTP gagal disimpan."
+            )
+
+        pengujian_id = (
+            response_pengujian
+            .data[0]["id"]
+        )
+
+        # =================================================
+        # RELASI PENGUJIAN - UTTP
+        # =================================================
+        payload_relasi = [
+            {
+                "pengujian_id": (
+                    pengujian_id
+                ),
+                **relasi,
+            }
+            for relasi in daftar_relasi
+        ]
+
+        response_relasi = (
+            supabase
+            .table(
+                "pengujian_uttp"
+            )
+            .insert(
+                payload_relasi
+            )
+            .execute()
+        )
+
+        if not response_relasi.data:
+            raise RuntimeError(
+                "Relasi pengujian dan UTTP "
+                "gagal disimpan."
+            )
+
+        return {
+            "pengujian": (
+                response_pengujian.data
+            ),
+
+            "pengujian_uttp": (
+                response_relasi.data
+            ),
+
+            "uttp_ids": [
+                item["uttp_id"]
+                for item in daftar_relasi
+            ],
+        }
+
+    except Exception:
+
+        # =================================================
+        # ROLLBACK HEADER JIKA SUDAH TERBUAT
+        # =================================================
+        if "pengujian_id" in locals():
+            (
+                supabase
+                .table(
+                    "pengujian"
+                )
+                .delete()
+                .eq(
+                    "id",
+                    pengujian_id
+                )
+                .execute()
+            )
+
+        # =================================================
+        # HAPUS MASTER UTTP YANG BARU DIBUAT
+        #
+        # UTTP lama yang hanya diperbarui tidak dihapus.
+        # =================================================
+        for uttp_id_baru in (
+            uttp_baru_dibuat
+        ):
+            (
+                supabase
+                .table(
+                    "uttp"
+                )
+                .delete()
+                .eq(
+                    "id",
+                    uttp_id_baru
+                )
+                .execute()
+            )
+
+        raise
+
+# =========================================================
+# AMBIL RIWAYAT PENGUJIAN UTTP UMUM
+# =========================================================
+def ambil_riwayat_uttp_umum():
+    supabase = get_supabase_uttp()
+
+    # =====================================================
+    # 1. AMBIL HEADER PENGUJIAN
+    # =====================================================
+    response_pengujian = (
+        supabase
+        .table("pengujian")
+        .select("*")
+        .order(
+            "tanggal_pengujian",
+            desc=True
+        )
+        .execute()
+    )
+
+    semua_pengujian = (
+        response_pengujian.data
+        or []
+    )
+
+    # =====================================================
+    # HANYA PENGUJIAN UTTP UMUM
+    # =====================================================
+    daftar_pengujian = []
+
+    for row in semua_pengujian:
+
+        detail = (
+            row.get(
+                "data_pengujian"
+            )
+            or {}
+        )
+
+        schema_uttp_umum = str(
+            detail.get(
+                "schema_uttp_umum",
+                ""
+            )
+            or ""
+        ).strip()
+
+        if schema_uttp_umum == "1":
+            daftar_pengujian.append(
+                row
+            )
+
+    if not daftar_pengujian:
+        return []
+
+    # =====================================================
+    # 2. AMBIL SELURUH RELASI PENGUJIAN - UTTP
+    # =====================================================
+    daftar_pengujian_id = [
+        row.get("id")
+        for row in daftar_pengujian
+        if row.get("id") is not None
+    ]
+
+    response_relasi = (
+        supabase
+        .table("pengujian_uttp")
+        .select(
+            "id, pengujian_id, "
+            "uttp_id, urutan, hasil"
+        )
+        .in_(
+            "pengujian_id",
+            daftar_pengujian_id
+        )
+        .execute()
+    )
+
+    semua_relasi = (
+        response_relasi.data
+        or []
+    )
+
+    relasi_per_pengujian = {}
+
+    for relasi in semua_relasi:
+
+        pengujian_id = relasi.get(
+            "pengujian_id"
+        )
+
+        relasi_per_pengujian.setdefault(
+            pengujian_id,
+            []
+        ).append(
+            relasi
+        )
+
+    # =====================================================
+    # 3. MASTER UTTP
+    # =====================================================
+    daftar_uttp_id = list({
+        relasi.get("uttp_id")
+        for relasi in semua_relasi
+        if relasi.get("uttp_id") is not None
+    })
+
+    uttp_map = {}
+
+    if daftar_uttp_id:
+
+        response_uttp = (
+            supabase
+            .table("uttp")
+            .select(
+                "id, perusahaan_id, jenis_uttp, "
+                "merk, tipe, nomor_seri, "
+                "kapasitas, satuan_kapasitas, "
+                "daya_baca, satuan_daya_baca, "
+                "interval_skala_verifikasi, "
+                "kelas, lokasi, status"
+            )
+            .in_(
+                "id",
+                daftar_uttp_id
+            )
+            .execute()
+        )
+
+        uttp_map = {
+            row["id"]: row
+            for row in (
+                response_uttp.data
+                or []
+            )
+        }
+
+    # =====================================================
+    # 4. MASTER PERUSAHAAN
+    # =====================================================
+    daftar_perusahaan_id = list({
+        row.get("perusahaan_id")
+        for row in daftar_pengujian
+        if row.get("perusahaan_id") is not None
+    })
+
+    perusahaan_map = {}
+
+    if daftar_perusahaan_id:
+
+        response_perusahaan = (
+            supabase
+            .table("perusahaan")
+            .select(
+                "id, nama_perusahaan, alamat"
+            )
+            .in_(
+                "id",
+                daftar_perusahaan_id
+            )
+            .execute()
+        )
+
+        perusahaan_map = {
+            row["id"]: row
+            for row in (
+                response_perusahaan.data
+                or []
+            )
+        }
+
+    # =====================================================
+    # 5. BANGUN RIWAYAT PER KEGIATAN
+    # =====================================================
+    hasil = []
+
+    for header in daftar_pengujian:
+
+        pengujian_id = header.get(
+            "id"
+        )
+
+        perusahaan = perusahaan_map.get(
+            header.get(
+                "perusahaan_id"
+            ),
+            {}
+        )
+
+        detail_header = dict(
+            header.get(
+                "data_pengujian"
+            )
+            or {}
+        )
+
+        relasi_kegiatan = (
+            relasi_per_pengujian.get(
+                pengujian_id,
+                []
+            )
+            or []
+        )
+
+        relasi_kegiatan = sorted(
+            relasi_kegiatan,
+            key=lambda item: int(
+                item.get(
+                    "urutan",
+                    999999
+                )
+                or 999999
+            )
+        )
+
+        daftar_rincian_uttp = []
+
+        for nomor, relasi in enumerate(
+            relasi_kegiatan,
+            start=1
+        ):
+
+            uttp_id = relasi.get(
+                "uttp_id"
+            )
+
+            alat = uttp_map.get(
+                uttp_id,
+                {}
+            )
+
+            daya_baca = alat.get(
+                "daya_baca"
+            )
+
+            tanpa_daya_baca = (
+                daya_baca is None
+            )
+
+            satuan = str(
+                alat.get(
+                    "satuan_kapasitas",
+                    ""
+                )
+                or alat.get(
+                    "satuan_daya_baca",
+                    ""
+                )
+                or ""
+            ).strip()
+
+            daftar_rincian_uttp.append({
+                "_uttp_id": uttp_id,
+
+                "no": nomor,
+
+                "nama_alat": str(
+                    alat.get(
+                        "jenis_uttp",
+                        ""
+                    )
+                    or ""
+                ).strip(),
+
+                "merek": str(
+                    alat.get(
+                        "merk",
+                        ""
+                    )
+                    or ""
+                ).strip(),
+
+                "model_tipe": str(
+                    alat.get(
+                        "tipe",
+                        ""
+                    )
+                    or ""
+                ).strip(),
+
+                "nomor_seri": str(
+                    alat.get(
+                        "nomor_seri",
+                        ""
+                    )
+                    or ""
+                ).strip(),
+
+                "kapasitas": str(
+                    alat.get(
+                        "kapasitas",
+                        ""
+                    )
+                    or ""
+                ).strip(),
+
+                "daya_baca": (
+                    "-"
+                    if tanpa_daya_baca
+                    else str(
+                        daya_baca
+                    )
+                ),
+
+                "tanpa_daya_baca": (
+                    tanpa_daya_baca
+                ),
+
+                "satuan": satuan,
+
+                "kelas": str(
+                    alat.get(
+                        "kelas",
+                        ""
+                    )
+                    or ""
+                ).strip(),
+
+                "nilai_n": None,
+            })
+
+        # =================================================
+        # GABUNGKAN HEADER + MASTER
+        # =================================================
+        detail_header[
+            "pemilik"
+        ] = str(
+            perusahaan.get(
+                "nama_perusahaan",
+                ""
+            )
+            or ""
+        ).strip()
+
+        detail_header[
+            "alamat"
+        ] = str(
+            perusahaan.get(
+                "alamat",
+                ""
+            )
+            or ""
+        ).strip()
+
+        detail_header[
+            "daftar_rincian_uttp"
+        ] = daftar_rincian_uttp
+
+        detail_header[
+            "jumlah_alat"
+        ] = len(
+            daftar_rincian_uttp
+        )
+
+        kegiatan = dict(
+            header
+        )
+
+        kegiatan[
+            "data_pengujian"
+        ] = detail_header
+
+        hasil.append(
+            kegiatan
+        )
+
+    return hasil
 
 def bulan_ke_romawi(bulan):
     romawi = [
@@ -823,6 +2078,7 @@ def run():
             [
                 "📝 Input Data Pengujian",
                 "📄 Preview & Generate Data",
+                "📚 Riwayat UTTP",
             ],
             key="uttp_mode",
         )
@@ -1917,6 +3173,15 @@ def run():
                     str(output_file),
                 )
 
+                # =====================================================
+                # SIMPAN PENGUJIAN KE SUPABASE
+                # =====================================================
+                hasil_simpan = (
+                    simpan_pengujian_uttp_umum_ke_supabase(
+                        data
+                    )
+                )
+                
                 st.session_state.uttp_generated_files[
                     "sertifikat"
                 ] = str(output_file)
@@ -1951,6 +3216,281 @@ def run():
                     key="uttp_download_sertifikat",
                 )
 
+    # =========================================================
+    # MODE RIWAYAT UTTP UMUM
+    # =========================================================
+    elif mode == "📚 Riwayat UTTP":
 
+        st.header(
+            "📚 Riwayat Pengujian UTTP"
+        )
+
+        try:
+            daftar_riwayat = (
+                ambil_riwayat_uttp_umum()
+            )
+
+            if not daftar_riwayat:
+                st.info(
+                    "Belum ada riwayat pengujian "
+                    "UTTP Umum."
+                )
+                return
+
+            # =================================================
+            # TABEL RINGKASAN
+            # =================================================
+            data_ringkasan = []
+
+            for pengujian in daftar_riwayat:
+
+                detail = (
+                    pengujian.get(
+                        "data_pengujian"
+                    )
+                    or {}
+                )
+
+                daftar_rincian = (
+                    detail.get(
+                        "daftar_rincian_uttp",
+                        []
+                    )
+                    or []
+                )
+
+                data_ringkasan.append({
+                    "ID": (
+                        pengujian.get(
+                            "id"
+                        )
+                    ),
+
+                    "Tanggal": (
+                        pengujian.get(
+                            "tanggal_pengujian",
+                            ""
+                        )
+                    ),
+
+                    "Pemilik": (
+                        detail.get(
+                            "pemilik",
+                            ""
+                        )
+                    ),
+
+                    "Jenis": (
+                        pengujian.get(
+                            "jenis_pengujian",
+                            ""
+                        )
+                    ),
+
+                    "Nomor Sertifikat": (
+                        pengujian.get(
+                            "nomor_sertifikat",
+                            ""
+                        )
+                    ),
+
+                    "Nomor Order": (
+                        pengujian.get(
+                            "nomor_order",
+                            ""
+                        )
+                    ),
+
+                    "Jumlah UTTP": len(
+                        daftar_rincian
+                    ),
+
+                    "Hasil": (
+                        pengujian.get(
+                            "hasil",
+                            ""
+                        )
+                    ),
+                })
+
+            df_riwayat = pd.DataFrame(
+                data_ringkasan
+            )
+
+            st.dataframe(
+                df_riwayat,
+                use_container_width=True,
+                hide_index=True,
+            )
+
+            st.markdown("---")
+
+            # =================================================
+            # PILIH DETAIL PENGUJIAN
+            # =================================================
+            opsi_pengujian = {}
+
+            for pengujian in daftar_riwayat:
+
+                detail = (
+                    pengujian.get(
+                        "data_pengujian"
+                    )
+                    or {}
+                )
+
+                label = (
+                    f"{pengujian.get('tanggal_pengujian', '')}"
+                    f" | "
+                    f"{detail.get('pemilik', '')}"
+                    f" | "
+                    f"{pengujian.get('nomor_sertifikat', '')}"
+                )
+
+                opsi_pengujian[
+                    label
+                ] = pengujian
+
+            pilihan = st.selectbox(
+                "Lihat Detail Pengujian",
+                options=[
+                    ""
+                ] + list(
+                    opsi_pengujian.keys()
+                ),
+                key="uttp_riwayat_pilih",
+            )
+
+            if pilihan:
+
+                pengujian = (
+                    opsi_pengujian[
+                        pilihan
+                    ]
+                )
+
+                detail = (
+                    pengujian.get(
+                        "data_pengujian"
+                    )
+                    or {}
+                )
+
+                st.subheader(
+                    "Detail Pengujian"
+                )
+
+                col1, col2 = (
+                    st.columns(2)
+                )
+
+                with col1:
+                    st.write(
+                        "**Pemilik:**",
+                        detail.get(
+                            "pemilik",
+                            "-"
+                        )
+                    )
+
+                    st.write(
+                        "**Alamat:**",
+                        detail.get(
+                            "alamat",
+                            "-"
+                        )
+                    )
+
+                    st.write(
+                        "**Tanggal Pengujian:**",
+                        pengujian.get(
+                            "tanggal_pengujian",
+                            "-"
+                        )
+                    )
+
+                    st.write(
+                        "**Jenis Pengujian:**",
+                        pengujian.get(
+                            "jenis_pengujian",
+                            "-"
+                        )
+                    )
+
+                with col2:
+                    st.write(
+                        "**Nomor Sertifikat:**",
+                        pengujian.get(
+                            "nomor_sertifikat",
+                            "-"
+                        )
+                    )
+
+                    st.write(
+                        "**Nomor Order:**",
+                        pengujian.get(
+                            "nomor_order",
+                            "-"
+                        )
+                    )
+
+                    st.write(
+                        "**Penera:**",
+                        pengujian.get(
+                            "penera_1",
+                            "-"
+                        )
+                    )
+
+                    st.write(
+                        "**Hasil:**",
+                        pengujian.get(
+                            "hasil",
+                            "-"
+                        )
+                    )
+
+                st.markdown(
+                    "### Daftar Rincian UTTP"
+                )
+
+                daftar_rincian = (
+                    detail.get(
+                        "daftar_rincian_uttp",
+                        []
+                    )
+                    or []
+                )
+
+                if daftar_rincian:
+
+                    df_rincian = pd.DataFrame(
+                        daftar_rincian
+                    )
+
+                    df_rincian = df_rincian.drop(
+                        columns=[
+                            "_uttp_id",
+                            "tanpa_daya_baca",
+                            "nilai_n",
+                        ],
+                        errors="ignore",
+                    )
+
+                    st.dataframe(
+                        df_rincian,
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+
+        except Exception as exc:
+            st.error(
+                "Gagal membaca riwayat UTTP: "
+                f"{exc}"
+            )
+
+            st.code(
+                traceback.format_exc()
+            )
 if __name__ == "__main__":
     run()
