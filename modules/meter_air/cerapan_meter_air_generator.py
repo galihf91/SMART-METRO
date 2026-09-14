@@ -168,59 +168,215 @@ def generate_cerapan_meter_air_pdf(data, output_path):
     story = []
 
     # =====================================================
-    # HEADER / JUDUL
+    # HEADER CERAPAN
     # =====================================================
+    
+    nomor_order = str(
+        data.get(
+            "nomor_order",
+            ""
+        )
+        or ""
+    ).strip()
+    
     header = Table(
         [
             [
                 _p(
                     "CERAPAN PENGUJIAN METER AIR",
                     styles["title"]
-                )
-            ]
+                ),
+                "Halaman",
+                "1 dari 1",
+            ],
+            [
+                "",
+                "Nomor Order",
+                nomor_order,
+            ],
         ],
-        colWidths=[19.0 * cm],
-        rowHeights=[0.7 * cm],
+    
+        # Total = 19 cm
+        colWidths=[
+            13.60 * cm,   # Judul
+            2.80 * cm,    # Label kanan
+            2.60 * cm,    # Nilai kanan
+        ],
+    
+        rowHeights=[
+            0.60 * cm,
+            0.60 * cm,
+        ],
     )
-
+    
     header.setStyle(
         TableStyle(
             [
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-                ("TOPPADDING", (0, 0), (-1, -1), 0),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                # =================================================
+                # JUDUL KIRI MERGE 2 BARIS
+                # =================================================
+                (
+                    "SPAN",
+                    (0, 0),
+                    (0, 1),
+                ),
+    
+                # =================================================
+                # GARIS / BORDER
+                # =================================================
+                (
+                    "BOX",
+                    (0, 0),
+                    (-1, -1),
+                    0.55,
+                    colors.black,
+                ),
+    
+                # Garis vertikal semua kolom
+                (
+                    "LINEBEFORE",
+                    (1, 0),
+                    (1, -1),
+                    0.55,
+                    colors.black,
+                ),
+    
+                (
+                    "LINEBEFORE",
+                    (2, 0),
+                    (2, -1),
+                    0.55,
+                    colors.black,
+                ),
+    
+                # Garis horizontal hanya area kanan
+                (
+                    "LINEBELOW",
+                    (1, 0),
+                    (2, 0),
+                    0.55,
+                    colors.black,
+                ),
+    
+                # =================================================
+                # POSISI
+                # =================================================
+                (
+                    "VALIGN",
+                    (0, 0),
+                    (-1, -1),
+                    "MIDDLE",
+                ),
+    
+                (
+                    "ALIGN",
+                    (0, 0),
+                    (-1, -1),
+                    "CENTER",
+                ),
+    
+                # =================================================
+                # JUDUL
+                # =================================================
+                (
+                    "FONTNAME",
+                    (0, 0),
+                    (0, 1),
+                    "Helvetica-Bold",
+                ),
+    
+                (
+                    "FONTSIZE",
+                    (0, 0),
+                    (0, 1),
+                    9,
+                ),
+    
+                # =================================================
+                # LABEL KANAN
+                # =================================================
+                (
+                    "FONTNAME",
+                    (1, 0),
+                    (1, 1),
+                    "Helvetica",
+                ),
+    
+                (
+                    "FONTSIZE",
+                    (1, 0),
+                    (1, 1),
+                    8,
+                ),
+    
+                # =================================================
+                # NILAI KANAN
+                # =================================================
+                (
+                    "FONTNAME",
+                    (2, 0),
+                    (2, 1),
+                    "Helvetica",
+                ),
+    
+                (
+                    "FONTSIZE",
+                    (2, 0),
+                    (2, 0),
+                    8,
+                ),
+    
+                # Nomor order sedikit lebih kecil
+                (
+                    "FONTSIZE",
+                    (2, 1),
+                    (2, 1),
+                    7,
+                ),
+    
+                # =================================================
+                # PADDING
+                # =================================================
+                (
+                    "LEFTPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    2,
+                ),
+    
+                (
+                    "RIGHTPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    2,
+                ),
+    
+                (
+                    "TOPPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    0,
+                ),
+    
+                (
+                    "BOTTOMPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    0,
+                ),
             ]
         )
     )
-
+    
     story.append(header)
-
-    # =====================================================
-    # GARIS PEMISAH JUDUL DAN ISI
-    # =====================================================
-    garis_judul = Table(
-        [[""]],
-        colWidths=[19.0 * cm],
-        rowHeights=[0.12 * cm],
-    )
-
-    garis_judul.setStyle(
-        TableStyle(
-            [
-                ("LINEABOVE", (0, 0), (-1, 0), 1.6, colors.black),
-                ("LINEBELOW", (0, 0), (-1, 0), 0.55, colors.black),
-                ("TOPPADDING", (0, 0), (-1, -1), 0),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-            ]
+    
+    # Jarak ke bagian berikutnya
+    story.append(
+        Spacer(
+            1,
+            0.24 * cm
         )
     )
-
-    story.append(garis_judul)
-    story.append(Spacer(1, 0.18 * cm))
-
     # =====================================================
     # IDENTITAS
     # =====================================================
