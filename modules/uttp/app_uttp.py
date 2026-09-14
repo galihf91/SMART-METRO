@@ -2229,7 +2229,8 @@ def init_uttp_state():
         "uttp_data_perusahaan": (
             load_data_perusahaan()
         ),
-
+        "uttp_sudah_disimpan_db": False,
+        "uttp_last_pengujian_id": None,
         "uttp_nama_perusahaan": saved.get(
             "pemilik",
             ""
@@ -3899,7 +3900,18 @@ def run():
 
             st.session_state.uttp_generated_files = {}
 
-            st.success("✅ Data berhasil disimpan!")
+            # Data form baru / hasil edit belum dikirim ke database
+            st.session_state[
+                "uttp_sudah_disimpan_db"
+            ] = False
+            
+            st.session_state[
+                "uttp_last_pengujian_id"
+            ] = None
+            
+            st.success(
+                "✅ Data berhasil disimpan!"
+            )
             st.balloons()
 
     elif mode == "📄 Preview & Generate Data":
@@ -4103,10 +4115,22 @@ def run():
 
         st.markdown("---")
 
+        sudah_disimpan_db = bool(
+            st.session_state.get(
+                "uttp_sudah_disimpan_db",
+                False
+            )
+        )
+        
         if st.button(
-            "🎫 Generate Sertifikat",
+            (
+                "✅ Sudah Disimpan ke Database"
+                if sudah_disimpan_db
+                else "🎫 Generate Sertifikat"
+            ),
             type="primary",
             use_container_width=True,
+            disabled=sudah_disimpan_db,
             key="uttp_generate_sertifikat",
         ):
             try:
@@ -4136,14 +4160,56 @@ def run():
                     )
                 )
                 
+                # =====================================================
+                # AMBIL ID PENGUJIAN HASIL SIMPAN
+                # =====================================================
+                pengujian_rows = (
+                    hasil_simpan.get(
+                        "pengujian",
+                        []
+                    )
+                    or []
+                )
+                
+                pengujian_id_hasil = None
+                
+                if pengujian_rows:
+                    pengujian_id_hasil = (
+                        pengujian_rows[0].get(
+                            "id"
+                        )
+                    )
+                
+                # =====================================================
+                # TANDAI SUDAH MASUK DATABASE
+                # =====================================================
+                st.session_state[
+                    "uttp_sudah_disimpan_db"
+                ] = True
+                
+                st.session_state[
+                    "uttp_last_pengujian_id"
+                ] = pengujian_id_hasil
+                
                 st.session_state.uttp_generated_files[
                     "sertifikat"
-                ] = str(output_file)
-
-                st.success(
-                    "✅ Sertifikat berhasil dibuat!"
+                ] = str(
+                    output_file
                 )
-
+                
+                if (
+                    hasil_simpan.get("mode")
+                    == "edit"
+                ):
+                    st.success(
+                        "✅ Pengujian berhasil diperbarui "
+                        "dan sertifikat berhasil dibuat!"
+                    )
+                else:
+                    st.success(
+                        "✅ Pengujian berhasil disimpan ke "
+                        "Supabase dan sertifikat berhasil dibuat!"
+                    )
             except Exception as exc:
                 st.error(f"❌ Error: {exc}")
                 st.code(traceback.format_exc())
@@ -4169,6 +4235,19 @@ def run():
                     use_container_width=True,
                     key="uttp_download_sertifikat",
                 )
+            if st.session_state.get(
+                "uttp_sudah_disimpan_db",
+                False
+            ):
+                st.markdown("---")
+            
+                if st.button(
+                    "➕ Buat Pengujian Baru",
+                    use_container_width=True,
+                    key="uttp_pengujian_baru",
+                ):
+                    reset_form_uttp()
+                    st.rerun()
 
     # =========================================================
     # MODE RIWAYAT UTTP UMUM
