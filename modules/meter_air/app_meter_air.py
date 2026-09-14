@@ -201,6 +201,333 @@ def simpan_atau_update_perusahaan_meter_air(
     return response_insert.data[0][
         "id"
     ]
+
+# =========================================================
+# KONVERSI ANGKA METER AIR
+# =========================================================
+def angka_numeric_meter_air(value):
+    """
+    Mendukung:
+    25
+    25,5
+    25.5
+
+    Kosong / "-" → None
+    """
+
+    if value is None:
+        return None
+
+    text = str(
+        value
+    ).strip()
+
+    if (
+        not text
+        or text == "-"
+    ):
+        return None
+
+    text = text.replace(
+        ",",
+        "."
+    )
+
+    try:
+        return float(
+            text
+        )
+
+    except (
+        TypeError,
+        ValueError
+    ):
+        return None
+
+
+# =========================================================
+# CARI / BUAT MASTER METER AIR
+# =========================================================
+def get_or_create_master_meter_air(
+    supabase,
+    perusahaan_id,
+    data,
+):
+    """
+    1 Meter Air = 1 master pada tabel uttp.
+
+    Identitas pencarian:
+    perusahaan_id
+    + jenis_uttp = Meter Air
+    + nomor_seri
+
+    Jika sudah ada:
+        UPDATE master lama.
+
+    Jika belum ada:
+        INSERT master baru.
+    """
+
+    jenis_uttp = "Meter Air"
+
+    merek = str(
+        data.get(
+            "merek",
+            ""
+        )
+        or ""
+    ).strip()
+
+    tipe = str(
+        data.get(
+            "model_tipe",
+            ""
+        )
+        or ""
+    ).strip()
+
+    nomor_seri = str(
+        data.get(
+            "nomor_seri",
+            ""
+        )
+        or ""
+    ).strip()
+
+    kapasitas = str(
+        data.get(
+            "kapasitas",
+            ""
+        )
+        or ""
+    ).strip()
+
+    diameter = angka_numeric_meter_air(
+        data.get(
+            "diameter"
+        )
+    )
+
+    kelas = str(
+        data.get(
+            "kelas",
+            ""
+        )
+        or ""
+    ).strip()
+
+    # =====================================================
+    # VALIDASI MASTER
+    # =====================================================
+    if not merek:
+        raise ValueError(
+            "Merek Meter Air belum diisi."
+        )
+
+    if not tipe:
+        raise ValueError(
+            "Model / tipe Meter Air belum diisi."
+        )
+
+    if not nomor_seri:
+        raise ValueError(
+            "Nomor seri Meter Air belum diisi."
+        )
+
+    if not kapasitas:
+        raise ValueError(
+            "Kapasitas Meter Air belum diisi."
+        )
+
+    if diameter is None:
+        raise ValueError(
+            "Diameter Meter Air tidak valid."
+        )
+
+    if not kelas:
+        raise ValueError(
+            "Kelas Meter Air belum diisi."
+        )
+
+    # =====================================================
+    # PAYLOAD MASTER UTTP
+    # =====================================================
+    payload_uttp = {
+        "perusahaan_id": (
+            perusahaan_id
+        ),
+
+        "jenis_uttp": (
+            jenis_uttp
+        ),
+
+        "merk": merek,
+
+        "tipe": tipe,
+
+        "nomor_seri": (
+            nomor_seri
+        ),
+
+        "kapasitas": (
+            kapasitas
+        ),
+
+        "satuan_kapasitas": (
+            "m³/h"
+        ),
+
+        "diameter": (
+            diameter
+        ),
+
+        "satuan_diameter": (
+            "mm"
+        ),
+
+        "kelas": kelas,
+
+        "status": "aktif",
+    }
+
+    # =====================================================
+    # PRIORITAS ID MASTER YANG SUDAH DIKENAL
+    #
+    # Nanti dipakai saat Edit/Riwayat.
+    # =====================================================
+    uttp_id_lama = (
+        data.get(
+            "_uttp_id"
+        )
+    )
+
+    if (
+        uttp_id_lama is not None
+        and str(
+            uttp_id_lama
+        ).strip() != ""
+    ):
+        try:
+            uttp_id_lama = int(
+                float(
+                    uttp_id_lama
+                )
+            )
+        except (
+            TypeError,
+            ValueError
+        ):
+            uttp_id_lama = None
+
+    if uttp_id_lama is not None:
+
+        response_update = (
+            supabase
+            .table("uttp")
+            .update(
+                payload_uttp
+            )
+            .eq(
+                "id",
+                uttp_id_lama
+            )
+            .eq(
+                "perusahaan_id",
+                perusahaan_id
+            )
+            .execute()
+        )
+
+        if not response_update.data:
+            raise RuntimeError(
+                "Master Meter Air lama tidak ditemukan "
+                "atau tidak sesuai dengan perusahaan."
+            )
+
+        return (
+            uttp_id_lama,
+            False
+        )
+
+    # =====================================================
+    # CARI MASTER BERDASARKAN IDENTITAS ALAT
+    # =====================================================
+    response_existing = (
+        supabase
+        .table("uttp")
+        .select(
+            "id"
+        )
+        .eq(
+            "perusahaan_id",
+            perusahaan_id
+        )
+        .eq(
+            "jenis_uttp",
+            jenis_uttp
+        )
+        .eq(
+            "nomor_seri",
+            nomor_seri
+        )
+        .limit(1)
+        .execute()
+    )
+
+    # =====================================================
+    # SUDAH ADA → UPDATE MASTER
+    # =====================================================
+    if response_existing.data:
+
+        uttp_id = (
+            response_existing
+            .data[0]["id"]
+        )
+
+        response_update = (
+            supabase
+            .table("uttp")
+            .update(
+                payload_uttp
+            )
+            .eq(
+                "id",
+                uttp_id
+            )
+            .execute()
+        )
+
+        if not response_update.data:
+            raise RuntimeError(
+                "Master Meter Air gagal diperbarui."
+            )
+
+        return (
+            uttp_id,
+            False
+        )
+
+    # =====================================================
+    # BELUM ADA → INSERT MASTER BARU
+    # =====================================================
+    response_insert = (
+        supabase
+        .table("uttp")
+        .insert(
+            payload_uttp
+        )
+        .execute()
+    )
+
+    if not response_insert.data:
+        raise RuntimeError(
+            "Master Meter Air gagal disimpan."
+        )
+
+    return (
+        response_insert.data[0]["id"],
+        True
+    )
 def tambah_5_tahun(tanggal):
     try:
         return date(
