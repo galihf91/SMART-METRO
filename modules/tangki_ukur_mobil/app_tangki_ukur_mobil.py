@@ -3243,6 +3243,401 @@ def hapus_kompartemen_tum():
         jumlah - 1
     )
 # =========================================================
+# GUNAKAN RIWAYAT UNTUK EDIT TUM
+# =========================================================
+def gunakan_data_lama_untuk_edit_tum(
+    riwayat
+):
+    pengujian_id = (
+        riwayat.get(
+            "id"
+        )
+    )
+
+    data_riwayat = dict(
+        riwayat.get(
+            "data",
+            {}
+        )
+        or {}
+    )
+
+    if pengujian_id is None:
+        raise ValueError(
+            "ID pengujian Tangki Ukur Mobil "
+            "tidak ditemukan."
+        )
+
+    # =====================================================
+    # TANDAI SEBAGAI EDIT
+    # =====================================================
+    data_riwayat[
+        "_edit_pengujian_id"
+    ] = pengujian_id
+
+    # =====================================================
+    # BERSIHKAN STATE TUM LAMA
+    # =====================================================
+    for key in list(
+        st.session_state.keys()
+    ):
+        if key.startswith(
+            "tum_"
+        ):
+            st.session_state.pop(
+                key,
+                None
+            )
+
+    # =====================================================
+    # MASUKKAN DATA RIWAYAT KE FORM
+    # =====================================================
+    st.session_state[
+        "tum_saved_data"
+    ] = data_riwayat
+
+    st.session_state[
+        "tum_edit_pengujian_id"
+    ] = pengujian_id
+
+    st.session_state[
+        "tum_sudah_disimpan_db"
+    ] = False
+
+    st.session_state[
+        "tum_last_pengujian_id"
+    ] = None
+
+    st.session_state[
+        "tum_generated_files"
+    ] = {}
+
+    st.session_state[
+        "tum_mode"
+    ] = MODE_INPUT
+
+
+# =========================================================
+# GUNAKAN RIWAYAT UNTUK PENGUJIAN BARU TUM
+# =========================================================
+def gunakan_riwayat_untuk_pengujian_baru_tum(
+    riwayat
+):
+    data_lama = dict(
+        riwayat.get(
+            "data",
+            {}
+        )
+        or {}
+    )
+
+    uttp_id = (
+        data_lama.get(
+            "_uttp_id"
+        )
+    )
+
+    if uttp_id is None:
+        raise ValueError(
+            "Master Tangki Ukur Mobil "
+            "pada riwayat tidak ditemukan."
+        )
+
+    tanggal_baru = (
+        date.today()
+    )
+
+    masa_baru = (
+        tambah_2_tahun(
+            tanggal_baru
+        )
+    )
+
+    # =====================================================
+    # DATA KEGIATAN BARU
+    #
+    # Identitas tangki tetap.
+    # Data teknis pengujian lama TIDAK dibawa.
+    # =====================================================
+    data_baru = {
+        "_edit_pengujian_id": None,
+
+        # Master UTTP lama tetap dipakai
+        "_uttp_id": (
+            uttp_id
+        ),
+
+        # =================================================
+        # PERUSAHAAN
+        # =================================================
+        "pemilik": (
+            data_lama.get(
+                "pemilik",
+                ""
+            )
+        ),
+
+        "alamat": (
+            data_lama.get(
+                "alamat",
+                ""
+            )
+        ),
+
+        # =================================================
+        # IDENTITAS TANGKI
+        # =================================================
+        "nama_alat": (
+            data_lama.get(
+                "nama_alat",
+                "Tangki Ukur Mobil"
+            )
+        ),
+
+        "jenis_cairan": (
+            data_lama.get(
+                "jenis_cairan",
+                ""
+            )
+        ),
+
+        "isi_nominal": (
+            data_lama.get(
+                "isi_nominal",
+                0
+            )
+        ),
+
+        "satuan_isi_nominal": "L",
+
+        "merek_tangki": (
+            data_lama.get(
+                "merek_tangki",
+                ""
+            )
+        ),
+
+        "tipe_no_seri_tangki": (
+            data_lama.get(
+                "tipe_no_seri_tangki",
+                ""
+            )
+        ),
+
+        # =================================================
+        # KENDARAAN
+        # =================================================
+        "merek_kendaraan": (
+            data_lama.get(
+                "merek_kendaraan",
+                ""
+            )
+        ),
+
+        "nomor_chasis_no_mesin": (
+            data_lama.get(
+                "nomor_chasis_no_mesin",
+                data_lama.get(
+                    "nomor_rangka_no_mesin",
+                    ""
+                )
+            )
+        ),
+
+        "nomor_rangka_no_mesin": (
+            data_lama.get(
+                "nomor_chasis_no_mesin",
+                data_lama.get(
+                    "nomor_rangka_no_mesin",
+                    ""
+                )
+            )
+        ),
+
+        "nomor_polisi": (
+            data_lama.get(
+                "nomor_polisi",
+                ""
+            )
+        ),
+
+        # =================================================
+        # KEGIATAN BARU
+        # =================================================
+        "jenis_pengujian": (
+            "Tera Ulang"
+        ),
+
+        "keterangan": (
+            "Tera Ulang"
+        ),
+
+        "lokasi_pengujian": (
+            data_lama.get(
+                "lokasi_pengujian",
+                "Perusahaan"
+            )
+        ),
+
+        "tanggal_pengujian": (
+            tanggal_baru.isoformat()
+        ),
+
+        "tanggal": (
+            tanggal_baru.isoformat()
+        ),
+
+        "tanggal_penera": (
+            format_tanggal_indonesia(
+                tanggal_baru
+            )
+        ),
+
+        "tanggal_tanda_tangan": (
+            tanggal_baru.isoformat()
+        ),
+
+        "masa_berlaku": (
+            masa_baru.isoformat()
+        ),
+
+        "masa_berlaku_indonesia": (
+            format_tanggal_indonesia(
+                masa_baru
+            )
+        ),
+
+        "metode": (
+            data_lama.get(
+                "metode",
+                "Penakaran masuk"
+            )
+        ),
+
+        "suhu_dasar": (
+            data_lama.get(
+                "suhu_dasar",
+                28.0
+            )
+        ),
+
+        "nomor_sertifikat": (
+            generate_nomor_sertifikat(
+                tanggal_baru
+            )
+        ),
+
+        "nomor_order": (
+            generate_nomor_order(
+                tanggal_baru
+            )
+        ),
+
+        # =================================================
+        # PENERA
+        # Boleh dipakai sebagai default.
+        # =================================================
+        "nama_penera_1": (
+            data_lama.get(
+                "nama_penera_1",
+                ""
+            )
+        ),
+
+        "nip_penera_1": (
+            data_lama.get(
+                "nip_penera_1",
+                ""
+            )
+        ),
+
+        "golongan_penera_1": (
+            data_lama.get(
+                "golongan_penera_1",
+                ""
+            )
+        ),
+
+        "nama_penera_2": (
+            data_lama.get(
+                "nama_penera_2",
+                ""
+            )
+        ),
+
+        "nip_penera_2": (
+            data_lama.get(
+                "nip_penera_2",
+                ""
+            )
+        ),
+
+        "golongan_penera_2": (
+            data_lama.get(
+                "golongan_penera_2",
+                ""
+            )
+        ),
+
+        # =================================================
+        # JUMLAH KOMPARTEMEN
+        # Berasal dari master UTTP.
+        # =================================================
+        "jumlah_kompartemen": int(
+            data_lama.get(
+                "jumlah_kompartemen",
+                1
+            )
+            or 1
+        ),
+
+        # =================================================
+        # PENTING:
+        # HASIL TEKNIS LAMA TIDAK DIBAWA
+        # =================================================
+        "data_kompartemen": [],
+    }
+
+    # =====================================================
+    # BERSIHKAN STATE
+    # =====================================================
+    for key in list(
+        st.session_state.keys()
+    ):
+        if key.startswith(
+            "tum_"
+        ):
+            st.session_state.pop(
+                key,
+                None
+            )
+
+    # Ini kegiatan BARU, bukan Edit
+    st.session_state.pop(
+        "tum_edit_pengujian_id",
+        None
+    )
+
+    st.session_state[
+        "tum_saved_data"
+    ] = data_baru
+
+    st.session_state[
+        "tum_sudah_disimpan_db"
+    ] = False
+
+    st.session_state[
+        "tum_last_pengujian_id"
+    ] = None
+
+    st.session_state[
+        "tum_generated_files"
+    ] = {}
+
+    st.session_state[
+        "tum_mode"
+    ] = MODE_INPUT
+# =========================================================
 # MAIN APP
 # =========================================================
 def run():
@@ -3278,7 +3673,13 @@ def run():
         st.header(
             "Masukkan Data Pengujian Tangki Ukur Mobil"
         )
-
+        if st.session_state.get(
+            "tum_edit_pengujian_id"
+        ):
+            st.warning(
+                "✏️ Anda sedang mengedit pengujian "
+                "Tangki Ukur Mobil yang sudah tersimpan."
+            )
         saved = (
             st.session_state
             .tum_saved_data
@@ -3785,6 +4186,23 @@ def run():
                 else pemilik
             )
             data_tum = {
+                # =====================================================
+                # ID INTERNAL DATABASE
+                # =====================================================
+                "_edit_pengujian_id": (
+                    st.session_state.get(
+                        "tum_edit_pengujian_id"
+                    )
+                    or saved.get(
+                        "_edit_pengujian_id"
+                    )
+                ),
+                
+                "_uttp_id": (
+                    saved.get(
+                        "_uttp_id"
+                    )
+                ),
                 "nama_alat":
                     nama_alat,
 
@@ -4550,6 +4968,53 @@ def run():
                         use_container_width=True,
                         hide_index=True,
                     )
+                st.markdown("---")
+
+                col_edit, col_baru = (
+                    st.columns(2)
+                )
+                
+                # =================================================
+                # EDIT PENGUJIAN
+                # =================================================
+                with col_edit:
+                
+                    if st.button(
+                        "✏️ Edit Pengujian",
+                        type="primary",
+                        use_container_width=True,
+                        key=(
+                            "tum_edit_riwayat_"
+                            f"{riwayat.get('id')}"
+                        ),
+                    ):
+                
+                        gunakan_data_lama_untuk_edit_tum(
+                            riwayat
+                        )
+                
+                        st.rerun()
+                
+                
+                # =================================================
+                # PENGUJIAN BARU
+                # =================================================
+                with col_baru:
+                
+                    if st.button(
+                        "➕ Pengujian Baru",
+                        use_container_width=True,
+                        key=(
+                            "tum_baru_riwayat_"
+                            f"{riwayat.get('id')}"
+                        ),
+                    ):
+                
+                        gunakan_riwayat_untuk_pengujian_baru_tum(
+                            riwayat
+                        )
+                
+                        st.rerun()
     
         except Exception as exc:
             st.error(
