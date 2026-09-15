@@ -1314,6 +1314,119 @@ def simpan_pengujian_tum_ke_supabase(
 
         raise
 # =========================================================
+# SIMPAN TUM DENGAN PENGAMAN DUPLIKASI
+# =========================================================
+def pastikan_tum_tersimpan_db(
+    data
+):
+    # =====================================================
+    # CEK MODE EDIT
+    # =====================================================
+    edit_id = (
+        st.session_state.get(
+            "tum_edit_pengujian_id"
+        )
+        or data.get(
+            "_edit_pengujian_id"
+        )
+    )
+
+    sedang_edit = (
+        edit_id is not None
+        and str(
+            edit_id
+        ).strip() != ""
+    )
+
+    # =====================================================
+    # MODE EDIT
+    #
+    # Generate boleh berkali-kali.
+    # Setiap Generate = UPDATE ID yang sama.
+    # =====================================================
+    if sedang_edit:
+
+        hasil_simpan = (
+            simpan_pengujian_tum_ke_supabase(
+                data
+            )
+        )
+
+        pengujian_rows = (
+            hasil_simpan.get(
+                "pengujian",
+                []
+            )
+            or []
+        )
+
+        if pengujian_rows:
+            st.session_state[
+                "tum_last_pengujian_id"
+            ] = (
+                pengujian_rows[0].get(
+                    "id"
+                )
+            )
+
+        return hasil_simpan
+
+    # =====================================================
+    # MODE DATA BARU
+    #
+    # Sudah pernah INSERT pada form ini
+    # → jangan INSERT kedua kali.
+    # =====================================================
+    if st.session_state.get(
+        "tum_sudah_disimpan_db",
+        False
+    ):
+        return {
+            "mode": "sudah_tersimpan",
+
+            "pengujian_id": (
+                st.session_state.get(
+                    "tum_last_pengujian_id"
+                )
+            ),
+        }
+
+    # =====================================================
+    # INSERT DATA BARU
+    # =====================================================
+    hasil_simpan = (
+        simpan_pengujian_tum_ke_supabase(
+            data
+        )
+    )
+
+    pengujian_rows = (
+        hasil_simpan.get(
+            "pengujian",
+            []
+        )
+        or []
+    )
+
+    pengujian_id = None
+
+    if pengujian_rows:
+        pengujian_id = (
+            pengujian_rows[0].get(
+                "id"
+            )
+        )
+
+    st.session_state[
+        "tum_sudah_disimpan_db"
+    ] = True
+
+    st.session_state[
+        "tum_last_pengujian_id"
+    ] = pengujian_id
+
+    return hasil_simpan
+# =========================================================
 # HELPER TANGGAL
 # =========================================================
 def bulan_ke_romawi(bulan):
@@ -1715,6 +1828,11 @@ def init_tum_state():
             "golongan_penera_2",
             ""
         ),
+        # =====================================================
+        # STATUS DATABASE
+        # =====================================================
+        "tum_sudah_disimpan_db": False,
+        "tum_last_pengujian_id": None,
     }
 
     for key, value in defaults.items():
@@ -3395,6 +3513,22 @@ def run():
             st.session_state[
                 "tum_saved_data"
             ] = data_tum
+
+            # =====================================================
+            # DATA FORM BERUBAH / BARU
+            # Belum disimpan ke database.
+            # =====================================================
+            st.session_state[
+                "tum_sudah_disimpan_db"
+            ] = False
+            
+            st.session_state[
+                "tum_last_pengujian_id"
+            ] = None
+            
+            st.session_state[
+                "tum_generated_files"
+            ] = {}
 
             st.success(
                 "✅ Data Tangki Ukur Mobil berhasil disimpan."
