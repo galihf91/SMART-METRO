@@ -17,6 +17,7 @@ from modules.tangki_ukur_mobil.sertifikat_tangki_ukur_mobil_generator import (
 # =========================================================
 MODE_INPUT = "📝 Input Data Pengujian"
 MODE_PREVIEW = "📄 Preview Data"
+MODE_HISTORY = "📚 Riwayat TUM"
 
 OUTPUT_DIR = Path("output/tangki_ukur_mobil")
 
@@ -1426,6 +1427,433 @@ def pastikan_tum_tersimpan_db(
     ] = pengujian_id
 
     return hasil_simpan
+# =========================================================
+# AMBIL RIWAYAT PENGUJIAN TUM
+# =========================================================
+def ambil_riwayat_tum():
+    supabase = get_supabase_tum()
+
+    # =====================================================
+    # 1. AMBIL SEMUA PENGUJIAN
+    # =====================================================
+    response_pengujian = (
+        supabase
+        .table("pengujian")
+        .select("*")
+        .order(
+            "tanggal_pengujian",
+            desc=True
+        )
+        .execute()
+    )
+
+    semua_pengujian = (
+        response_pengujian.data
+        or []
+    )
+
+    # =====================================================
+    # HANYA DATA TUM
+    # =====================================================
+    daftar_pengujian = []
+
+    for row in semua_pengujian:
+
+        detail = (
+            row.get(
+                "data_pengujian"
+            )
+            or {}
+        )
+
+        schema_tum = str(
+            detail.get(
+                "schema_tum",
+                ""
+            )
+            or ""
+        ).strip()
+
+        if schema_tum == "1":
+            daftar_pengujian.append(
+                row
+            )
+
+    if not daftar_pengujian:
+        return []
+
+    # =====================================================
+    # 2. AMBIL RELASI PENGUJIAN - UTTP
+    # =====================================================
+    daftar_pengujian_id = [
+        row["id"]
+        for row in daftar_pengujian
+        if row.get("id") is not None
+    ]
+
+    response_relasi = (
+        supabase
+        .table("pengujian_uttp")
+        .select(
+            "id, pengujian_id, uttp_id, "
+            "urutan, hasil, data_detail"
+        )
+        .in_(
+            "pengujian_id",
+            daftar_pengujian_id
+        )
+        .execute()
+    )
+
+    semua_relasi = (
+        response_relasi.data
+        or []
+    )
+
+    relasi_map = {}
+
+    for relasi in semua_relasi:
+        relasi_map[
+            relasi.get(
+                "pengujian_id"
+            )
+        ] = relasi
+
+    # =====================================================
+    # 3. AMBIL MASTER UTTP
+    # =====================================================
+    daftar_uttp_id = list({
+        row.get("uttp_id")
+        for row in semua_relasi
+        if row.get("uttp_id") is not None
+    })
+
+    uttp_map = {}
+
+    if daftar_uttp_id:
+
+        response_uttp = (
+            supabase
+            .table("uttp")
+            .select(
+                "id, perusahaan_id, jenis_uttp, "
+                "merk, tipe, nomor_seri, "
+                "kapasitas, satuan_kapasitas, "
+                "jumlah_kompartemen, "
+                "lokasi, status"
+            )
+            .in_(
+                "id",
+                daftar_uttp_id
+            )
+            .execute()
+        )
+
+        uttp_map = {
+            row["id"]: row
+            for row in (
+                response_uttp.data
+                or []
+            )
+        }
+
+    # =====================================================
+    # 4. AMBIL MASTER PERUSAHAAN
+    # =====================================================
+    daftar_perusahaan_id = list({
+        row.get("perusahaan_id")
+        for row in daftar_pengujian
+        if row.get("perusahaan_id") is not None
+    })
+
+    perusahaan_map = {}
+
+    if daftar_perusahaan_id:
+
+        response_perusahaan = (
+            supabase
+            .table("perusahaan")
+            .select(
+                "id, nama_perusahaan, alamat"
+            )
+            .in_(
+                "id",
+                daftar_perusahaan_id
+            )
+            .execute()
+        )
+
+        perusahaan_map = {
+            row["id"]: row
+            for row in (
+                response_perusahaan.data
+                or []
+            )
+        }
+
+    # =====================================================
+    # 5. BANGUN DATA RIWAYAT
+    # =====================================================
+    hasil = []
+
+    for header in daftar_pengujian:
+
+        pengujian_id = (
+            header.get("id")
+        )
+
+        perusahaan = (
+            perusahaan_map.get(
+                header.get(
+                    "perusahaan_id"
+                ),
+                {}
+            )
+        )
+
+        relasi = (
+            relasi_map.get(
+                pengujian_id,
+                {}
+            )
+            or {}
+        )
+
+        uttp_id = (
+            relasi.get(
+                "uttp_id"
+            )
+            or header.get(
+                "uttp_id"
+            )
+        )
+
+        alat = (
+            uttp_map.get(
+                uttp_id,
+                {}
+            )
+        )
+
+        data_detail = (
+            relasi.get(
+                "data_detail"
+            )
+            or {}
+        )
+
+        detail_header = dict(
+            header.get(
+                "data_pengujian"
+            )
+            or {}
+        )
+
+        # =================================================
+        # IDENTITAS INTERNAL
+        # =================================================
+        detail_header[
+            "_uttp_id"
+        ] = uttp_id
+
+        # =================================================
+        # PERUSAHAAN
+        # =================================================
+        detail_header[
+            "pemilik"
+        ] = str(
+            perusahaan.get(
+                "nama_perusahaan",
+                ""
+            )
+            or ""
+        ).strip()
+
+        detail_header[
+            "alamat"
+        ] = str(
+            perusahaan.get(
+                "alamat",
+                ""
+            )
+            or ""
+        ).strip()
+
+        # =================================================
+        # MASTER TANGKI
+        # =================================================
+        detail_header[
+            "merek_tangki"
+        ] = str(
+            alat.get(
+                "merk",
+                ""
+            )
+            or ""
+        ).strip()
+
+        tipe = str(
+            alat.get(
+                "tipe",
+                ""
+            )
+            or ""
+        ).strip()
+
+        nomor_seri = str(
+            alat.get(
+                "nomor_seri",
+                ""
+            )
+            or ""
+        ).strip()
+
+        if tipe and nomor_seri:
+            tipe_no_seri = (
+                f"{tipe} / {nomor_seri}"
+            )
+
+        else:
+            tipe_no_seri = (
+                tipe
+                or nomor_seri
+            )
+
+        detail_header[
+            "tipe_no_seri_tangki"
+        ] = tipe_no_seri
+
+        detail_header[
+            "isi_nominal"
+        ] = (
+            alat.get(
+                "kapasitas",
+                0
+            )
+        )
+
+        detail_header[
+            "satuan_isi_nominal"
+        ] = (
+            alat.get(
+                "satuan_kapasitas",
+                "L"
+            )
+            or "L"
+        )
+
+        # Jumlah kompartemen berasal dari MASTER UTTP
+        detail_header[
+            "jumlah_kompartemen"
+        ] = int(
+            alat.get(
+                "jumlah_kompartemen",
+                1
+            )
+            or 1
+        )
+
+        # =================================================
+        # DATA TEKNIS PER KEGIATAN
+        # =================================================
+        detail_header[
+            "data_kompartemen"
+        ] = (
+            data_detail.get(
+                "data_kompartemen",
+                []
+            )
+            or []
+        )
+
+        # =================================================
+        # HEADER PENGUJIAN
+        # =================================================
+        detail_header[
+            "jenis_pengujian"
+        ] = header.get(
+            "jenis_pengujian",
+            ""
+        )
+
+        detail_header[
+            "tanggal_pengujian"
+        ] = header.get(
+            "tanggal_pengujian"
+        )
+
+        detail_header[
+            "tanggal_tanda_tangan"
+        ] = header.get(
+            "tanggal_sertifikat"
+        )
+
+        detail_header[
+            "masa_berlaku"
+        ] = header.get(
+            "berlaku_sampai"
+        )
+
+        detail_header[
+            "nomor_order"
+        ] = header.get(
+            "nomor_order",
+            ""
+        )
+
+        detail_header[
+            "nomor_sertifikat"
+        ] = header.get(
+            "nomor_sertifikat",
+            ""
+        )
+
+        detail_header[
+            "nama_penera_1"
+        ] = header.get(
+            "penera_1",
+            ""
+        )
+
+        detail_header[
+            "nama_penera_2"
+        ] = header.get(
+            "penera_2",
+            ""
+        ) or ""
+
+        detail_header[
+            "nama_penera"
+        ] = header.get(
+            "penera_1",
+            ""
+        )
+
+        detail_header[
+            "hasil"
+        ] = header.get(
+            "hasil",
+            "SAH"
+        )
+
+        detail_header[
+            "hasil_akhir"
+        ] = header.get(
+            "hasil",
+            "SAH"
+        )
+
+        hasil.append({
+            "id": (
+                pengujian_id
+            ),
+
+            "data": (
+                detail_header
+            ),
+        })
+
+    return hasil
 # =========================================================
 # HELPER TANGGAL
 # =========================================================
@@ -2838,6 +3266,7 @@ def run():
             [
                 MODE_INPUT,
                 MODE_PREVIEW
+                MODE_HISTORY,
             ],
             key="tum_mode"
         )
@@ -3922,6 +4351,215 @@ def run():
                     st.caption(
                         "Sertifikat belum digenerate."
                     )
+    
+    # =====================================================
+    # RIWAYAT TANGKI UKUR MOBIL
+    # =====================================================
+    elif mode == MODE_HISTORY:
+    
+        st.header(
+            "📚 Riwayat Pengujian Tangki Ukur Mobil"
+        )
+    
+        try:
+            daftar_riwayat = (
+                ambil_riwayat_tum()
+            )
+    
+            if not daftar_riwayat:
+                st.info(
+                    "Belum ada riwayat pengujian "
+                    "Tangki Ukur Mobil."
+                )
+                return
+    
+            opsi_riwayat = {}
+    
+            for item in daftar_riwayat:
+    
+                data_riwayat = (
+                    item.get(
+                        "data",
+                        {}
+                    )
+                    or {}
+                )
+    
+                label = (
+                    f"{data_riwayat.get('tanggal_pengujian', '')}"
+                    f" | "
+                    f"{data_riwayat.get('pemilik', '')}"
+                    f" | "
+                    f"{data_riwayat.get('nomor_sertifikat', '')}"
+                )
+    
+                opsi_riwayat[
+                    label
+                ] = item
+    
+            pilihan = st.selectbox(
+                "Pilih Riwayat Pengujian",
+                options=[
+                    ""
+                ] + list(
+                    opsi_riwayat.keys()
+                ),
+                key="tum_riwayat_pilih",
+            )
+    
+            if pilihan:
+    
+                riwayat = (
+                    opsi_riwayat[
+                        pilihan
+                    ]
+                )
+    
+                data_riwayat = (
+                    riwayat.get(
+                        "data",
+                        {}
+                    )
+                    or {}
+                )
+    
+                st.subheader(
+                    "Detail Pengujian"
+                )
+    
+                col1, col2 = (
+                    st.columns(2)
+                )
+    
+                with col1:
+                    st.write(
+                        "**Pemilik:**",
+                        data_riwayat.get(
+                            "pemilik",
+                            "-"
+                        )
+                    )
+    
+                    st.write(
+                        "**Merek Tangki:**",
+                        data_riwayat.get(
+                            "merek_tangki",
+                            "-"
+                        )
+                    )
+    
+                    st.write(
+                        "**Tipe / No. Seri:**",
+                        data_riwayat.get(
+                            "tipe_no_seri_tangki",
+                            "-"
+                        )
+                    )
+    
+                    st.write(
+                        "**Isi Nominal:**",
+                        (
+                            f"{data_riwayat.get('isi_nominal', '-')} L"
+                        )
+                    )
+    
+                    st.write(
+                        "**Jumlah Kompartemen:**",
+                        data_riwayat.get(
+                            "jumlah_kompartemen",
+                            "-"
+                        )
+                    )
+    
+                    st.write(
+                        "**Nomor Polisi:**",
+                        data_riwayat.get(
+                            "nomor_polisi",
+                            "-"
+                        )
+                    )
+    
+                with col2:
+                    st.write(
+                        "**Tanggal Pengujian:**",
+                        data_riwayat.get(
+                            "tanggal_pengujian",
+                            "-"
+                        )
+                    )
+    
+                    st.write(
+                        "**Jenis Pengujian:**",
+                        data_riwayat.get(
+                            "jenis_pengujian",
+                            "-"
+                        )
+                    )
+    
+                    st.write(
+                        "**Nomor Order:**",
+                        data_riwayat.get(
+                            "nomor_order",
+                            "-"
+                        )
+                    )
+    
+                    st.write(
+                        "**Nomor Sertifikat:**",
+                        data_riwayat.get(
+                            "nomor_sertifikat",
+                            "-"
+                        )
+                    )
+    
+                    st.write(
+                        "**Penera 1:**",
+                        data_riwayat.get(
+                            "nama_penera_1",
+                            "-"
+                        )
+                    )
+    
+                    st.write(
+                        "**Penera 2:**",
+                        data_riwayat.get(
+                            "nama_penera_2",
+                            ""
+                        )
+                        or "-"
+                    )
+    
+                data_kompartemen = (
+                    data_riwayat.get(
+                        "data_kompartemen",
+                        []
+                    )
+                    or []
+                )
+    
+                if data_kompartemen:
+    
+                    st.markdown(
+                        "### Data Teknis Kompartemen"
+                    )
+    
+                    st.dataframe(
+                        pd.DataFrame(
+                            data_kompartemen
+                        ),
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+    
+        except Exception as exc:
+            st.error(
+                "Gagal membaca riwayat "
+                f"Tangki Ukur Mobil: {exc}"
+            )
+    
+            st.code(
+                traceback.format_exc()
+            )
     st.markdown(
         """
         <div style='text-align:center; color:#888; font-size:12px;'>
