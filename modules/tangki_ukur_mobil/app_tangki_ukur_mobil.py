@@ -508,6 +508,825 @@ def get_or_create_master_tum(
         True
     )
 # =========================================================
+# SIMPAN / UPDATE PENGUJIAN TUM KE SUPABASE
+# =========================================================
+def simpan_pengujian_tum_ke_supabase(
+    data
+):
+    """
+    DATA BARU
+    ---------
+    perusahaan      → INSERT / UPDATE
+    uttp             → INSERT / UPDATE master TUM
+    pengujian        → INSERT
+    pengujian_uttp   → INSERT
+
+    EDIT
+    ----
+    perusahaan      → UPDATE bila berubah
+    uttp             → UPDATE master lama
+    pengujian        → UPDATE
+    pengujian_uttp   → UPDATE
+    """
+
+    if not data:
+        raise ValueError(
+            "Data Tangki Ukur Mobil belum tersedia."
+        )
+
+    supabase = get_supabase_tum()
+
+    # =====================================================
+    # STATUS EDIT
+    # =====================================================
+    edit_id = st.session_state.get(
+        "tum_edit_pengujian_id"
+    )
+
+    if edit_id is None:
+        edit_id = data.get(
+            "_edit_pengujian_id"
+        )
+
+    if edit_id is not None:
+        try:
+            edit_id = int(
+                float(
+                    edit_id
+                )
+            )
+
+        except (
+            TypeError,
+            ValueError
+        ):
+            edit_id = None
+
+    sedang_edit = (
+        edit_id is not None
+    )
+
+    # =====================================================
+    # DATA UTAMA
+    # =====================================================
+    pemilik = str(
+        data.get(
+            "pemilik",
+            ""
+        )
+        or ""
+    ).strip()
+
+    alamat = str(
+        data.get(
+            "alamat",
+            ""
+        )
+        or ""
+    ).strip()
+
+    nomor_sertifikat = str(
+        data.get(
+            "nomor_sertifikat",
+            ""
+        )
+        or ""
+    ).strip()
+
+    nomor_order = str(
+        data.get(
+            "nomor_order",
+            ""
+        )
+        or ""
+    ).strip()
+
+    jenis_pengujian = str(
+        data.get(
+            "jenis_pengujian",
+            "Tera Ulang"
+        )
+        or "Tera Ulang"
+    ).strip()
+
+    nama_penera_1 = str(
+        data.get(
+            "nama_penera_1",
+            data.get(
+                "nama_penera",
+                ""
+            )
+        )
+        or ""
+    ).strip()
+
+    nama_penera_2 = str(
+        data.get(
+            "nama_penera_2",
+            ""
+        )
+        or ""
+    ).strip()
+
+    # Untuk dokumen TUM yang disimpan/final,
+    # default hasil = SAH.
+    hasil_akhir = str(
+        data.get(
+            "hasil_akhir",
+            data.get(
+                "hasil",
+                "SAH"
+            )
+        )
+        or "SAH"
+    ).strip()
+
+    data_kompartemen = (
+        data.get(
+            "data_kompartemen",
+            []
+        )
+        or []
+    )
+
+    # =====================================================
+    # VALIDASI
+    # =====================================================
+    if not pemilik:
+        raise ValueError(
+            "Nama pemilik / perusahaan belum diisi."
+        )
+
+    if not alamat:
+        raise ValueError(
+            "Alamat perusahaan belum diisi."
+        )
+
+    if not nomor_sertifikat:
+        raise ValueError(
+            "Nomor sertifikat belum diisi."
+        )
+
+    if not nomor_order:
+        raise ValueError(
+            "Nomor order belum diisi."
+        )
+
+    if not nama_penera_1:
+        raise ValueError(
+            "Penera 1 belum dipilih."
+        )
+
+    if not data_kompartemen:
+        raise ValueError(
+            "Data kompartemen belum tersedia."
+        )
+
+    # =====================================================
+    # CEK DUPLIKAT NOMOR SERTIFIKAT
+    #
+    # Saat Edit:
+    # nomor sertifikat milik dirinya sendiri
+    # tidak dianggap duplikat.
+    # =====================================================
+    query_sertifikat = (
+        supabase
+        .table("pengujian")
+        .select("id")
+        .eq(
+            "nomor_sertifikat",
+            nomor_sertifikat
+        )
+    )
+
+    if sedang_edit:
+        query_sertifikat = (
+            query_sertifikat
+            .neq(
+                "id",
+                edit_id
+            )
+        )
+
+    response_sertifikat = (
+        query_sertifikat
+        .limit(1)
+        .execute()
+    )
+
+    if response_sertifikat.data:
+        raise ValueError(
+            "Nomor sertifikat sudah pernah digunakan. "
+            "Silakan gunakan nomor sertifikat yang berbeda."
+        )
+
+    # =====================================================
+    # JIKA EDIT → PASTIKAN DATA LAMA BENAR-BENAR TUM
+    # =====================================================
+    if sedang_edit:
+
+        response_anchor = (
+            supabase
+            .table("pengujian")
+            .select(
+                "id, uttp_id, data_pengujian"
+            )
+            .eq(
+                "id",
+                edit_id
+            )
+            .limit(1)
+            .execute()
+        )
+
+        if not response_anchor.data:
+            raise RuntimeError(
+                "Pengujian Tangki Ukur Mobil "
+                "yang akan diedit tidak ditemukan."
+            )
+
+        anchor = (
+            response_anchor.data[0]
+        )
+
+        detail_anchor = (
+            anchor.get(
+                "data_pengujian"
+            )
+            or {}
+        )
+
+        schema_anchor = str(
+            detail_anchor.get(
+                "schema_tum",
+                ""
+            )
+            or ""
+        ).strip()
+
+        if schema_anchor != "1":
+            raise RuntimeError(
+                "Data yang dipilih bukan pengujian "
+                "Tangki Ukur Mobil struktur baru."
+            )
+
+    # =====================================================
+    # MASTER PERUSAHAAN
+    # =====================================================
+    perusahaan_id = (
+        simpan_atau_update_perusahaan_tum(
+            supabase=supabase,
+            nama_perusahaan=pemilik,
+            alamat=alamat,
+        )
+    )
+
+    uttp_id = None
+    uttp_dibuat_baru = False
+    pengujian_id = None
+
+    try:
+
+        # =================================================
+        # MASTER TANGKI UKUR MOBIL
+        # =================================================
+        (
+            uttp_id,
+            uttp_dibuat_baru
+        ) = (
+            get_or_create_master_tum(
+                supabase=supabase,
+                perusahaan_id=perusahaan_id,
+                data=data,
+            )
+        )
+
+        # =================================================
+        # TANGGAL
+        # =================================================
+        tanggal_pengujian = (
+            parse_date_value(
+                data.get(
+                    "tanggal_pengujian"
+                )
+            )
+        )
+
+        tanggal_tanda_tangan = (
+            parse_date_value(
+                data.get(
+                    "tanggal_tanda_tangan"
+                ),
+                tanggal_pengujian
+            )
+        )
+
+        masa_berlaku = (
+            parse_date_value(
+                data.get(
+                    "masa_berlaku"
+                ),
+                tambah_2_tahun(
+                    tanggal_pengujian
+                )
+            )
+        )
+
+        # =================================================
+        # HEADER / SNAPSHOT PENGUJIAN
+        # =================================================
+        data_pengujian_header = {
+            "schema_tum": 1,
+
+            # =============================================
+            # IDENTITAS / KONTEKS TUM
+            # =============================================
+            "nama_alat": (
+                data.get(
+                    "nama_alat",
+                    "Tangki Ukur Mobil"
+                )
+            ),
+
+            "jenis_cairan": (
+                data.get(
+                    "jenis_cairan",
+                    ""
+                )
+            ),
+
+            "nomor_polisi": (
+                data.get(
+                    "nomor_polisi",
+                    ""
+                )
+            ),
+
+            "merek_kendaraan": (
+                data.get(
+                    "merek_kendaraan",
+                    ""
+                )
+            ),
+
+            "nomor_chasis_no_mesin": (
+                data.get(
+                    "nomor_chasis_no_mesin",
+                    data.get(
+                        "nomor_rangka_no_mesin",
+                        ""
+                    )
+                )
+            ),
+
+            # =============================================
+            # KEGIATAN
+            # =============================================
+            "lokasi_pengujian": (
+                data.get(
+                    "lokasi_pengujian",
+                    ""
+                )
+            ),
+
+            "lokasi_kegiatan": (
+                data.get(
+                    "lokasi_kegiatan",
+                    ""
+                )
+            ),
+
+            "metode": (
+                data.get(
+                    "metode",
+                    ""
+                )
+            ),
+
+            "suhu_dasar": (
+                safe_float(
+                    data.get(
+                        "suhu_dasar",
+                        0
+                    )
+                )
+            ),
+
+            "jumlah_kompartemen": (
+                int(
+                    data.get(
+                        "jumlah_kompartemen",
+                        len(
+                            data_kompartemen
+                        )
+                    )
+                    or len(
+                        data_kompartemen
+                    )
+                )
+            ),
+
+            # =============================================
+            # DATA PENERA
+            # =============================================
+            "nip_penera_1": str(
+                data.get(
+                    "nip_penera_1",
+                    data.get(
+                        "nip_penera",
+                        ""
+                    )
+                )
+                or ""
+            ).strip(),
+
+            "golongan_penera_1": str(
+                data.get(
+                    "golongan_penera_1",
+                    data.get(
+                        "golongan_penera",
+                        ""
+                    )
+                )
+                or ""
+            ).strip(),
+
+            "nip_penera_2": str(
+                data.get(
+                    "nip_penera_2",
+                    ""
+                )
+                or ""
+            ).strip(),
+
+            "golongan_penera_2": str(
+                data.get(
+                    "golongan_penera_2",
+                    ""
+                )
+                or ""
+            ).strip(),
+        }
+
+        # =================================================
+        # PAYLOAD PENGUJIAN
+        # =================================================
+        payload_pengujian = {
+            "perusahaan_id": (
+                perusahaan_id
+            ),
+
+            # TUM = 1 pengujian : 1 UTTP
+            "uttp_id": (
+                uttp_id
+            ),
+
+            "tanggal_pengujian": (
+                tanggal_pengujian.isoformat()
+            ),
+
+            "tanggal_sertifikat": (
+                tanggal_tanda_tangan.isoformat()
+            ),
+
+            "jenis_pengujian": (
+                jenis_pengujian
+            ),
+
+            "hasil": (
+                hasil_akhir
+            ),
+
+            "nomor_order": (
+                nomor_order
+            ),
+
+            "nomor_sertifikat": (
+                nomor_sertifikat
+            ),
+
+            "penera_1": (
+                nama_penera_1
+            ),
+
+            "penera_2": (
+                nama_penera_2
+                if nama_penera_2
+                else None
+            ),
+
+            "berlaku_sampai": (
+                masa_berlaku.isoformat()
+            ),
+
+            "data_pengujian": (
+                data_pengujian_header
+            ),
+        }
+
+        # =================================================
+        # DATA DETAIL TEKNIS TUM
+        # =================================================
+        data_detail = {
+            "schema_tum_detail": 1,
+
+            "jumlah_kompartemen": (
+                int(
+                    data.get(
+                        "jumlah_kompartemen",
+                        len(
+                            data_kompartemen
+                        )
+                    )
+                    or len(
+                        data_kompartemen
+                    )
+                )
+            ),
+
+            "data_kompartemen": (
+                data_kompartemen
+            ),
+        }
+
+        # =================================================
+        # RELASI PENGUJIAN - UTTP
+        # =================================================
+        payload_relasi = {
+            "uttp_id": (
+                uttp_id
+            ),
+
+            "urutan": 1,
+
+            "hasil": (
+                hasil_akhir
+            ),
+
+            "data_detail": (
+                data_detail
+            ),
+
+            # Kolom khusus PUBBM
+            "no_dispenser": None,
+            "posisi": None,
+            "media": None,
+            "k_faktor": None,
+        }
+
+        # =================================================
+        # DATA BARU
+        # =================================================
+        if not sedang_edit:
+
+            response_pengujian = (
+                supabase
+                .table("pengujian")
+                .insert(
+                    payload_pengujian
+                )
+                .execute()
+            )
+
+            if not response_pengujian.data:
+                raise RuntimeError(
+                    "Pengujian Tangki Ukur Mobil "
+                    "gagal disimpan."
+                )
+
+            pengujian_id = (
+                response_pengujian
+                .data[0]["id"]
+            )
+
+            # =============================================
+            # RELASI PENGUJIAN - UTTP
+            # =============================================
+            response_relasi = (
+                supabase
+                .table("pengujian_uttp")
+                .insert({
+                    "pengujian_id": (
+                        pengujian_id
+                    ),
+                    **payload_relasi,
+                })
+                .execute()
+            )
+
+            if not response_relasi.data:
+                raise RuntimeError(
+                    "Relasi pengujian Tangki Ukur Mobil "
+                    "gagal disimpan."
+                )
+
+            return {
+                "mode": "baru",
+
+                "pengujian": (
+                    response_pengujian.data
+                ),
+
+                "pengujian_uttp": (
+                    response_relasi.data
+                ),
+
+                "uttp_id": (
+                    uttp_id
+                ),
+
+                "perusahaan_id": (
+                    perusahaan_id
+                ),
+            }
+
+        # =================================================
+        # MODE EDIT
+        # =================================================
+        pengujian_id = (
+            edit_id
+        )
+
+        # =================================================
+        # UPDATE HEADER PENGUJIAN
+        # =================================================
+        response_pengujian = (
+            supabase
+            .table("pengujian")
+            .update(
+                payload_pengujian
+            )
+            .eq(
+                "id",
+                pengujian_id
+            )
+            .execute()
+        )
+
+        if not response_pengujian.data:
+            raise RuntimeError(
+                "Pengujian Tangki Ukur Mobil "
+                "gagal diperbarui."
+            )
+
+        # =================================================
+        # AMBIL RELASI LAMA
+        # =================================================
+        response_relasi_lama = (
+            supabase
+            .table("pengujian_uttp")
+            .select(
+                "id, uttp_id"
+            )
+            .eq(
+                "pengujian_id",
+                pengujian_id
+            )
+            .order(
+                "id"
+            )
+            .execute()
+        )
+
+        relasi_lama = (
+            response_relasi_lama.data
+            or []
+        )
+
+        # =================================================
+        # RELASI SUDAH ADA
+        # =================================================
+        if relasi_lama:
+
+            relasi_utama = (
+                relasi_lama[0]
+            )
+
+            response_relasi = (
+                supabase
+                .table("pengujian_uttp")
+                .update(
+                    payload_relasi
+                )
+                .eq(
+                    "id",
+                    relasi_utama["id"]
+                )
+                .execute()
+            )
+
+            # TUM hanya 1 UTTP per pengujian.
+            # Jika ada relasi tambahan tidak sengaja,
+            # hapus dan sisakan relasi utama.
+            for relasi_tambahan in (
+                relasi_lama[1:]
+            ):
+
+                (
+                    supabase
+                    .table("pengujian_uttp")
+                    .delete()
+                    .eq(
+                        "id",
+                        relasi_tambahan["id"]
+                    )
+                    .execute()
+                )
+
+        # =================================================
+        # RELASI BELUM ADA
+        # =================================================
+        else:
+
+            response_relasi = (
+                supabase
+                .table("pengujian_uttp")
+                .insert({
+                    "pengujian_id": (
+                        pengujian_id
+                    ),
+                    **payload_relasi,
+                })
+                .execute()
+            )
+
+        if not response_relasi.data:
+            raise RuntimeError(
+                "Relasi pengujian Tangki Ukur Mobil "
+                "gagal diperbarui."
+            )
+
+        # =================================================
+        # SELESAI EDIT
+        # =================================================
+        return {
+            "mode": "edit",
+
+            "pengujian": (
+                response_pengujian.data
+            ),
+
+            "pengujian_uttp": (
+                response_relasi.data
+            ),
+
+            "uttp_id": (
+                uttp_id
+            ),
+
+            "perusahaan_id": (
+                perusahaan_id
+            ),
+        }
+
+    except Exception:
+
+        # =================================================
+        # ROLLBACK PENGUJIAN BARU
+        # =================================================
+        if (
+            not sedang_edit
+            and pengujian_id is not None
+        ):
+            try:
+                (
+                    supabase
+                    .table("pengujian")
+                    .delete()
+                    .eq(
+                        "id",
+                        pengujian_id
+                    )
+                    .execute()
+                )
+
+            except Exception:
+                pass
+
+        # =================================================
+        # MASTER TUM BARU YANG GAGAL DIGUNAKAN
+        # =================================================
+        if (
+            uttp_dibuat_baru
+            and uttp_id is not None
+        ):
+            try:
+                (
+                    supabase
+                    .table("uttp")
+                    .delete()
+                    .eq(
+                        "id",
+                        uttp_id
+                    )
+                    .execute()
+                )
+
+            except Exception:
+                pass
+
+        raise
+# =========================================================
 # HELPER TANGGAL
 # =========================================================
 def bulan_ke_romawi(bulan):
