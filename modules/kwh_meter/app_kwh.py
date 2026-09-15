@@ -2293,7 +2293,389 @@ def kembali_edit_kwh():
     st.session_state["menu_kwh"] = (
         "📝 Input Data Pengujian"
     )
+# =========================================================
+# GUNAKAN RIWAYAT UNTUK EDIT kWh METER
+# =========================================================
+def gunakan_data_lama_untuk_edit_kwh(
+    riwayat
+):
+    pengujian_id = (
+        riwayat.get(
+            "id"
+        )
+    )
 
+    data_riwayat = dict(
+        riwayat.get(
+            "data",
+            {}
+        )
+        or {}
+    )
+
+    if pengujian_id is None:
+        raise ValueError(
+            "ID pengujian kWh Meter tidak ditemukan."
+        )
+
+    # =====================================================
+    # TANDAI SEBAGAI EDIT
+    # =====================================================
+    data_riwayat[
+        "_edit_pengujian_id"
+    ] = pengujian_id
+
+    # =====================================================
+    # BERSIHKAN STATE kWh LAMA
+    # =====================================================
+    for key in list(
+        st.session_state.keys()
+    ):
+        if (
+            key.endswith("_kwh")
+            or key.startswith("kwh_")
+            or key in {
+                "saved_data_kwh",
+                "data_kwh",
+                "generated_files_kwh",
+                "menu_kwh",
+            }
+        ):
+            st.session_state.pop(
+                key,
+                None
+            )
+
+    # =====================================================
+    # MASUKKAN DATA RIWAYAT KE FORM
+    # =====================================================
+    st.session_state[
+        "saved_data_kwh"
+    ] = data_riwayat
+
+    st.session_state[
+        "data_kwh"
+    ] = data_riwayat
+
+    st.session_state[
+        "kwh_edit_pengujian_id"
+    ] = pengujian_id
+
+    st.session_state[
+        "kwh_sudah_disimpan_db"
+    ] = False
+
+    st.session_state[
+        "kwh_last_pengujian_id"
+    ] = None
+
+    st.session_state[
+        "generated_files_kwh"
+    ] = {}
+
+    st.session_state[
+        "menu_kwh"
+    ] = "📝 Input Data Pengujian"
+
+
+# =========================================================
+# GUNAKAN RIWAYAT UNTUK PENGUJIAN BARU kWh METER
+# =========================================================
+def gunakan_riwayat_untuk_pengujian_baru_kwh(
+    riwayat
+):
+    data_lama = dict(
+        riwayat.get(
+            "data",
+            {}
+        )
+        or {}
+    )
+
+    uttp_id = (
+        data_lama.get(
+            "_uttp_id"
+        )
+    )
+
+    if uttp_id is None:
+        raise ValueError(
+            "Master kWh Meter pada riwayat "
+            "tidak ditemukan."
+        )
+
+    tanggal_baru = (
+        date.today()
+    )
+
+    berlaku_baru = (
+        tambah_tahun(
+            tanggal_baru,
+            10
+        )
+    )
+
+    # =====================================================
+    # DATA KEGIATAN BARU
+    #
+    # MASTER/SPESIFIKASI ALAT TETAP.
+    # UNIT di-reset karena jumlah alat berbeda
+    # untuk setiap kegiatan.
+    # =====================================================
+    data_baru = {
+        "_edit_pengujian_id": None,
+
+        # Master lama tetap digunakan
+        "_uttp_id": (
+            uttp_id
+        ),
+
+        # =================================================
+        # IDENTITAS ALAT / MASTER
+        # =================================================
+        "nama_alat": "kWh Meter",
+
+        "merk_buatan": (
+            data_lama.get(
+                "merk_buatan",
+                "SMART / INDONESIA"
+            )
+        ),
+
+        "model_tipe": (
+            data_lama.get(
+                "model_tipe",
+                ""
+            )
+        ),
+
+        "tegangan": (
+            data_lama.get(
+                "tegangan",
+                ""
+            )
+        ),
+
+        "satuan_tegangan": (
+            data_lama.get(
+                "satuan_tegangan",
+                "V"
+            )
+        ),
+
+        "arus": (
+            data_lama.get(
+                "arus",
+                ""
+            )
+        ),
+
+        "satuan_arus": (
+            data_lama.get(
+                "satuan_arus",
+                "A"
+            )
+        ),
+
+        "phs": (
+            data_lama.get(
+                "phs",
+                "1"
+            )
+        ),
+
+        "kelas": (
+            data_lama.get(
+                "kelas",
+                "1"
+            )
+        ),
+
+        "konstanta": (
+            data_lama.get(
+                "konstanta",
+                1600
+            )
+        ),
+
+        "satuan_konstanta": (
+            data_lama.get(
+                "satuan_konstanta",
+                "imp/kWh"
+            )
+        ),
+
+        # =================================================
+        # PERUSAHAAN
+        # =================================================
+        "pemilik": (
+            data_lama.get(
+                "pemilik",
+                ""
+            )
+        ),
+
+        "alamat": (
+            data_lama.get(
+                "alamat",
+                ""
+            )
+        ),
+
+        "untuk_pengguna": (
+            data_lama.get(
+                "untuk_pengguna",
+                ""
+            )
+        ),
+
+        # =================================================
+        # KEGIATAN BARU
+        # =================================================
+        "jenis_pengujian": (
+            "Tera"
+        ),
+
+        "tanggal_pengujian": (
+            tanggal_baru.isoformat()
+        ),
+
+        "tanggal_cetak": (
+            tanggal_baru.isoformat()
+        ),
+
+        "berlaku_sampai": (
+            berlaku_baru.isoformat()
+        ),
+
+        "nomor_sertifikat": (
+            generate_nomor_sertifikat(
+                tanggal_baru
+            )
+        ),
+
+        "nomor_order": (
+            generate_nomor_order(
+                tanggal_baru
+            )
+        ),
+
+        # =================================================
+        # PENERA
+        # =================================================
+        "penera_1": (
+            data_lama.get(
+                "penera_1",
+                ""
+            )
+        ),
+
+        "nip_penera_1": (
+            data_lama.get(
+                "nip_penera_1",
+                ""
+            )
+        ),
+
+        "golongan_penera_1": (
+            data_lama.get(
+                "golongan_penera_1",
+                ""
+            )
+        ),
+
+        "penera_2": (
+            data_lama.get(
+                "penera_2",
+                ""
+            )
+        ),
+
+        "nip_penera_2": (
+            data_lama.get(
+                "nip_penera_2",
+                ""
+            )
+        ),
+
+        "golongan_penera_2": (
+            data_lama.get(
+                "golongan_penera_2",
+                ""
+            )
+        ),
+
+        "jumlah_penera": (
+            data_lama.get(
+                "jumlah_penera",
+                1
+            )
+        ),
+
+        # =================================================
+        # PENTING:
+        # UNIT = JUMLAH ALAT PER KEGIATAN
+        # JANGAN BAWA JUMLAH LAMA
+        # =================================================
+        "unit": 1,
+        "jumlah_unit": 1,
+        "jumlah_alat": 1,
+
+        "hasil": "SAH",
+    }
+
+    # =====================================================
+    # BERSIHKAN STATE
+    # =====================================================
+    for key in list(
+        st.session_state.keys()
+    ):
+        if (
+            key.endswith("_kwh")
+            or key.startswith("kwh_")
+            or key in {
+                "saved_data_kwh",
+                "data_kwh",
+                "generated_files_kwh",
+                "menu_kwh",
+            }
+        ):
+            st.session_state.pop(
+                key,
+                None
+            )
+
+    # =====================================================
+    # INI KEGIATAN BARU, BUKAN EDIT
+    # =====================================================
+    st.session_state.pop(
+        "kwh_edit_pengujian_id",
+        None
+    )
+
+    st.session_state[
+        "saved_data_kwh"
+    ] = data_baru
+
+    st.session_state[
+        "data_kwh"
+    ] = data_baru
+
+    st.session_state[
+        "kwh_sudah_disimpan_db"
+    ] = False
+
+    st.session_state[
+        "kwh_last_pengujian_id"
+    ] = None
+
+    st.session_state[
+        "generated_files_kwh"
+    ] = {}
+
+    st.session_state[
+        "menu_kwh"
+    ] = "📝 Input Data Pengujian"
 # =========================
 # KONFIGURASI HALAMAN
 def run():
@@ -2338,6 +2720,13 @@ def run():
     # =========================
     if mode == "📝 Input Data Pengujian":
         st.header("Masukkan Data Pengujian kWh Meter")
+        if st.session_state.get(
+            "kwh_edit_pengujian_id"
+        ):
+            st.warning(
+                "✏️ Anda sedang mengedit pengujian "
+                "kWh Meter yang sudah tersimpan."
+            )
 
         saved = st.session_state.get("saved_data_kwh", {})
 
@@ -3349,7 +3738,52 @@ def run():
                             or "-"
                         )
                     )
+                st.markdown("---")
 
+                col_edit, col_baru = (
+                    st.columns(2)
+                )
+
+                # =========================================
+                # EDIT PENGUJIAN
+                # =========================================
+                with col_edit:
+
+                    if st.button(
+                        "✏️ Edit Pengujian",
+                        type="primary",
+                        use_container_width=True,
+                        key=(
+                            "kwh_edit_riwayat_"
+                            f"{riwayat.get('id')}"
+                        ),
+                    ):
+
+                        gunakan_data_lama_untuk_edit_kwh(
+                            riwayat
+                        )
+
+                        st.rerun()
+
+                # =========================================
+                # PENGUJIAN BARU
+                # =========================================
+                with col_baru:
+
+                    if st.button(
+                        "➕ Pengujian Baru",
+                        use_container_width=True,
+                        key=(
+                            "kwh_baru_riwayat_"
+                            f"{riwayat.get('id')}"
+                        ),
+                    ):
+
+                        gunakan_riwayat_untuk_pengujian_baru_kwh(
+                            riwayat
+                        )
+
+                        st.rerun()
         except Exception as exc:
             st.error(
                 "Gagal membaca riwayat "
@@ -3361,3 +3795,4 @@ def run():
             st.code(
                 traceback.format_exc()
             )
+    
