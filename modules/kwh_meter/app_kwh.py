@@ -2282,7 +2282,7 @@ def kembali_ke_input_kwh():
 def reset_form_kwh():
     for key in list(st.session_state.keys()):
         if (
-            key.endswith("_kwh")
+            "_kwh" in key
             or key.startswith("kwh_")
             or key in {
                 "saved_data_kwh",
@@ -2336,7 +2336,7 @@ def gunakan_data_lama_untuk_edit_kwh(
         st.session_state.keys()
     ):
         if (
-            key.endswith("_kwh")
+            "_kwh" in key
             or key.startswith("kwh_")
             or key in {
                 "saved_data_kwh",
@@ -2635,7 +2635,7 @@ def gunakan_riwayat_untuk_pengujian_baru_kwh(
         st.session_state.keys()
     ):
         if (
-            key.endswith("_kwh")
+            "_kwh" in key
             or key.startswith("kwh_")
             or key in {
                 "saved_data_kwh",
@@ -2713,7 +2713,7 @@ def run():
         "Menu kWh Meter",
         [
             "📝 Input Data Pengujian",
-            "📄 Preview & Generate Data"
+            "📄 Preview & Generate Data",
             "📚 Riwayat kWh Meter",
         ],
         key="menu_kwh"
@@ -3250,6 +3250,13 @@ def run():
             
             "unit": int(
                 unit
+            ),
+            "jumlah_alat": int(
+                unit
+            ),
+            
+            "kwh_meter": (
+                kwh_df
             ),
             
             "tegangan": str(
