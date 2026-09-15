@@ -2203,16 +2203,20 @@ def init_tum_state():
             )
         ),
 
-        "tum_nomor_sertifikat": saved.get(
-            "nomor_sertifikat",
-            generate_nomor_sertifikat(
+        "tum_nomor_sertifikat": (
+            saved.get(
+                "nomor_sertifikat"
+            )
+            or generate_nomor_sertifikat(
                 tanggal_uji
             )
         ),
-
-        "tum_nomor_order": saved.get(
-            "nomor_order",
-            generate_nomor_order(
+        
+        "tum_nomor_order": (
+            saved.get(
+                "nomor_order"
+            )
+            or generate_nomor_order(
                 tanggal_uji
             )
         ),
