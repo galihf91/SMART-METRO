@@ -1,7 +1,7 @@
 import traceback
 from datetime import date, datetime
 from pathlib import Path
-
+from supabase import create_client
 import pandas as pd
 import streamlit as st
 from modules.tangki_ukur_mobil.cerapan_tangki_ukur_mobil_generator import (
@@ -28,6 +28,17 @@ JENIS_PENGUJIAN_OPTIONS = [
 LOKASI_OPTIONS = ["Dalam Kantor", "Perusahaan"]
 
 NAMA_KOMPARTEMEN = ["I", "II", "III", "IV"]
+# =========================================================
+# SUPABASE TANGKI UKUR MOBIL
+# =========================================================
+def get_supabase_tum():
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_KEY"]
+
+    return create_client(
+        url,
+        key
+    )
 
 
 # =========================================================
