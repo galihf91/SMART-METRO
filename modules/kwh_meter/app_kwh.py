@@ -231,6 +231,46 @@ def get_or_create_master_kwh(
         or ""
     ).strip()
 
+    tegangan = str(
+        data.get(
+            "tegangan",
+            ""
+        )
+        or ""
+    ).strip()
+
+    satuan_tegangan = str(
+        data.get(
+            "satuan_tegangan",
+            "V"
+        )
+        or "V"
+    ).strip()
+
+    arus = str(
+        data.get(
+            "arus",
+            ""
+        )
+        or ""
+    ).strip()
+
+    satuan_arus = str(
+        data.get(
+            "satuan_arus",
+            "A"
+        )
+        or "A"
+    ).strip()
+
+    phase = str(
+        data.get(
+            "phs",
+            ""
+        )
+        or ""
+    ).strip()
+
     kelas = str(
         data.get(
             "kelas",
@@ -239,8 +279,30 @@ def get_or_create_master_kwh(
         or ""
     ).strip()
 
+    try:
+        konstanta = float(
+            data.get(
+                "konstanta",
+                0
+            )
+            or 0
+        )
+    except (
+        TypeError,
+        ValueError
+    ):
+        konstanta = 0.0
+
+    satuan_konstanta = str(
+        data.get(
+            "satuan_konstanta",
+            "imp/kWh"
+        )
+        or "imp/kWh"
+    ).strip()
+
     # =====================================================
-    # VALIDASI
+    # VALIDASI MASTER
     # =====================================================
     if not merk_buatan:
         raise ValueError(
@@ -252,11 +314,33 @@ def get_or_create_master_kwh(
             "Model / Tipe kWh Meter belum diisi."
         )
 
+    if not tegangan:
+        raise ValueError(
+            "Tegangan kWh Meter belum diisi."
+        )
+
+    if not arus:
+        raise ValueError(
+            "Arus kWh Meter belum diisi."
+        )
+
+    if not phase:
+        raise ValueError(
+            "Phase kWh Meter belum diisi."
+        )
+
+    if not kelas:
+        raise ValueError(
+            "Kelas kWh Meter belum diisi."
+        )
+
+    if konstanta <= 0:
+        raise ValueError(
+            "Konstanta kWh Meter harus lebih besar dari 0."
+        )
+
     # =====================================================
-    # PAYLOAD MASTER
-    #
-    # Tegangan, arus, PHS, konstanta dan jumlah alat
-    # nanti disimpan sebagai data kegiatan pengujian.
+    # PAYLOAD MASTER UTTP
     # =====================================================
     payload_uttp = {
         "perusahaan_id": (
@@ -275,17 +359,42 @@ def get_or_create_master_kwh(
             model_tipe
         ),
 
+        "tegangan": (
+            tegangan
+        ),
+
+        "satuan_tegangan": (
+            satuan_tegangan
+        ),
+
+        "arus": (
+            arus
+        ),
+
+        "satuan_arus": (
+            satuan_arus
+        ),
+
+        "phase": (
+            phase
+        ),
+
         "kelas": (
             kelas
-            if kelas
-            else None
+        ),
+
+        "konstanta": (
+            konstanta
+        ),
+
+        "satuan_konstanta": (
+            satuan_konstanta
         ),
 
         "status": (
             "aktif"
         ),
     }
-
     # =====================================================
     # PRIORITAS MASTER YANG SUDAH DIKENAL
     # Dipakai nanti saat Edit / Pengujian Baru.
@@ -377,10 +486,29 @@ def get_or_create_master_kwh(
             "tipe",
             model_tipe
         )
+        .eq(
+            "tegangan",
+            tegangan
+        )
+        .eq(
+            "arus",
+            arus
+        )
+        .eq(
+            "phase",
+            phase
+        )
+        .eq(
+            "kelas",
+            kelas
+        )
+        .eq(
+            "konstanta",
+            konstanta
+        )
         .limit(1)
         .execute()
     )
-
     # =====================================================
     # MASTER SUDAH ADA
     # =====================================================
