@@ -563,6 +563,740 @@ def get_or_create_master_kwh(
         response_insert.data[0]["id"],
         True
     )
+# =========================================================
+# SIMPAN / UPDATE PENGUJIAN kWh METER KE SUPABASE
+# =========================================================
+def simpan_pengujian_kwh_ke_supabase(
+    data
+):
+    """
+    DATA BARU
+    ---------
+    perusahaan      → INSERT / UPDATE
+    uttp             → INSERT / UPDATE master kWh
+    pengujian        → INSERT
+    pengujian_uttp   → INSERT
+
+    EDIT
+    ----
+    perusahaan      → UPDATE bila berubah
+    uttp             → UPDATE master lama
+    pengujian        → UPDATE
+    pengujian_uttp   → UPDATE
+    """
+
+    if not data:
+        raise ValueError(
+            "Data pengujian kWh Meter belum tersedia."
+        )
+
+    supabase = get_supabase_kwh()
+
+    # =====================================================
+    # STATUS EDIT
+    # =====================================================
+    edit_id = st.session_state.get(
+        "kwh_edit_pengujian_id"
+    )
+
+    if edit_id is None:
+        edit_id = data.get(
+            "_edit_pengujian_id"
+        )
+
+    if edit_id is not None:
+        try:
+            edit_id = int(
+                float(
+                    edit_id
+                )
+            )
+
+        except (
+            TypeError,
+            ValueError
+        ):
+            edit_id = None
+
+    sedang_edit = (
+        edit_id is not None
+    )
+
+    # =====================================================
+    # DATA UTAMA
+    # =====================================================
+    pemilik = str(
+        data.get(
+            "pemilik",
+            ""
+        )
+        or ""
+    ).strip()
+
+    alamat = str(
+        data.get(
+            "alamat",
+            ""
+        )
+        or ""
+    ).strip()
+
+    nomor_sertifikat = str(
+        data.get(
+            "nomor_sertifikat",
+            ""
+        )
+        or ""
+    ).strip()
+
+    nomor_order = str(
+        data.get(
+            "nomor_order",
+            ""
+        )
+        or ""
+    ).strip()
+
+    jenis_pengujian = str(
+        data.get(
+            "jenis_pengujian",
+            "Tera"
+        )
+        or "Tera"
+    ).strip()
+
+    penera_1 = str(
+        data.get(
+            "penera_1",
+            ""
+        )
+        or ""
+    ).strip()
+
+    penera_2 = str(
+        data.get(
+            "penera_2",
+            ""
+        )
+        or ""
+    ).strip()
+
+    # =====================================================
+    # UNIT = JUMLAH ALAT
+    # =====================================================
+    try:
+        jumlah_alat = int(
+            data.get(
+                "unit",
+                data.get(
+                    "jumlah_unit",
+                    1
+                )
+            )
+            or 1
+        )
+
+    except (
+        TypeError,
+        ValueError
+    ):
+        jumlah_alat = 0
+
+    # Untuk kWh Meter saat ini
+    # hasil akhir sertifikat = SAH
+    hasil_akhir = str(
+        data.get(
+            "hasil",
+            "SAH"
+        )
+        or "SAH"
+    ).strip()
+
+    # =====================================================
+    # VALIDASI
+    # =====================================================
+    if not pemilik:
+        raise ValueError(
+            "Nama perusahaan belum tersedia."
+        )
+
+    if not alamat:
+        raise ValueError(
+            "Alamat perusahaan belum tersedia."
+        )
+
+    if not nomor_sertifikat:
+        raise ValueError(
+            "Nomor sertifikat belum diisi."
+        )
+
+    if not nomor_order:
+        raise ValueError(
+            "Nomor order belum diisi."
+        )
+
+    if not penera_1:
+        raise ValueError(
+            "Penera 1 belum dipilih."
+        )
+
+    if jumlah_alat <= 0:
+        raise ValueError(
+            "UNIT / jumlah alat harus lebih besar dari 0."
+        )
+
+    # =====================================================
+    # CEK DUPLIKAT NOMOR SERTIFIKAT
+    # =====================================================
+    query_sertifikat = (
+        supabase
+        .table("pengujian")
+        .select("id")
+        .eq(
+            "nomor_sertifikat",
+            nomor_sertifikat
+        )
+    )
+
+    if sedang_edit:
+        query_sertifikat = (
+            query_sertifikat
+            .neq(
+                "id",
+                edit_id
+            )
+        )
+
+    response_sertifikat = (
+        query_sertifikat
+        .limit(1)
+        .execute()
+    )
+
+    if response_sertifikat.data:
+        raise ValueError(
+            "Nomor sertifikat sudah pernah digunakan. "
+            "Silakan gunakan nomor sertifikat yang berbeda."
+        )
+
+    # =====================================================
+    # JIKA EDIT → PASTIKAN DATA ADALAH kWh
+    # =====================================================
+    if sedang_edit:
+
+        response_anchor = (
+            supabase
+            .table("pengujian")
+            .select(
+                "id, uttp_id, data_pengujian"
+            )
+            .eq(
+                "id",
+                edit_id
+            )
+            .limit(1)
+            .execute()
+        )
+
+        if not response_anchor.data:
+            raise RuntimeError(
+                "Pengujian kWh Meter yang akan diedit "
+                "tidak ditemukan."
+            )
+
+        anchor = (
+            response_anchor.data[0]
+        )
+
+        detail_anchor = (
+            anchor.get(
+                "data_pengujian"
+            )
+            or {}
+        )
+
+        schema_anchor = str(
+            detail_anchor.get(
+                "schema_kwh",
+                ""
+            )
+            or ""
+        ).strip()
+
+        if schema_anchor != "1":
+            raise RuntimeError(
+                "Data yang dipilih bukan pengujian "
+                "kWh Meter struktur baru."
+            )
+
+    # =====================================================
+    # MASTER PERUSAHAAN
+    # =====================================================
+    perusahaan_id = (
+        simpan_atau_update_perusahaan_kwh(
+            supabase=supabase,
+            nama_perusahaan=pemilik,
+            alamat=alamat,
+        )
+    )
+
+    uttp_id = None
+    uttp_dibuat_baru = False
+    pengujian_id = None
+
+    try:
+
+        # =================================================
+        # MASTER kWh METER
+        # =================================================
+        (
+            uttp_id,
+            uttp_dibuat_baru
+        ) = (
+            get_or_create_master_kwh(
+                supabase=supabase,
+                perusahaan_id=perusahaan_id,
+                data=data,
+            )
+        )
+
+        # =================================================
+        # TANGGAL
+        # =================================================
+        tanggal_pengujian = (
+            parse_tanggal_kwh(
+                data.get(
+                    "tanggal_pengujian"
+                )
+            )
+        )
+
+        tanggal_cetak = (
+            parse_tanggal_kwh(
+                data.get(
+                    "tanggal_cetak"
+                ),
+                tanggal_pengujian
+            )
+        )
+
+        berlaku_sampai = (
+            parse_tanggal_kwh(
+                data.get(
+                    "berlaku_sampai"
+                ),
+                tambah_tahun(
+                    tanggal_pengujian,
+                    10
+                )
+            )
+        )
+
+        # =================================================
+        # SNAPSHOT KEGIATAN
+        #
+        # Spesifikasi alat TIDAK perlu disimpan ulang
+        # karena sudah berada pada tabel UTTP.
+        # =================================================
+        data_pengujian_header = {
+            "schema_kwh": 1,
+
+            "nama_alat": (
+                data.get(
+                    "nama_alat",
+                    "kWh Meter"
+                )
+            ),
+
+            "untuk_pengguna": (
+                data.get(
+                    "untuk_pengguna",
+                    ""
+                )
+            ),
+
+            "jumlah_penera": int(
+                data.get(
+                    "jumlah_penera",
+                    1
+                )
+                or 1
+            ),
+
+            "nip_penera_1": str(
+                data.get(
+                    "nip_penera_1",
+                    ""
+                )
+                or ""
+            ).strip(),
+
+            "golongan_penera_1": str(
+                data.get(
+                    "golongan_penera_1",
+                    ""
+                )
+                or ""
+            ).strip(),
+
+            "nip_penera_2": str(
+                data.get(
+                    "nip_penera_2",
+                    ""
+                )
+                or ""
+            ).strip(),
+
+            "golongan_penera_2": str(
+                data.get(
+                    "golongan_penera_2",
+                    ""
+                )
+                or ""
+            ).strip(),
+        }
+
+        # =================================================
+        # PAYLOAD PENGUJIAN
+        # =================================================
+        payload_pengujian = {
+            "perusahaan_id": (
+                perusahaan_id
+            ),
+
+            # 1 kegiatan kWh saat ini
+            # = 1 master/model kWh Meter
+            "uttp_id": (
+                uttp_id
+            ),
+
+            "tanggal_pengujian": (
+                tanggal_pengujian.isoformat()
+            ),
+
+            "tanggal_sertifikat": (
+                tanggal_cetak.isoformat()
+            ),
+
+            "jenis_pengujian": (
+                jenis_pengujian
+            ),
+
+            "hasil": (
+                hasil_akhir
+            ),
+
+            "nomor_order": (
+                nomor_order
+            ),
+
+            "nomor_sertifikat": (
+                nomor_sertifikat
+            ),
+
+            "penera_1": (
+                penera_1
+            ),
+
+            "penera_2": (
+                penera_2
+                if penera_2
+                else None
+            ),
+
+            "berlaku_sampai": (
+                berlaku_sampai.isoformat()
+            ),
+
+            # =================================================
+            # PENTING UNTUK DASHBOARD
+            # UNIT = JUMLAH ALAT
+            # =================================================
+            "jumlah_alat": (
+                jumlah_alat
+            ),
+
+            "data_pengujian": (
+                data_pengujian_header
+            ),
+        }
+
+        # =================================================
+        # DATA DETAIL RELASI
+        #
+        # Saat ini kWh belum mempunyai tabel hasil
+        # pengujian per alat, jadi cukup penanda schema.
+        # =================================================
+        data_detail = {
+            "schema_kwh_detail": 1,
+        }
+
+        payload_relasi = {
+            "uttp_id": (
+                uttp_id
+            ),
+
+            "urutan": 1,
+
+            "hasil": (
+                hasil_akhir
+            ),
+
+            "data_detail": (
+                data_detail
+            ),
+
+            # Kolom khusus PUBBM
+            "no_dispenser": None,
+            "posisi": None,
+            "media": None,
+            "k_faktor": None,
+        }
+
+        # =================================================
+        # DATA BARU
+        # =================================================
+        if not sedang_edit:
+
+            response_pengujian = (
+                supabase
+                .table("pengujian")
+                .insert(
+                    payload_pengujian
+                )
+                .execute()
+            )
+
+            if not response_pengujian.data:
+                raise RuntimeError(
+                    "Pengujian kWh Meter gagal disimpan."
+                )
+
+            pengujian_id = (
+                response_pengujian
+                .data[0]["id"]
+            )
+
+            # =============================================
+            # RELASI
+            # =============================================
+            response_relasi = (
+                supabase
+                .table("pengujian_uttp")
+                .insert({
+                    "pengujian_id": (
+                        pengujian_id
+                    ),
+                    **payload_relasi,
+                })
+                .execute()
+            )
+
+            if not response_relasi.data:
+                raise RuntimeError(
+                    "Relasi pengujian kWh Meter "
+                    "gagal disimpan."
+                )
+
+            return {
+                "mode": "baru",
+
+                "pengujian": (
+                    response_pengujian.data
+                ),
+
+                "pengujian_uttp": (
+                    response_relasi.data
+                ),
+
+                "uttp_id": (
+                    uttp_id
+                ),
+
+                "perusahaan_id": (
+                    perusahaan_id
+                ),
+            }
+
+        # =================================================
+        # MODE EDIT
+        # =================================================
+        pengujian_id = (
+            edit_id
+        )
+
+        response_pengujian = (
+            supabase
+            .table("pengujian")
+            .update(
+                payload_pengujian
+            )
+            .eq(
+                "id",
+                pengujian_id
+            )
+            .execute()
+        )
+
+        if not response_pengujian.data:
+            raise RuntimeError(
+                "Pengujian kWh Meter gagal diperbarui."
+            )
+
+        # =================================================
+        # AMBIL RELASI LAMA
+        # =================================================
+        response_relasi_lama = (
+            supabase
+            .table("pengujian_uttp")
+            .select(
+                "id, uttp_id"
+            )
+            .eq(
+                "pengujian_id",
+                pengujian_id
+            )
+            .order(
+                "id"
+            )
+            .execute()
+        )
+
+        relasi_lama = (
+            response_relasi_lama.data
+            or []
+        )
+
+        # =================================================
+        # RELASI SUDAH ADA
+        # =================================================
+        if relasi_lama:
+
+            relasi_utama = (
+                relasi_lama[0]
+            )
+
+            response_relasi = (
+                supabase
+                .table("pengujian_uttp")
+                .update(
+                    payload_relasi
+                )
+                .eq(
+                    "id",
+                    relasi_utama["id"]
+                )
+                .execute()
+            )
+
+            # kWh sekarang hanya 1 master per kegiatan
+            for relasi_tambahan in (
+                relasi_lama[1:]
+            ):
+                (
+                    supabase
+                    .table("pengujian_uttp")
+                    .delete()
+                    .eq(
+                        "id",
+                        relasi_tambahan["id"]
+                    )
+                    .execute()
+                )
+
+        # =================================================
+        # RELASI BELUM ADA
+        # =================================================
+        else:
+
+            response_relasi = (
+                supabase
+                .table("pengujian_uttp")
+                .insert({
+                    "pengujian_id": (
+                        pengujian_id
+                    ),
+                    **payload_relasi,
+                })
+                .execute()
+            )
+
+        if not response_relasi.data:
+            raise RuntimeError(
+                "Relasi pengujian kWh Meter "
+                "gagal diperbarui."
+            )
+
+        # =================================================
+        # SELESAI EDIT
+        # =================================================
+        return {
+            "mode": "edit",
+
+            "pengujian": (
+                response_pengujian.data
+            ),
+
+            "pengujian_uttp": (
+                response_relasi.data
+            ),
+
+            "uttp_id": (
+                uttp_id
+            ),
+
+            "perusahaan_id": (
+                perusahaan_id
+            ),
+        }
+
+    except Exception:
+
+        # =================================================
+        # ROLLBACK PENGUJIAN BARU
+        # =================================================
+        if (
+            not sedang_edit
+            and pengujian_id is not None
+        ):
+            try:
+                (
+                    supabase
+                    .table("pengujian")
+                    .delete()
+                    .eq(
+                        "id",
+                        pengujian_id
+                    )
+                    .execute()
+                )
+
+            except Exception:
+                pass
+
+        # =================================================
+        # HAPUS MASTER BARU JIKA GAGAL TOTAL
+        # =================================================
+        if (
+            uttp_dibuat_baru
+            and uttp_id is not None
+        ):
+            try:
+                (
+                    supabase
+                    .table("uttp")
+                    .delete()
+                    .eq(
+                        "id",
+                        uttp_id
+                    )
+                    .execute()
+                )
+
+            except Exception:
+                pass
+
+        raise
 # =========================
 # HELPER DATA
 # =========================
