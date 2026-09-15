@@ -205,6 +205,309 @@ def simpan_atau_update_perusahaan_tum(
         .data[0]["id"]
     )
 # =========================================================
+# PECAH TIPE / NOMOR SERI TANGKI
+# =========================================================
+def pecah_tipe_nomor_seri_tum(
+    value
+):
+    text = str(
+        value
+        or ""
+    ).strip()
+
+    if not text:
+        return "", ""
+
+    parts = [
+        part.strip()
+        for part in text.split("/")
+        if part.strip()
+    ]
+
+    if len(parts) >= 2:
+        tipe = parts[0]
+
+        nomor_seri = " / ".join(
+            parts[1:]
+        )
+
+        return (
+            tipe,
+            nomor_seri
+        )
+
+    # Jika user tidak memakai tanda "/"
+    # simpan teks yang sama agar identitas
+    # master tetap tidak kosong.
+    return (
+        text,
+        text
+    )
+
+
+# =========================================================
+# CARI / BUAT MASTER TANGKI UKUR MOBIL
+# =========================================================
+def get_or_create_master_tum(
+    supabase,
+    perusahaan_id,
+    data,
+):
+    """
+    1 Tangki Ukur Mobil = 1 master UTTP.
+
+    Identitas utama:
+    perusahaan_id
+    + jenis_uttp
+    + nomor_seri
+
+    Jika master sudah dikenal dari riwayat/edit,
+    prioritaskan _uttp_id.
+    """
+
+    jenis_uttp = (
+        "Tangki Ukur Mobil"
+    )
+
+    merek = str(
+        data.get(
+            "merek_tangki",
+            ""
+        )
+        or ""
+    ).strip()
+
+    tipe_no_seri = str(
+        data.get(
+            "tipe_no_seri_tangki",
+            ""
+        )
+        or ""
+    ).strip()
+
+    (
+        tipe,
+        nomor_seri
+    ) = pecah_tipe_nomor_seri_tum(
+        tipe_no_seri
+    )
+
+    kapasitas = safe_float(
+        data.get(
+            "isi_nominal",
+            0
+        )
+    )
+
+    # =====================================================
+    # VALIDASI MASTER
+    # =====================================================
+    if not merek:
+        raise ValueError(
+            "Merek Tangki belum diisi."
+        )
+
+    if not tipe_no_seri:
+        raise ValueError(
+            "Tipe / Nomor Seri Tangki belum diisi."
+        )
+
+    if not nomor_seri:
+        raise ValueError(
+            "Nomor seri Tangki tidak ditemukan."
+        )
+
+    if kapasitas <= 0:
+        raise ValueError(
+            "Isi nominal Tangki harus lebih besar dari 0."
+        )
+
+    # =====================================================
+    # PAYLOAD MASTER UTTP
+    # =====================================================
+    payload_uttp = {
+        "perusahaan_id": (
+            perusahaan_id
+        ),
+
+        "jenis_uttp": (
+            jenis_uttp
+        ),
+
+        "merk": (
+            merek
+        ),
+
+        "tipe": (
+            tipe
+        ),
+
+        "nomor_seri": (
+            nomor_seri
+        ),
+
+        "kapasitas": (
+            kapasitas
+        ),
+
+        "satuan_kapasitas": (
+            "L"
+        ),
+
+        # Lokasi master alat,
+        # bukan lokasi kegiatan pengujian.
+        "lokasi": (
+            "Perusahaan"
+        ),
+
+        "status": (
+            "aktif"
+        ),
+    }
+
+    # =====================================================
+    # PRIORITAS MASTER YANG SUDAH DIKENAL
+    # Untuk Edit / Pengujian Baru dari Riwayat
+    # =====================================================
+    uttp_id_lama = (
+        data.get(
+            "_uttp_id"
+        )
+    )
+
+    if (
+        uttp_id_lama is not None
+        and str(
+            uttp_id_lama
+        ).strip() != ""
+    ):
+        try:
+            uttp_id_lama = int(
+                float(
+                    uttp_id_lama
+                )
+            )
+
+        except (
+            TypeError,
+            ValueError
+        ):
+            uttp_id_lama = None
+
+    if uttp_id_lama is not None:
+
+        response_update = (
+            supabase
+            .table("uttp")
+            .update(
+                payload_uttp
+            )
+            .eq(
+                "id",
+                uttp_id_lama
+            )
+            .eq(
+                "perusahaan_id",
+                perusahaan_id
+            )
+            .execute()
+        )
+
+        if not response_update.data:
+            raise RuntimeError(
+                "Master Tangki Ukur Mobil lama "
+                "tidak ditemukan atau tidak sesuai "
+                "dengan perusahaan."
+            )
+
+        return (
+            uttp_id_lama,
+            False
+        )
+
+    # =====================================================
+    # CARI MASTER BERDASARKAN IDENTITAS
+    # =====================================================
+    response_existing = (
+        supabase
+        .table("uttp")
+        .select(
+            "id"
+        )
+        .eq(
+            "perusahaan_id",
+            perusahaan_id
+        )
+        .eq(
+            "jenis_uttp",
+            jenis_uttp
+        )
+        .eq(
+            "nomor_seri",
+            nomor_seri
+        )
+        .limit(1)
+        .execute()
+    )
+
+    # =====================================================
+    # SUDAH ADA → UPDATE MASTER
+    # =====================================================
+    if response_existing.data:
+
+        uttp_id = (
+            response_existing
+            .data[0]["id"]
+        )
+
+        response_update = (
+            supabase
+            .table("uttp")
+            .update(
+                payload_uttp
+            )
+            .eq(
+                "id",
+                uttp_id
+            )
+            .execute()
+        )
+
+        if not response_update.data:
+            raise RuntimeError(
+                "Master Tangki Ukur Mobil "
+                "gagal diperbarui."
+            )
+
+        return (
+            uttp_id,
+            False
+        )
+
+    # =====================================================
+    # BELUM ADA → INSERT MASTER BARU
+    # =====================================================
+    response_insert = (
+        supabase
+        .table("uttp")
+        .insert(
+            payload_uttp
+        )
+        .execute()
+    )
+
+    if not response_insert.data:
+        raise RuntimeError(
+            "Master Tangki Ukur Mobil "
+            "gagal disimpan."
+        )
+
+    return (
+        response_insert
+        .data[0]["id"],
+        True
+    )
+# =========================================================
 # HELPER TANGGAL
 # =========================================================
 def bulan_ke_romawi(bulan):
