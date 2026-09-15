@@ -3861,13 +3861,28 @@ def run():
                                 ""
                             )
                         )
-
+                        
                         st.session_state.tum_generated_files[
                             "sertifikat"
-                        ] = str(filename)
-
+                        ] = str(
+                            filename
+                        )
+                        
+                        # =====================================================
+                        # SIMPAN PENGUJIAN KE SUPABASE
+                        #
+                        # Sertifikat dianggap sebagai dokumen final,
+                        # sehingga pada tahap ini data pengujian disimpan.
+                        # =====================================================
+                        hasil_simpan = (
+                            pastikan_tum_tersimpan_db(
+                                data
+                            )
+                        )
+                        
                         st.success(
-                            "✅ Sertifikat Tangki Ukur Mobil berhasil dibuat."
+                            "✅ Sertifikat Tangki Ukur Mobil berhasil dibuat "
+                            "dan pengujian berhasil disimpan."
                         )
 
                     except Exception as exc:
