@@ -40,7 +40,170 @@ def get_supabase_tum():
         key
     )
 
+# =========================================================
+# SIMPAN / UPDATE MASTER PERUSAHAAN TUM
+# =========================================================
+def simpan_atau_update_perusahaan_tum(
+    supabase,
+    nama_perusahaan,
+    alamat,
+):
+    """
+    Aturan standar SMART METRO:
 
+    1. Perusahaan belum ada
+       → INSERT perusahaan baru.
+
+    2. Perusahaan sudah ada dan alamat berubah
+       → UPDATE alamat.
+
+    3. Perusahaan sudah ada dan alamat sama
+       → gunakan perusahaan_id lama.
+
+    Berlaku untuk:
+    - perusahaan dari daftar;
+    - perusahaan input manual.
+    """
+
+    nama_perusahaan = str(
+        nama_perusahaan
+        or ""
+    ).strip()
+
+    alamat = str(
+        alamat
+        or ""
+    ).strip()
+
+    # =====================================================
+    # VALIDASI
+    # =====================================================
+    if not nama_perusahaan:
+        raise ValueError(
+            "Nama pemilik / perusahaan belum diisi."
+        )
+
+    if not alamat:
+        raise ValueError(
+            "Alamat pemilik / perusahaan belum diisi."
+        )
+
+    # =====================================================
+    # CARI PERUSAHAAN BERDASARKAN NAMA
+    # =====================================================
+    response_cari = (
+        supabase
+        .table("perusahaan")
+        .select(
+            "id, nama_perusahaan, alamat"
+        )
+        .ilike(
+            "nama_perusahaan",
+            nama_perusahaan
+        )
+        .limit(1)
+        .execute()
+    )
+
+    # =====================================================
+    # PERUSAHAAN SUDAH ADA
+    # =====================================================
+    if response_cari.data:
+
+        perusahaan_lama = (
+            response_cari.data[0]
+        )
+
+        perusahaan_id = (
+            perusahaan_lama["id"]
+        )
+
+        nama_lama = str(
+            perusahaan_lama.get(
+                "nama_perusahaan",
+                ""
+            )
+            or ""
+        ).strip()
+
+        alamat_lama = str(
+            perusahaan_lama.get(
+                "alamat",
+                ""
+            )
+            or ""
+        ).strip()
+
+        payload_update = {}
+
+        # =================================================
+        # NAMA BERUBAH
+        # =================================================
+        if nama_perusahaan != nama_lama:
+            payload_update[
+                "nama_perusahaan"
+            ] = nama_perusahaan
+
+        # =================================================
+        # ALAMAT BERUBAH
+        # =================================================
+        if alamat != alamat_lama:
+            payload_update[
+                "alamat"
+            ] = alamat
+
+        # =================================================
+        # ADA PERUBAHAN → UPDATE
+        # =================================================
+        if payload_update:
+
+            response_update = (
+                supabase
+                .table("perusahaan")
+                .update(
+                    payload_update
+                )
+                .eq(
+                    "id",
+                    perusahaan_id
+                )
+                .execute()
+            )
+
+            if not response_update.data:
+                raise RuntimeError(
+                    "Data perusahaan gagal diperbarui."
+                )
+
+        return perusahaan_id
+
+    # =====================================================
+    # PERUSAHAAN BARU → INSERT
+    # =====================================================
+    response_insert = (
+        supabase
+        .table("perusahaan")
+        .insert({
+            "nama_perusahaan": (
+                nama_perusahaan
+            ),
+            "alamat": (
+                alamat
+            ),
+        })
+        .execute()
+    )
+
+    if not response_insert.data:
+        raise RuntimeError(
+            "Perusahaan baru gagal disimpan "
+            "ke Supabase."
+        )
+
+    return (
+        response_insert
+        .data[0]["id"]
+    )
 # =========================================================
 # HELPER TANGGAL
 # =========================================================
