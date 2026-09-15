@@ -2106,16 +2106,20 @@ def init_state():
         "tanggal_cetak_kwh": tanggal_cetak_saved,
         "berlaku_sampai_kwh": berlaku_sampai_saved,
 
-        "nomor_sertifikat_kwh": saved.get(
-            "nomor_sertifikat",
-            generate_nomor_sertifikat(
+        "nomor_sertifikat_kwh": (
+            saved.get(
+                "nomor_sertifikat"
+            )
+            or generate_nomor_sertifikat(
                 tanggal_pengujian_saved
             )
         ),
-
-        "nomor_order_kwh": saved.get(
-            "nomor_order",
-            generate_nomor_order(
+        
+        "nomor_order_kwh": (
+            saved.get(
+                "nomor_order"
+            )
+            or generate_nomor_order(
                 tanggal_pengujian_saved
             )
         ),
@@ -3279,6 +3283,7 @@ def run():
             "satuan_konstanta": (
                 satuan_konstanta
             ),
+            "hasil": "SAH",
         }
 
         col_simpan, col_reset = st.columns(2)
