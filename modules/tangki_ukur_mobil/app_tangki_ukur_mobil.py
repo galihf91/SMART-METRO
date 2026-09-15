@@ -3664,7 +3664,7 @@ def run():
             "Pilih Mode:",
             [
                 MODE_INPUT,
-                MODE_PREVIEW
+                MODE_PREVIEW,
                 MODE_HISTORY,
             ],
             key="tum_mode"
