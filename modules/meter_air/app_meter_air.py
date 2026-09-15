@@ -2881,9 +2881,13 @@ def run():
             "°C",
             "ma_suhu",
             [
-                25.0,
-                25.0,
-                25.0,
+                safe_float(
+                    saved_tests[i].get(
+                        "suhu",
+                        25.0
+                    )
+                )
+                for i in range(3)
             ],
             step=0.1,
             fmt="%.1f",
@@ -2893,9 +2897,13 @@ def run():
             "kPa (kg/cm²)",
             "ma_tekanan",
             [
-                2.0,
-                2.0,
-                2.0,
+                safe_float(
+                    saved_tests[i].get(
+                        "tekanan",
+                        2.0
+                    )
+                )
+                for i in range(3)
             ],
             step=0.01,
             fmt="%.2f",
