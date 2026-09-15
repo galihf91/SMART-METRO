@@ -1297,6 +1297,119 @@ def simpan_pengujian_kwh_ke_supabase(
                 pass
 
         raise
+# =========================================================
+# SIMPAN kWh DENGAN PENGAMAN DUPLIKASI
+# =========================================================
+def pastikan_kwh_tersimpan_db(
+    data
+):
+    # =====================================================
+    # CEK MODE EDIT
+    # =====================================================
+    edit_id = (
+        st.session_state.get(
+            "kwh_edit_pengujian_id"
+        )
+        or data.get(
+            "_edit_pengujian_id"
+        )
+    )
+
+    sedang_edit = (
+        edit_id is not None
+        and str(
+            edit_id
+        ).strip() != ""
+    )
+
+    # =====================================================
+    # MODE EDIT
+    #
+    # Generate boleh berkali-kali.
+    # Setiap Generate = UPDATE ID yang sama.
+    # =====================================================
+    if sedang_edit:
+
+        hasil_simpan = (
+            simpan_pengujian_kwh_ke_supabase(
+                data
+            )
+        )
+
+        pengujian_rows = (
+            hasil_simpan.get(
+                "pengujian",
+                []
+            )
+            or []
+        )
+
+        if pengujian_rows:
+            st.session_state[
+                "kwh_last_pengujian_id"
+            ] = (
+                pengujian_rows[0].get(
+                    "id"
+                )
+            )
+
+        return hasil_simpan
+
+    # =====================================================
+    # MODE DATA BARU
+    #
+    # Sudah pernah INSERT pada form ini
+    # → jangan INSERT kedua kali.
+    # =====================================================
+    if st.session_state.get(
+        "kwh_sudah_disimpan_db",
+        False
+    ):
+        return {
+            "mode": "sudah_tersimpan",
+
+            "pengujian_id": (
+                st.session_state.get(
+                    "kwh_last_pengujian_id"
+                )
+            ),
+        }
+
+    # =====================================================
+    # INSERT DATA BARU
+    # =====================================================
+    hasil_simpan = (
+        simpan_pengujian_kwh_ke_supabase(
+            data
+        )
+    )
+
+    pengujian_rows = (
+        hasil_simpan.get(
+            "pengujian",
+            []
+        )
+        or []
+    )
+
+    pengujian_id = None
+
+    if pengujian_rows:
+        pengujian_id = (
+            pengujian_rows[0].get(
+                "id"
+            )
+        )
+
+    st.session_state[
+        "kwh_sudah_disimpan_db"
+    ] = True
+
+    st.session_state[
+        "kwh_last_pengujian_id"
+    ] = pengujian_id
+
+    return hasil_simpan
 # =========================
 # HELPER DATA
 # =========================
@@ -1555,6 +1668,8 @@ def init_state():
             "golongan_penera_2",
             ""
         ),
+        "kwh_sudah_disimpan_db": False,
+        "kwh_last_pengujian_id": None,
     }
 
     for key, value in defaults.items():
@@ -2199,6 +2314,23 @@ def run():
         st.markdown("---")
 
         data_kwh = {
+            # =====================================================
+            # ID INTERNAL DATABASE
+            # =====================================================
+            "_edit_pengujian_id": (
+                st.session_state.get(
+                    "kwh_edit_pengujian_id"
+                )
+                or saved.get(
+                    "_edit_pengujian_id"
+                )
+            ),
+            
+            "_uttp_id": (
+                saved.get(
+                    "_uttp_id"
+                )
+            ),
             "nomor_sertifikat": nomor_sertifikat,
             "nomor_order": nomor_order,
             "tanggal_pengujian": (
@@ -2328,6 +2460,17 @@ def run():
             st.session_state.data_kwh = data_kwh
             st.session_state.saved_data_kwh = data_kwh
             st.session_state.generated_files_kwh = {}
+            # =====================================================
+            # DATA FORM BERUBAH / BARU
+            # Belum disimpan ke database
+            # =====================================================
+            st.session_state[
+                "kwh_sudah_disimpan_db"
+            ] = False
+            
+            st.session_state[
+                "kwh_last_pengujian_id"
+            ] = None
 
             st.success(
                 "Data kWh Meter berhasil disimpan. "
@@ -2440,14 +2583,25 @@ def run():
                     data_kwh,
                     str(output_file)
                 )
-
+                
                 st.session_state.generated_files_kwh[
                     "sertifikat"
-                ] = str(output_file)
-
+                ] = str(
+                    output_file
+                )
+                
+                # =====================================================
+                # SIMPAN KE SUPABASE
+                # =====================================================
+                hasil_simpan = (
+                    pastikan_kwh_tersimpan_db(
+                        data_kwh
+                    )
+                )
+                
                 st.success(
-                    f"Sertifikat berhasil dibuat: "
-                    f"{output_file.name}"
+                    "✅ Sertifikat kWh Meter berhasil dibuat "
+                    "dan pengujian berhasil disimpan."
                 )
 
             except Exception as e:
