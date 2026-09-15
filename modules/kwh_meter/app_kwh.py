@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import date, datetime
 from pathlib import Path
-
+from supabase import create_client
 def find_project_root():
     current = Path(__file__).resolve()
 
@@ -15,7 +15,11 @@ def find_project_root():
 
     return current.parent
 
-
+try:
+    from modules.kwh_meter.sertifikat_kwh_generator import generate_sertifikat_kwh
+except ModuleNotFoundError:
+    # Fallback jika file generator diletakkan satu folder dengan halaman ini
+    from sertifikat_kwh_generator import generate_sertifikat_kwh
 PROJECT_ROOT = find_project_root()
 
 DATA_DIR = PROJECT_ROOT / "data"
@@ -26,12 +30,167 @@ OUTPUT_DIR = (
     / "kwh_meter"
     / "sertifikat"
 )
-try:
-    from modules.kwh_meter.sertifikat_kwh_generator import generate_sertifikat_kwh
-except ModuleNotFoundError:
-    # Fallback jika file generator diletakkan satu folder dengan halaman ini
-    from sertifikat_kwh_generator import generate_sertifikat_kwh
+# =========================================================
+# SUPABASE kWh METER
+# =========================================================
+def get_supabase_kwh():
+    url = st.secrets[
+        "SUPABASE_URL"
+    ]
 
+    key = st.secrets[
+        "SUPABASE_KEY"
+    ]
+
+    return create_client(
+        url,
+        key
+    )
+# =========================================================
+# SIMPAN / UPDATE PERUSAHAAN kWh METER
+# =========================================================
+def simpan_atau_update_perusahaan_kwh(
+    supabase,
+    nama_perusahaan,
+    alamat,
+):
+    nama_perusahaan = str(
+        nama_perusahaan
+        or ""
+    ).strip()
+
+    alamat = str(
+        alamat
+        or ""
+    ).strip()
+
+    if not nama_perusahaan:
+        raise ValueError(
+            "Nama perusahaan belum tersedia."
+        )
+
+    if not alamat:
+        raise ValueError(
+            "Alamat perusahaan belum tersedia."
+        )
+
+    # =====================================================
+    # CARI PERUSAHAAN
+    # =====================================================
+    response_cari = (
+        supabase
+        .table(
+            "perusahaan"
+        )
+        .select(
+            "id, nama_perusahaan, alamat"
+        )
+        .ilike(
+            "nama_perusahaan",
+            nama_perusahaan
+        )
+        .limit(1)
+        .execute()
+    )
+
+    # =====================================================
+    # SUDAH ADA
+    # =====================================================
+    if response_cari.data:
+
+        perusahaan_lama = (
+            response_cari.data[0]
+        )
+
+        perusahaan_id = (
+            perusahaan_lama[
+                "id"
+            ]
+        )
+
+        nama_lama = str(
+            perusahaan_lama.get(
+                "nama_perusahaan",
+                ""
+            )
+            or ""
+        ).strip()
+
+        alamat_lama = str(
+            perusahaan_lama.get(
+                "alamat",
+                ""
+            )
+            or ""
+        ).strip()
+
+        payload_update = {}
+
+        if nama_perusahaan != nama_lama:
+            payload_update[
+                "nama_perusahaan"
+            ] = nama_perusahaan
+
+        if alamat != alamat_lama:
+            payload_update[
+                "alamat"
+            ] = alamat
+
+        if payload_update:
+
+            response_update = (
+                supabase
+                .table(
+                    "perusahaan"
+                )
+                .update(
+                    payload_update
+                )
+                .eq(
+                    "id",
+                    perusahaan_id
+                )
+                .execute()
+            )
+
+            if not response_update.data:
+                raise RuntimeError(
+                    "Data perusahaan kWh Meter "
+                    "gagal diperbarui."
+                )
+
+        return perusahaan_id
+
+    # =====================================================
+    # PERUSAHAAN BARU
+    # =====================================================
+    response_insert = (
+        supabase
+        .table(
+            "perusahaan"
+        )
+        .insert({
+            "nama_perusahaan": (
+                nama_perusahaan
+            ),
+
+            "alamat": (
+                alamat
+            ),
+        })
+        .execute()
+    )
+
+    if not response_insert.data:
+        raise RuntimeError(
+            "Perusahaan kWh Meter "
+            "gagal disimpan ke Supabase."
+        )
+
+    return (
+        response_insert
+        .data[0]["id"]
+    )
 
 # =========================
 # HELPER DATA
