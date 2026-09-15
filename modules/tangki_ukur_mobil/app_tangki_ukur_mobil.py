@@ -298,7 +298,19 @@ def get_or_create_master_tum(
             0
         )
     )
-
+    jumlah_kompartemen = int(
+        data.get(
+            "jumlah_kompartemen",
+            1
+        )
+        or 1
+    )
+    
+    if jumlah_kompartemen < 1:
+        jumlah_kompartemen = 1
+    
+    if jumlah_kompartemen > 4:
+        jumlah_kompartemen = 4
     # =====================================================
     # VALIDASI MASTER
     # =====================================================
@@ -352,6 +364,9 @@ def get_or_create_master_tum(
 
         "satuan_kapasitas": (
             "L"
+        ),
+        "jumlah_kompartemen": (
+            jumlah_kompartemen
         ),
 
         # Lokasi master alat,
@@ -912,20 +927,6 @@ def simpan_pengujian_tum_ke_supabase(
                 )
             ),
 
-            "jumlah_kompartemen": (
-                int(
-                    data.get(
-                        "jumlah_kompartemen",
-                        len(
-                            data_kompartemen
-                        )
-                    )
-                    or len(
-                        data_kompartemen
-                    )
-                )
-            ),
-
             # =============================================
             # DATA PENERA
             # =============================================
@@ -1029,21 +1030,7 @@ def simpan_pengujian_tum_ke_supabase(
         # =================================================
         data_detail = {
             "schema_tum_detail": 1,
-
-            "jumlah_kompartemen": (
-                int(
-                    data.get(
-                        "jumlah_kompartemen",
-                        len(
-                            data_kompartemen
-                        )
-                    )
-                    or len(
-                        data_kompartemen
-                    )
-                )
-            ),
-
+        
             "data_kompartemen": (
                 data_kompartemen
             ),
