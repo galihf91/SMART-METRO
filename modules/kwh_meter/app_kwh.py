@@ -778,9 +778,17 @@ def run():
         c1, c2, c3 = st.columns(3)
 
         with c1:
-            unit = st.text_input(
+            unit = st.number_input(
                 "UNIT",
-                value=saved.get("unit", "1"),
+                min_value=1,
+                value=int(
+                    saved.get(
+                        "unit",
+                        1
+                    )
+                    or 1
+                ),
+                step=1,
                 key="kwh_unit"
             )
 
@@ -820,7 +828,7 @@ def run():
         kwh_df = pd.DataFrame(
             [
                 {
-                    "UNIT": str(unit).strip(),
+                    "UNIT": int(unit),
                     "TEGANGAN": str(tegangan).strip(),
                     "ARUS": str(arus).strip(),
                     "PHS": str(phs).strip(),
@@ -867,7 +875,9 @@ def run():
             "nip_penera_2": nip_penera_2,
             "golongan_penera_2": golongan_penera_2,
             "jumlah_penera": jumlah_penera,
-            "jumlah_unit": 1,
+            "jumlah_unit": int(
+                unit
+            ),
             "kwh_meter": kwh_df,
             "unit": unit,
             "tegangan": tegangan,
