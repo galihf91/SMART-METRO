@@ -1410,6 +1410,492 @@ def pastikan_kwh_tersimpan_db(
     ] = pengujian_id
 
     return hasil_simpan
+# =========================================================
+# AMBIL RIWAYAT PENGUJIAN kWh METER
+# =========================================================
+def ambil_riwayat_kwh():
+    supabase = get_supabase_kwh()
+
+    # =====================================================
+    # 1. AMBIL PENGUJIAN
+    # =====================================================
+    response_pengujian = (
+        supabase
+        .table("pengujian")
+        .select("*")
+        .order(
+            "tanggal_pengujian",
+            desc=True
+        )
+        .execute()
+    )
+
+    semua_pengujian = (
+        response_pengujian.data
+        or []
+    )
+
+    # =====================================================
+    # HANYA DATA kWh METER STRUKTUR BARU
+    # =====================================================
+    daftar_pengujian = []
+
+    for row in semua_pengujian:
+
+        detail = (
+            row.get(
+                "data_pengujian"
+            )
+            or {}
+        )
+
+        schema_kwh = str(
+            detail.get(
+                "schema_kwh",
+                ""
+            )
+            or ""
+        ).strip()
+
+        if schema_kwh == "1":
+            daftar_pengujian.append(
+                row
+            )
+
+    if not daftar_pengujian:
+        return []
+
+    # =====================================================
+    # 2. AMBIL RELASI PENGUJIAN - UTTP
+    # =====================================================
+    daftar_pengujian_id = [
+        row["id"]
+        for row in daftar_pengujian
+        if row.get("id") is not None
+    ]
+
+    response_relasi = (
+        supabase
+        .table("pengujian_uttp")
+        .select(
+            "id, pengujian_id, uttp_id, "
+            "urutan, hasil, data_detail"
+        )
+        .in_(
+            "pengujian_id",
+            daftar_pengujian_id
+        )
+        .execute()
+    )
+
+    semua_relasi = (
+        response_relasi.data
+        or []
+    )
+
+    relasi_map = {}
+
+    for relasi in semua_relasi:
+        relasi_map[
+            relasi.get(
+                "pengujian_id"
+            )
+        ] = relasi
+
+    # =====================================================
+    # 3. AMBIL MASTER UTTP
+    # =====================================================
+    daftar_uttp_id = list({
+        (
+            relasi.get(
+                "uttp_id"
+            )
+        )
+        for relasi in semua_relasi
+        if relasi.get(
+            "uttp_id"
+        ) is not None
+    })
+
+    # Fallback dari pengujian.uttp_id
+    for row in daftar_pengujian:
+        uttp_id_header = row.get(
+            "uttp_id"
+        )
+
+        if (
+            uttp_id_header is not None
+            and uttp_id_header
+            not in daftar_uttp_id
+        ):
+            daftar_uttp_id.append(
+                uttp_id_header
+            )
+
+    uttp_map = {}
+
+    if daftar_uttp_id:
+
+        response_uttp = (
+            supabase
+            .table("uttp")
+            .select(
+                "id, perusahaan_id, jenis_uttp, "
+                "merk, tipe, "
+                "tegangan, satuan_tegangan, "
+                "arus, satuan_arus, "
+                "phase, kelas, "
+                "konstanta, satuan_konstanta, "
+                "status"
+            )
+            .in_(
+                "id",
+                daftar_uttp_id
+            )
+            .execute()
+        )
+
+        uttp_map = {
+            row["id"]: row
+            for row in (
+                response_uttp.data
+                or []
+            )
+        }
+
+    # =====================================================
+    # 4. AMBIL PERUSAHAAN
+    # =====================================================
+    daftar_perusahaan_id = list({
+        row.get(
+            "perusahaan_id"
+        )
+        for row in daftar_pengujian
+        if row.get(
+            "perusahaan_id"
+        ) is not None
+    })
+
+    perusahaan_map = {}
+
+    if daftar_perusahaan_id:
+
+        response_perusahaan = (
+            supabase
+            .table("perusahaan")
+            .select(
+                "id, nama_perusahaan, alamat"
+            )
+            .in_(
+                "id",
+                daftar_perusahaan_id
+            )
+            .execute()
+        )
+
+        perusahaan_map = {
+            row["id"]: row
+            for row in (
+                response_perusahaan.data
+                or []
+            )
+        }
+
+    # =====================================================
+    # 5. BANGUN DATA RIWAYAT
+    # =====================================================
+    hasil = []
+
+    for header in daftar_pengujian:
+
+        pengujian_id = (
+            header.get(
+                "id"
+            )
+        )
+
+        detail_header = dict(
+            header.get(
+                "data_pengujian"
+            )
+            or {}
+        )
+
+        perusahaan = (
+            perusahaan_map.get(
+                header.get(
+                    "perusahaan_id"
+                ),
+                {}
+            )
+        )
+
+        relasi = (
+            relasi_map.get(
+                pengujian_id,
+                {}
+            )
+            or {}
+        )
+
+        uttp_id = (
+            relasi.get(
+                "uttp_id"
+            )
+            or header.get(
+                "uttp_id"
+            )
+        )
+
+        alat = (
+            uttp_map.get(
+                uttp_id,
+                {}
+            )
+        )
+
+        # =================================================
+        # IDENTITAS INTERNAL
+        # =================================================
+        detail_header[
+            "_uttp_id"
+        ] = uttp_id
+
+        # =================================================
+        # PERUSAHAAN
+        # =================================================
+        detail_header[
+            "pemilik"
+        ] = str(
+            perusahaan.get(
+                "nama_perusahaan",
+                ""
+            )
+            or ""
+        ).strip()
+
+        detail_header[
+            "alamat"
+        ] = str(
+            perusahaan.get(
+                "alamat",
+                ""
+            )
+            or ""
+        ).strip()
+
+        # =================================================
+        # MASTER kWh METER
+        # =================================================
+        detail_header[
+            "nama_alat"
+        ] = "kWh Meter"
+
+        detail_header[
+            "merk_buatan"
+        ] = str(
+            alat.get(
+                "merk",
+                ""
+            )
+            or ""
+        ).strip()
+
+        detail_header[
+            "model_tipe"
+        ] = str(
+            alat.get(
+                "tipe",
+                ""
+            )
+            or ""
+        ).strip()
+
+        detail_header[
+            "tegangan"
+        ] = str(
+            alat.get(
+                "tegangan",
+                ""
+            )
+            or ""
+        ).strip()
+
+        detail_header[
+            "satuan_tegangan"
+        ] = str(
+            alat.get(
+                "satuan_tegangan",
+                "V"
+            )
+            or "V"
+        ).strip()
+
+        detail_header[
+            "arus"
+        ] = str(
+            alat.get(
+                "arus",
+                ""
+            )
+            or ""
+        ).strip()
+
+        detail_header[
+            "satuan_arus"
+        ] = str(
+            alat.get(
+                "satuan_arus",
+                "A"
+            )
+            or "A"
+        ).strip()
+
+        detail_header[
+            "phs"
+        ] = str(
+            alat.get(
+                "phase",
+                ""
+            )
+            or ""
+        ).strip()
+
+        detail_header[
+            "kelas"
+        ] = str(
+            alat.get(
+                "kelas",
+                ""
+            )
+            or ""
+        ).strip()
+
+        detail_header[
+            "konstanta"
+        ] = (
+            alat.get(
+                "konstanta",
+                0
+            )
+        )
+
+        detail_header[
+            "satuan_konstanta"
+        ] = str(
+            alat.get(
+                "satuan_konstanta",
+                "imp/kWh"
+            )
+            or "imp/kWh"
+        ).strip()
+
+        # =================================================
+        # UNIT = JUMLAH ALAT
+        # =================================================
+        jumlah_alat = (
+            header.get(
+                "jumlah_alat",
+                1
+            )
+            or 1
+        )
+
+        detail_header[
+            "unit"
+        ] = int(
+            jumlah_alat
+        )
+
+        detail_header[
+            "jumlah_unit"
+        ] = int(
+            jumlah_alat
+        )
+
+        detail_header[
+            "jumlah_alat"
+        ] = int(
+            jumlah_alat
+        )
+
+        # =================================================
+        # DATA PENGUJIAN
+        # =================================================
+        detail_header[
+            "jenis_pengujian"
+        ] = header.get(
+            "jenis_pengujian",
+            ""
+        )
+
+        detail_header[
+            "tanggal_pengujian"
+        ] = header.get(
+            "tanggal_pengujian"
+        )
+
+        detail_header[
+            "tanggal_cetak"
+        ] = header.get(
+            "tanggal_sertifikat"
+        )
+
+        detail_header[
+            "berlaku_sampai"
+        ] = header.get(
+            "berlaku_sampai"
+        )
+
+        detail_header[
+            "nomor_order"
+        ] = header.get(
+            "nomor_order",
+            ""
+        )
+
+        detail_header[
+            "nomor_sertifikat"
+        ] = header.get(
+            "nomor_sertifikat",
+            ""
+        )
+
+        detail_header[
+            "penera_1"
+        ] = header.get(
+            "penera_1",
+            ""
+        )
+
+        detail_header[
+            "penera_2"
+        ] = (
+            header.get(
+                "penera_2",
+                ""
+            )
+            or ""
+        )
+
+        detail_header[
+            "hasil"
+        ] = header.get(
+            "hasil",
+            "SAH"
+        )
+
+        hasil.append({
+            "id": (
+                pengujian_id
+            ),
+
+            "data": (
+                detail_header
+            ),
+        })
+
+    return hasil
 # =========================
 # HELPER DATA
 # =========================
@@ -1842,6 +2328,7 @@ def run():
         [
             "📝 Input Data Pengujian",
             "📄 Preview & Generate Data"
+            "📚 Riwayat kWh Meter",
         ],
         key="menu_kwh"
     )
@@ -2638,4 +3125,239 @@ def run():
         else:
             st.caption(
                 "Sertifikat belum digenerate."
+            )
+    # =====================================================
+    # RIWAYAT kWh METER
+    # =====================================================
+    elif mode == "📚 Riwayat kWh Meter":
+
+        st.header(
+            "📚 Riwayat Pengujian kWh Meter"
+        )
+
+        try:
+            daftar_riwayat = (
+                ambil_riwayat_kwh()
+            )
+
+            if not daftar_riwayat:
+                st.info(
+                    "Belum ada riwayat pengujian "
+                    "kWh Meter."
+                )
+                return
+
+            opsi_riwayat = {}
+
+            for item in daftar_riwayat:
+
+                data_riwayat = (
+                    item.get(
+                        "data",
+                        {}
+                    )
+                    or {}
+                )
+
+                label = (
+                    f"{data_riwayat.get('tanggal_pengujian', '')}"
+                    f" | "
+                    f"{data_riwayat.get('pemilik', '')}"
+                    f" | "
+                    f"{data_riwayat.get('model_tipe', '')}"
+                    f" | "
+                    f"{data_riwayat.get('jumlah_alat', 0)} unit"
+                    f" | "
+                    f"{data_riwayat.get('nomor_sertifikat', '')}"
+                )
+
+                opsi_riwayat[
+                    label
+                ] = item
+
+            pilihan = st.selectbox(
+                "Pilih Riwayat Pengujian",
+                options=[
+                    ""
+                ] + list(
+                    opsi_riwayat.keys()
+                ),
+                key="kwh_riwayat_pilih",
+            )
+
+            if pilihan:
+
+                riwayat = (
+                    opsi_riwayat[
+                        pilihan
+                    ]
+                )
+
+                data_riwayat = (
+                    riwayat.get(
+                        "data",
+                        {}
+                    )
+                    or {}
+                )
+
+                st.subheader(
+                    "Detail Pengujian"
+                )
+
+                col1, col2 = (
+                    st.columns(2)
+                )
+
+                with col1:
+
+                    st.write(
+                        "**Pemilik:**",
+                        data_riwayat.get(
+                            "pemilik",
+                            "-"
+                        )
+                    )
+
+                    st.write(
+                        "**Merk / Buatan:**",
+                        data_riwayat.get(
+                            "merk_buatan",
+                            "-"
+                        )
+                    )
+
+                    st.write(
+                        "**Model / Tipe:**",
+                        data_riwayat.get(
+                            "model_tipe",
+                            "-"
+                        )
+                    )
+
+                    st.write(
+                        "**Tegangan:**",
+                        (
+                            f"{data_riwayat.get('tegangan', '-')} "
+                            f"{data_riwayat.get('satuan_tegangan', '')}"
+                        )
+                    )
+
+                    st.write(
+                        "**Arus:**",
+                        (
+                            f"{data_riwayat.get('arus', '-')} "
+                            f"{data_riwayat.get('satuan_arus', '')}"
+                        )
+                    )
+
+                    st.write(
+                        "**Phase:**",
+                        data_riwayat.get(
+                            "phs",
+                            "-"
+                        )
+                    )
+
+                    st.write(
+                        "**Kelas:**",
+                        data_riwayat.get(
+                            "kelas",
+                            "-"
+                        )
+                    )
+
+                    st.write(
+                        "**Konstanta:**",
+                        (
+                            f"{data_riwayat.get('konstanta', '-')} "
+                            f"{data_riwayat.get('satuan_konstanta', '')}"
+                        )
+                    )
+
+                with col2:
+
+                    st.metric(
+                        "Jumlah Alat / UNIT",
+                        (
+                            f"{data_riwayat.get('jumlah_alat', 0):,}"
+                            .replace(
+                                ",",
+                                "."
+                            )
+                        )
+                    )
+
+                    st.write(
+                        "**Tanggal Pengujian:**",
+                        data_riwayat.get(
+                            "tanggal_pengujian",
+                            "-"
+                        )
+                    )
+
+                    st.write(
+                        "**Jenis Pengujian:**",
+                        data_riwayat.get(
+                            "jenis_pengujian",
+                            "-"
+                        )
+                    )
+
+                    st.write(
+                        "**Nomor Order:**",
+                        data_riwayat.get(
+                            "nomor_order",
+                            "-"
+                        )
+                    )
+
+                    st.write(
+                        "**Nomor Sertifikat:**",
+                        data_riwayat.get(
+                            "nomor_sertifikat",
+                            "-"
+                        )
+                    )
+
+                    st.write(
+                        "**Penera 1:**",
+                        data_riwayat.get(
+                            "penera_1",
+                            "-"
+                        )
+                    )
+
+                    st.write(
+                        "**Penera 2:**",
+                        (
+                            data_riwayat.get(
+                                "penera_2",
+                                ""
+                            )
+                            or "-"
+                        )
+                    )
+
+                    st.write(
+                        "**Untuk / Tujuan:**",
+                        (
+                            data_riwayat.get(
+                                "untuk_pengguna",
+                                ""
+                            )
+                            or "-"
+                        )
+                    )
+
+        except Exception as exc:
+            st.error(
+                "Gagal membaca riwayat "
+                f"kWh Meter: {exc}"
+            )
+
+            import traceback
+
+            st.code(
+                traceback.format_exc()
             )
