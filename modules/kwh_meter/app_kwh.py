@@ -191,7 +191,250 @@ def simpan_atau_update_perusahaan_kwh(
         response_insert
         .data[0]["id"]
     )
+# =========================================================
+# CARI / BUAT MASTER kWh METER
+# =========================================================
+def get_or_create_master_kwh(
+    supabase,
+    perusahaan_id,
+    data,
+):
+    """
+    Master kWh Meter mewakili jenis/model alat,
+    BUKAN setiap unit fisik.
 
+    Contoh:
+    SMART / INDONESIA
+    Model SMI810V3
+    UNIT = 500
+
+    Maka:
+    - tabel uttp       = 1 row master
+    - jumlah alat      = 500 pada pengujian
+    """
+
+    jenis_uttp = "kWh Meter"
+
+    merk_buatan = str(
+        data.get(
+            "merk_buatan",
+            ""
+        )
+        or ""
+    ).strip()
+
+    model_tipe = str(
+        data.get(
+            "model_tipe",
+            ""
+        )
+        or ""
+    ).strip()
+
+    kelas = str(
+        data.get(
+            "kelas",
+            ""
+        )
+        or ""
+    ).strip()
+
+    # =====================================================
+    # VALIDASI
+    # =====================================================
+    if not merk_buatan:
+        raise ValueError(
+            "Merk / Buatan kWh Meter belum diisi."
+        )
+
+    if not model_tipe:
+        raise ValueError(
+            "Model / Tipe kWh Meter belum diisi."
+        )
+
+    # =====================================================
+    # PAYLOAD MASTER
+    #
+    # Tegangan, arus, PHS, konstanta dan jumlah alat
+    # nanti disimpan sebagai data kegiatan pengujian.
+    # =====================================================
+    payload_uttp = {
+        "perusahaan_id": (
+            perusahaan_id
+        ),
+
+        "jenis_uttp": (
+            jenis_uttp
+        ),
+
+        "merk": (
+            merk_buatan
+        ),
+
+        "tipe": (
+            model_tipe
+        ),
+
+        "kelas": (
+            kelas
+            if kelas
+            else None
+        ),
+
+        "status": (
+            "aktif"
+        ),
+    }
+
+    # =====================================================
+    # PRIORITAS MASTER YANG SUDAH DIKENAL
+    # Dipakai nanti saat Edit / Pengujian Baru.
+    # =====================================================
+    uttp_id_lama = (
+        data.get(
+            "_uttp_id"
+        )
+    )
+
+    if (
+        uttp_id_lama is not None
+        and str(
+            uttp_id_lama
+        ).strip() != ""
+    ):
+        try:
+            uttp_id_lama = int(
+                float(
+                    uttp_id_lama
+                )
+            )
+
+        except (
+            TypeError,
+            ValueError
+        ):
+            uttp_id_lama = None
+
+    if uttp_id_lama is not None:
+
+        response_update = (
+            supabase
+            .table("uttp")
+            .update(
+                payload_uttp
+            )
+            .eq(
+                "id",
+                uttp_id_lama
+            )
+            .eq(
+                "perusahaan_id",
+                perusahaan_id
+            )
+            .execute()
+        )
+
+        if not response_update.data:
+            raise RuntimeError(
+                "Master kWh Meter lama tidak ditemukan "
+                "atau tidak sesuai dengan perusahaan."
+            )
+
+        return (
+            uttp_id_lama,
+            False
+        )
+
+    # =====================================================
+    # CARI MASTER BERDASARKAN:
+    #
+    # perusahaan
+    # + jenis UTTP
+    # + merk/buatan
+    # + model/tipe
+    #
+    # Karena kWh batch tidak memiliki nomor seri tunggal.
+    # =====================================================
+    response_existing = (
+        supabase
+        .table("uttp")
+        .select(
+            "id"
+        )
+        .eq(
+            "perusahaan_id",
+            perusahaan_id
+        )
+        .eq(
+            "jenis_uttp",
+            jenis_uttp
+        )
+        .eq(
+            "merk",
+            merk_buatan
+        )
+        .eq(
+            "tipe",
+            model_tipe
+        )
+        .limit(1)
+        .execute()
+    )
+
+    # =====================================================
+    # MASTER SUDAH ADA
+    # =====================================================
+    if response_existing.data:
+
+        uttp_id = (
+            response_existing
+            .data[0]["id"]
+        )
+
+        response_update = (
+            supabase
+            .table("uttp")
+            .update(
+                payload_uttp
+            )
+            .eq(
+                "id",
+                uttp_id
+            )
+            .execute()
+        )
+
+        if not response_update.data:
+            raise RuntimeError(
+                "Master kWh Meter gagal diperbarui."
+            )
+
+        return (
+            uttp_id,
+            False
+        )
+
+    # =====================================================
+    # MASTER BARU
+    # =====================================================
+    response_insert = (
+        supabase
+        .table("uttp")
+        .insert(
+            payload_uttp
+        )
+        .execute()
+    )
+
+    if not response_insert.data:
+        raise RuntimeError(
+            "Master kWh Meter gagal disimpan."
+        )
+
+    return (
+        response_insert.data[0]["id"],
+        True
+    )
 # =========================
 # HELPER DATA
 # =========================
@@ -950,49 +1193,142 @@ def run():
                 step=1,
                 key="kwh_unit"
             )
-
-            tegangan = st.text_input(
-                "TEGANGAN",
-                value=saved.get("tegangan", "230 V"),
-                key="kwh_tegangan"
+        
+            c_tegang, c_tegang_sat = st.columns(
+                [3, 1]
             )
-
+        
+            with c_tegang:
+                tegangan = st.text_input(
+                    "TEGANGAN",
+                    value=str(
+                        saved.get(
+                            "tegangan",
+                            "230"
+                        )
+                    ),
+                    key="kwh_tegangan"
+                )
+        
+            with c_tegang_sat:
+                satuan_tegangan = st.text_input(
+                    "Satuan ",
+                    value="V",
+                    disabled=True,
+                    key="kwh_satuan_tegangan"
+                )
+        
+        
         with c2:
-            arus = st.text_input(
-                "ARUS",
-                value=saved.get("arus", "5(60) A"),
-                key="kwh_arus"
+            c_arus, c_arus_sat = st.columns(
+                [3, 1]
             )
-
+        
+            with c_arus:
+                arus = st.text_input(
+                    "ARUS",
+                    value=str(
+                        saved.get(
+                            "arus",
+                            "5(60)"
+                        )
+                    ),
+                    key="kwh_arus"
+                )
+        
+            with c_arus_sat:
+                satuan_arus = st.text_input(
+                    "Satuan  ",
+                    value="A",
+                    disabled=True,
+                    key="kwh_satuan_arus"
+                )
+        
             phs = st.selectbox(
                 "PHS",
                 ["1", "3"],
-                index=0 if saved.get("phs", "1") == "1" else 1,
+                index=(
+                    0
+                    if str(
+                        saved.get(
+                            "phs",
+                            "1"
+                        )
+                    ) == "1"
+                    else 1
+                ),
                 key="kwh_phs"
             )
-
+        
+        
         with c3:
             kelas = st.text_input(
                 "KLS",
-                value=saved.get("kelas", "1"),
+                value=str(
+                    saved.get(
+                        "kelas",
+                        "1"
+                    )
+                ),
                 key="kwh_kls"
             )
-
-            konstanta = st.text_input(
-                "KONST",
-                value=saved.get("konstanta", "1600 imp/kWh"),
-                key="kwh_konst"
+        
+            c_konst, c_konst_sat = st.columns(
+                [3, 1]
             )
-
+        
+            with c_konst:
+                konstanta = st.number_input(
+                    "KONST",
+                    min_value=0.0,
+                    value=float(
+                        saved.get(
+                            "konstanta",
+                            1600
+                        )
+                        or 1600
+                    ),
+                    step=1.0,
+                    format="%.0f",
+                    key="kwh_konst"
+                )
+        
+            with c_konst_sat:
+                satuan_konstanta = st.text_input(
+                    "Satuan   ",
+                    value="imp/kWh",
+                    disabled=True,
+                    key="kwh_satuan_konstanta"
+                )
         kwh_df = pd.DataFrame(
             [
                 {
-                    "UNIT": int(unit),
-                    "TEGANGAN": str(tegangan).strip(),
-                    "ARUS": str(arus).strip(),
-                    "PHS": str(phs).strip(),
-                    "KLS": str(kelas).strip(),
-                    "KONST": str(konstanta).strip(),
+                    "UNIT": int(
+                        unit
+                    ),
+                
+                    "TEGANGAN": (
+                        f"{str(tegangan).strip()} "
+                        f"{satuan_tegangan}"
+                    ),
+                
+                    "ARUS": (
+                        f"{str(arus).strip()} "
+                        f"{satuan_arus}"
+                    ),
+                
+                    "PHS": str(
+                        phs
+                    ).strip(),
+                
+                    "KLS": str(
+                        kelas
+                    ).strip(),
+                
+                    "KONST": (
+                        f"{int(konstanta)} "
+                        f"{satuan_konstanta}"
+                    ),
                 }
             ],
             columns=["UNIT", "TEGANGAN", "ARUS", "PHS", "KLS", "KONST"]
@@ -1037,13 +1373,42 @@ def run():
             "jumlah_unit": int(
                 unit
             ),
-            "kwh_meter": kwh_df,
-            "unit": unit,
-            "tegangan": tegangan,
-            "arus": arus,
-            "phs": phs,
-            "kelas": kelas,
-            "konstanta": konstanta,
+            
+            "unit": int(
+                unit
+            ),
+            
+            "tegangan": str(
+                tegangan
+            ).strip(),
+            
+            "satuan_tegangan": (
+                satuan_tegangan
+            ),
+            
+            "arus": str(
+                arus
+            ).strip(),
+            
+            "satuan_arus": (
+                satuan_arus
+            ),
+            
+            "phs": str(
+                phs
+            ).strip(),
+            
+            "kelas": str(
+                kelas
+            ).strip(),
+            
+            "konstanta": float(
+                konstanta
+            ),
+            
+            "satuan_konstanta": (
+                satuan_konstanta
+            ),
         }
 
         col_simpan, col_reset = st.columns(2)
