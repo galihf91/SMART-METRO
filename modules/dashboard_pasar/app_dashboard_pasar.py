@@ -202,7 +202,38 @@ def load_pasar_supabase():
         df["total_uttp"],
         errors="coerce"
     ).fillna(0)
-
+    # =====================================================
+    # MAPPING KOLOM SUPABASE -> FORMAT DASHBOARD
+    # =====================================================
+    
+    mapping_timbangan = {
+        "timb_pegas": "Timb. Pegas",
+        "timb_meja": "Timb. Meja",
+        "timb_elektronik": "Timb. Elektronik",
+        "timb_sentisimal": "Timb. Sentisimal",
+        "timb_bobot_ingsut": "Timb. Bobot Ingsut",
+        "neraca": "Neraca",
+        "dacin": "Dacin",
+    }
+    
+    for kolom_asal, kolom_dashboard in mapping_timbangan.items():
+        if kolom_asal in df.columns:
+            df[kolom_dashboard] = pd.to_numeric(
+                df[kolom_asal],
+                errors="coerce"
+            ).fillna(0)
+        else:
+            df[kolom_dashboard] = 0
+    if "total_pedagang" not in df.columns:
+        df["total_pedagang"] = 0
+    else:
+        df["total_pedagang"] = pd.to_numeric(
+            df["total_pedagang"],
+            errors="coerce"
+        ).fillna(0)
+    df["nama_pasar"] = df["nama_pasar"].fillna("").astype(str).str.strip()
+    df["kecamatan"] = df["kecamatan"].fillna("").astype(str).str.strip()
+    df["alamat"] = df["alamat"].fillna("").astype(str).str.strip()
     return df
 @st.cache_data
 def load_excel(path_like):
