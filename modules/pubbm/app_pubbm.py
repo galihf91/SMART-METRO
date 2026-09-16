@@ -3026,109 +3026,154 @@ def run():
     @st.cache_data(ttl=60)
     def load_data_bejana():
         """
-        Prioritas data:
-        1. Supabase table 'bejana'
-        2. data/data_bejana.xlsx sebagai fallback
+        Membaca master Bejana Ukur aktif dari Supabase.
         """
     
         kolom_target = [
+            "ID",
             "Standar Volume",
             "Merk",
             "Tipe",
             "Nomor Seri",
             "Kelas",
             "Kapasitas",
+            "Satuan Kapasitas",
             "Daya Baca",
+            "Satuan Daya Baca",
             "Telusuran",
         ]
     
-        # =====================================================
-        # 1. COBA BACA DARI SUPABASE
-        # =====================================================
         try:
             supabase = get_supabase_pubbm()
     
             response = (
                 supabase
                 .table("bejana")
-                .select("*")
+                .select(
+                    "id, "
+                    "standar_volume, "
+                    "merk, "
+                    "tipe, "
+                    "nomor_seri, "
+                    "kelas, "
+                    "kapasitas, "
+                    "satuan_kapasitas, "
+                    "daya_baca, "
+                    "satuan_daya_baca, "
+                    "telusuran, "
+                    "status"
+                )
+                .eq(
+                    "status",
+                    "aktif"
+                )
+                .order(
+                    "merk"
+                )
                 .execute()
             )
     
-            data = response.data or []
+            rows = (
+                response.data
+                or []
+            )
     
-            if data:
-                df = pd.DataFrame(
-                    data
+            if not rows:
+                return pd.DataFrame(
+                    columns=kolom_target
                 )
     
-                # =============================================
-                # SAMAKAN NAMA KOLOM SUPABASE DENGAN UI
-                # =============================================
-                rename_map = {
+            df = pd.DataFrame(
+                rows
+            )
+    
+            # =================================================
+            # SAMAKAN NAMA KOLOM DENGAN UI
+            # =================================================
+            df = df.rename(
+                columns={
+                    "id": "ID",
                     "standar_volume": "Standar Volume",
                     "merk": "Merk",
                     "tipe": "Tipe",
                     "nomor_seri": "Nomor Seri",
                     "kelas": "Kelas",
                     "kapasitas": "Kapasitas",
+                    "satuan_kapasitas": "Satuan Kapasitas",
                     "daya_baca": "Daya Baca",
+                    "satuan_daya_baca": "Satuan Daya Baca",
                     "telusuran": "Telusuran",
                 }
-    
-                df = df.rename(
-                    columns=rename_map
-                )
-    
-                # =============================================
-                # PASTIKAN SEMUA KOLOM TERSEDIA
-                # =============================================
-                for kolom in kolom_target:
-                    if kolom not in df.columns:
-                        df[kolom] = ""
-    
-                df = df[
-                    kolom_target
-                ].copy()
-    
-                # =============================================
-                # BERSIHKAN NILAI
-                # =============================================
-                for kolom in kolom_target:
-                    df[kolom] = (
-                        df[kolom]
-                        .fillna("")
-                    )
-    
-                return df
-    
-        except Exception:
-            # Kalau tabel belum ada / koneksi gagal,
-            # lanjut baca Excel.
-            pass
-    
-        # =====================================================
-        # 2. FALLBACK KE EXCEL
-        # =====================================================
-        try:
-            df = pd.read_excel(
-                "data/data_bejana.xlsx"
             )
     
-            df.columns = (
-                df.columns
-                .str.strip()
-            )
-    
+            # =================================================
+            # PASTIKAN SEMUA KOLOM ADA
+            # =================================================
             for kolom in kolom_target:
                 if kolom not in df.columns:
                     df[kolom] = ""
     
-            return df[
-                kolom_target
-            ]
+            # =================================================
+            # BERSIHKAN NILAI
+            # =================================================
+            for kolom in [
+                "Standar Volume",
+                "Merk",
+                "Tipe",
+                "Nomor Seri",
+                "Kelas",
+                "Satuan Kapasitas",
+                "Satuan Daya Baca",
+                "Telusuran",
+            ]:
+                df[kolom] = (
+                    df[kolom]
+                    .fillna("")
+                    .astype(str)
+                    .str.strip()
+                )
     
-        except FileNotFoundError:
+            # =================================================
+            # NOMOR SERI JANGAN JADI 10.0, 9.0, DST
+            # =================================================
+            df["Nomor Seri"] = (
+                df["Nomor Seri"]
+                .apply(
+                    lambda nilai: (
+                        nilai[:-2]
+                        if isinstance(nilai, str)
+                        and nilai.endswith(".0")
+                        else nilai
+                    )
+                )
+            )
+    
+            # =================================================
+            # URUTKAN
+            # =================================================
+            df = (
+                df[
+                    kolom_target
+                ]
+                .sort_values(
+                    [
+                        "Merk",
+                        "Nomor Seri",
+                    ]
+                )
+                .reset_index(
+                    drop=True
+                )
+            )
+    
+            return df
+    
+        except Exception as exc:
+            st.warning(
+                "Master Bejana Ukur dari Supabase "
+                f"tidak dapat dibaca: {exc}"
+            )
+    
             return pd.DataFrame(
                 columns=kolom_target
             )
