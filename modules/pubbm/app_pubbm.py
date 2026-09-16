@@ -4533,13 +4533,21 @@ def run():
                 "nama_alat",
                 "Pompa Ukur BBM (Dispenser)"
             ),
-    
-            "pemilik": str(
-                perusahaan.get(
-                    "nama_perusahaan",
-                    ""
+            
+            # =================================================
+            # MASTER SPBU
+            # =================================================
+            "_spbu_id": (
+                pengujian.get(
+                    "spbu_id"
                 )
                 or detail.get(
+                    "_spbu_id"
+                )
+            ),
+            
+            "pemilik": str(
+                detail.get(
                     "pemilik",
                     ""
                 )
@@ -4547,11 +4555,7 @@ def run():
             ).strip(),
             
             "nama_spbu": str(
-                perusahaan.get(
-                    "nomor_spbu",
-                    ""
-                )
-                or detail.get(
+                detail.get(
                     "nama_spbu",
                     ""
                 )
@@ -4563,12 +4567,32 @@ def run():
             ).strip(),
             
             "alamat": str(
-                perusahaan.get(
+                detail.get(
                     "alamat",
                     ""
                 )
-                or detail.get(
-                    "alamat",
+                or ""
+            ).strip(),
+            
+            "jenis_lokasi": str(
+                detail.get(
+                    "jenis_lokasi",
+                    ""
+                )
+                or ""
+            ).strip(),
+            
+            "kecamatan_spbu": str(
+                detail.get(
+                    "kecamatan_spbu",
+                    ""
+                )
+                or ""
+            ).strip(),
+            
+            "media_bbm_master": str(
+                detail.get(
+                    "media_bbm_master",
                     ""
                 )
                 or ""
@@ -4781,6 +4805,7 @@ def run():
         dispenser_df = pd.DataFrame(
             dispenser_records,
             columns=[
+                "_uttp_id",
                 "No",
                 "Posisi",
                 "Merk",
@@ -4863,25 +4888,26 @@ def run():
                 "nama_alat",
                 "Pompa Ukur BBM (Dispenser)"
             ),
-    
-            "pemilik": str(
-                perusahaan.get(
-                    "nama_perusahaan",
-                    ""
+            
+            "_spbu_id": (
+                pengujian.get(
+                    "spbu_id"
                 )
                 or detail.get(
+                    "_spbu_id"
+                )
+            ),
+            
+            "pemilik": str(
+                detail.get(
                     "pemilik",
                     ""
                 )
                 or ""
             ).strip(),
-    
+            
             "nama_spbu": str(
-                perusahaan.get(
-                    "nomor_spbu",
-                    ""
-                )
-                or detail.get(
+                detail.get(
                     "nama_spbu",
                     ""
                 )
@@ -4891,14 +4917,34 @@ def run():
                 )
                 or ""
             ).strip(),
-    
+            
             "alamat": str(
-                perusahaan.get(
+                detail.get(
                     "alamat",
                     ""
                 )
-                or detail.get(
-                    "alamat",
+                or ""
+            ).strip(),
+            
+            "jenis_lokasi": str(
+                detail.get(
+                    "jenis_lokasi",
+                    ""
+                )
+                or ""
+            ).strip(),
+            
+            "kecamatan_spbu": str(
+                detail.get(
+                    "kecamatan_spbu",
+                    ""
+                )
+                or ""
+            ).strip(),
+            
+            "media_bbm_master": str(
+                detail.get(
+                    "media_bbm_master",
                     ""
                 )
                 or ""
