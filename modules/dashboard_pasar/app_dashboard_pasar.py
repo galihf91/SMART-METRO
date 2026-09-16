@@ -128,7 +128,7 @@ def load_excel(path_like):
             'tera_ulang_tahun': [2025,2025,2025,2025,2025],
             'jumlah_timbangan_tera_ulang': [195,251,161,257,174],
             'jenis_timbangan': ['Pegas:77;Meja:30;Elektronik:87']*5
-        }), None
+        }),
 
     df.columns = [c.strip() for c in df.columns]
     rename = {'Nama Pasar':'nama_pasar','Alamat':'alamat','Kecamatan':'kecamatan',
