@@ -7890,148 +7890,94 @@ def run():
             supabase = get_supabase_pubbm()
     
             # =====================================================
-            # 1. AMBIL MASTER UTTP PUBBM
+            # 1. AMBIL MASTER SPBU AKTIF
             # =====================================================
-            response_uttp = (
+            response_spbu = (
                 supabase
-                .table("uttp")
-                .select("*")
+                .table("spbu")
+                .select(
+                    "id, "
+                    "nama_spbu, "
+                    "nomor_spbu, "
+                    "alamat, "
+                    "jenis_lokasi, "
+                    "kecamatan, "
+                    "media_bbm, "
+                    "status"
+                )
                 .eq(
-                    "jenis_uttp",
-                    "Pompa Ukur BBM"
+                    "status",
+                    "aktif"
                 )
                 .order(
-                    "id",
-                    desc=True
+                    "nama_spbu"
                 )
                 .execute()
             )
-    
-            daftar_uttp = (
-                response_uttp.data
+            
+            daftar_spbu = (
+                response_spbu.data
                 or []
             )
-    
-            if not daftar_uttp:
+            
+            if not daftar_spbu:
                 st.info(
-                    "Belum ada data PU BBM "
+                    "Belum ada master SPBU "
                     "yang tersimpan di Supabase."
                 )
                 st.stop()
-    
+            
             # =====================================================
-            # 2. AMBIL DATA PERUSAHAAN
-            # =====================================================
-            perusahaan_ids = list({
-                row.get("perusahaan_id")
-                for row in daftar_uttp
-                if row.get("perusahaan_id") is not None
-            })
-    
-            daftar_perusahaan = []
-    
-            if perusahaan_ids:
-                response_perusahaan = (
-                    supabase
-                    .table("perusahaan")
-                    .select(
-                        "id, nama_perusahaan, nomor_spbu, alamat"
-                    )
-                    .in_(
-                        "id",
-                        perusahaan_ids
-                    )
-                    .execute()
-                )
-    
-                daftar_perusahaan = (
-                    response_perusahaan.data
-                    or []
-                )
-    
-            perusahaan_map = {
-                row["id"]: row
-                for row in daftar_perusahaan
-            }
-    
-            # =====================================================
-            # 3. SUSUN PILIHAN SPBU
-            #
-            # Konsep baru:
-            # 1 perusahaan / SPBU = 1 pilihan dropdown
-            #
-            # Jangan gunakan nomor_seri sebagai identitas SPBU
-            # karena nomor_seri sekarang adalah nomor seri dispenser.
+            # 2. SUSUN PILIHAN SPBU
             # =====================================================
             opsi_spbu = {}
             
-            for perusahaan_id, perusahaan in (
-                perusahaan_map.items()
-            ):
+            for spbu in daftar_spbu:
             
-                # =================================================
-                # AMBIL SEMUA NOZZLE / UTTP MILIK SPBU INI
-                # =================================================
-                daftar_uttp_spbu = [
-                    alat
-                    for alat in daftar_uttp
-                    if alat.get(
-                        "perusahaan_id"
-                    ) == perusahaan_id
-                ]
+                spbu_id = spbu.get(
+                    "id"
+                )
             
-                if not daftar_uttp_spbu:
-                    continue
-            
-                nama_perusahaan = str(
-                    perusahaan.get(
-                        "nama_perusahaan",
+                nama_spbu = str(
+                    spbu.get(
+                        "nama_spbu",
                         ""
                     )
                     or ""
                 ).strip()
             
-                if not nama_perusahaan:
+                nomor_spbu = str(
+                    spbu.get(
+                        "nomor_spbu",
+                        ""
+                    )
+                    or ""
+                ).strip()
+            
+                if not nama_spbu:
                     continue
-            
-                # =================================================
-                # KUMPULKAN SELURUH UTTP ID
-                # =================================================
-                uttp_ids = [
-                    alat.get("id")
-                    for alat in daftar_uttp_spbu
-                    if alat.get("id") is not None
-                ]
-            
-                # =================================================
-                # SATU ALAT HANYA DIPAKAI SEBAGAI ANCHOR
-                #
-                # Riwayat sebenarnya nanti dibaca berdasarkan
-                # perusahaan melalui ambil_riwayat_kegiatan_pubbm().
-                # =================================================
-                alat_anchor = (
-                    daftar_uttp_spbu[0]
-                )
             
                 # =================================================
                 # LABEL DROPDOWN
                 # =================================================
-                label = nama_perusahaan
+                if nomor_spbu:
+                    label = (
+                        f"{nama_spbu} | "
+                        f"{nomor_spbu}"
+                    )
+                else:
+                    label = nama_spbu
             
-                # Pengaman jika ada nama perusahaan sama
+                # Pengaman apabila label sama
                 if label in opsi_spbu:
                     label = (
-                        f"{nama_perusahaan}"
-                        f" | ID {perusahaan_id}"
+                        f"{label} | "
+                        f"ID {spbu_id}"
                     )
             
                 opsi_spbu[
                     label
-                ] = {
-                    "perusahaan": perusahaan,
-                    "uttp": alat_anchor,
-                    "uttp_ids": uttp_ids,
-                }
+                ] = spbu
     
             pilihan_spbu = st.selectbox(
                 "Pilih SPBU",
@@ -8048,16 +7994,11 @@ def run():
                 )
                 st.stop()
     
-            data_pilihan = opsi_spbu[
+            # =====================================================
+            # MASTER SPBU TERPILIH
+            # =====================================================
+            spbu = opsi_spbu[
                 pilihan_spbu
-            ]
-            
-            alat = data_pilihan[
-                "uttp"
-            ]
-            
-            perusahaan = data_pilihan[
-                "perusahaan"
             ]
             
             # =====================================================
@@ -8098,7 +8039,7 @@ def run():
             daftar_pengujian = (
                 ambil_riwayat_kegiatan_pubbm(
                     supabase=supabase,
-                    perusahaan=perusahaan,
+                    spbu=spbu,
                 )
             )
             
@@ -8214,24 +8155,6 @@ def run():
                 )
             )
             # =====================================================
-            # UTTP YANG BENAR-BENAR MILIK PENGUJIAN ACUAN
-            # =====================================================
-            uttp_id_pengujian_terpilih = (
-                pengujian_terpilih.get(
-                    "uttp_id"
-                )
-            )
-            
-            alat_pengujian_terpilih = next(
-                (
-                    item
-                    for item in daftar_uttp
-                    if item.get("id")
-                    == uttp_id_pengujian_terpilih
-                ),
-                alat
-            )
-            # =====================================================
             # 6. PENGUJIAN ACUAN
             # =====================================================
             st.markdown("---")
@@ -8318,8 +8241,8 @@ def run():
                     )
                 ):
                     gunakan_data_lama_untuk_edit_pubbm(
-                        alat=alat_pengujian_terpilih,
-                        perusahaan=perusahaan,
+                        alat=None,
+                        perusahaan=spbu,
                         pengujian=pengujian_terpilih,
                     )
             
@@ -8336,8 +8259,8 @@ def run():
                     )
                 ):
                     gunakan_data_lama_untuk_pengujian_baru_pubbm(
-                        alat=alat_pengujian_terpilih,
-                        perusahaan=perusahaan,
+                        alat=None,
+                        perusahaan=spbu,
                         pengujian=pengujian_terpilih,
                     )
             
