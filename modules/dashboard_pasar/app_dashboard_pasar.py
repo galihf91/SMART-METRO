@@ -452,11 +452,58 @@ def render_dashboard_pasar():
         cols[2].metric("Tahun", year_pick)
         cols[3].metric("Total Timbangan", int(fdf['jumlah_timbangan_tera_ulang'].sum()))
     else:
-        cols = st.columns(4)
-        cols[0].metric("Total Kecamatan", fdf['kecamatan'].nunique() if not fdf.empty else 0)
-        cols[1].metric("Total Seluruh Pasar", fdf['nama_pasar'].nunique() if not fdf.empty else 0)
-        cols[2].metric("Tahun", year_pick)
-        cols[3].metric("Total Timbangan", int(fdf['jumlah_timbangan_tera_ulang'].sum()))
+        total_kecamatan = (
+            peta_df["kecamatan"].nunique()
+            if not peta_df.empty
+            else 0
+        )
+    
+        total_pasar = (
+            peta_df["nama_pasar"].nunique()
+            if not peta_df.empty
+            else 0
+        )
+    
+        sudah_tera = (
+            int(peta_df["sudah_tera"].sum())
+            if not peta_df.empty and "sudah_tera" in peta_df.columns
+            else 0
+        )
+    
+        belum_tera = total_pasar - sudah_tera
+    
+        total_timbangan = (
+            int(fdf["jumlah_timbangan_tera_ulang"].sum())
+            if not fdf.empty
+            else 0
+        )
+    
+        cols = st.columns(5)
+    
+        cols[0].metric(
+            "Total Kecamatan",
+            total_kecamatan
+        )
+    
+        cols[1].metric(
+            "Total Pasar",
+            total_pasar
+        )
+    
+        cols[2].metric(
+            "Sudah Tera",
+            sudah_tera
+        )
+    
+        cols[3].metric(
+            "Belum Tera",
+            belum_tera
+        )
+    
+        cols[4].metric(
+            "Total Timbangan",
+            total_timbangan
+        )
 
     # =====================================================
     # DATA KHUSUS PETA
