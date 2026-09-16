@@ -3649,8 +3649,16 @@ def run():
                 "K-Faktor",
             ]
         )
-    if "data_spbu" not in st.session_state:
-        st.session_state.data_spbu = load_data_spbu()
+    if (
+        "data_spbu" not in st.session_state
+        or st.session_state.data_spbu is None
+        or st.session_state.data_spbu.empty
+    ):
+        load_data_spbu.clear()
+    
+        st.session_state.data_spbu = (
+            load_data_spbu()
+        )
     if "data_bejana" not in st.session_state:
         st.session_state.data_bejana = load_data_bejana()
     if "data_media_spbu" not in st.session_state:
