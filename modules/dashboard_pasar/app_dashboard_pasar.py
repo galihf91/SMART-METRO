@@ -430,7 +430,48 @@ def render_dashboard_pasar():
     fdf = df_year.copy()
     if kec_pick != '(Semua)': fdf = fdf[fdf['kecamatan'] == kec_pick]
     if nama_pick != '(Semua)': fdf = fdf[fdf['nama_pasar'] == nama_pick]
-
+    # =====================================================
+    # DATA KHUSUS PETA
+    # =====================================================
+    
+    peta_df = df_master_pasar.copy()
+    
+    if not peta_df.empty:
+    
+        # Data tahun yang sedang dipilih
+        data_tahun = df[
+            df["tera_ulang_tahun"] == year_pick
+        ].copy()
+    
+        kolom_status = data_tahun[
+            [
+                "pasar_id",
+                "jumlah_timbangan_tera_ulang"
+            ]
+        ].copy()
+    
+        kolom_status["sudah_tera"] = True
+    
+        peta_df = peta_df.merge(
+            kolom_status,
+            left_on="id",
+            right_on="pasar_id",
+            how="left"
+        )
+    
+        peta_df["sudah_tera"] = (
+            peta_df["sudah_tera"]
+            .fillna(False)
+            .astype(bool)
+        )
+    
+        peta_df["jumlah_timbangan_tera_ulang"] = (
+            pd.to_numeric(
+                peta_df["jumlah_timbangan_tera_ulang"],
+                errors="coerce"
+            )
+            .fillna(0)
+        )
     # --- informasi pasar jika spesifik ---
     if nama_pick != '(Semua)' and not fdf.empty:
         r = fdf.iloc[0]
@@ -511,48 +552,6 @@ def render_dashboard_pasar():
         )
 
     # =====================================================
-    # DATA KHUSUS PETA
-    # =====================================================
-    
-    peta_df = df_master_pasar.copy()
-    
-    if not peta_df.empty:
-    
-        # Data tahun yang sedang dipilih
-        data_tahun = df[
-            df["tera_ulang_tahun"] == year_pick
-        ].copy()
-    
-        kolom_status = data_tahun[
-            [
-                "pasar_id",
-                "jumlah_timbangan_tera_ulang"
-            ]
-        ].copy()
-    
-        kolom_status["sudah_tera"] = True
-    
-        peta_df = peta_df.merge(
-            kolom_status,
-            left_on="id",
-            right_on="pasar_id",
-            how="left"
-        )
-    
-        peta_df["sudah_tera"] = (
-            peta_df["sudah_tera"]
-            .fillna(False)
-            .astype(bool)
-        )
-    
-        peta_df["jumlah_timbangan_tera_ulang"] = (
-            pd.to_numeric(
-                peta_df["jumlah_timbangan_tera_ulang"],
-                errors="coerce"
-            )
-            .fillna(0)
-        )
-    # =====================================================
     # DAFTAR PASAR BELUM TERA
     # =====================================================
     
@@ -568,17 +567,6 @@ def render_dashboard_pasar():
             ]
     
         if not pasar_belum_tera.empty:
-            with st.expander(
-                f"📋 Pasar Belum Tera ({len(pasar_belum_tera)})",
-                expanded=False
-            ):
-                st.dataframe(
-                    tabel_belum,
-                    use_container_width=True,
-                    hide_index=True
-                )
-            st.markdown("---")
-            st.subheader("📋 Daftar Pasar Belum Tera")
     
             tabel_belum = pasar_belum_tera[
                 [
@@ -601,11 +589,15 @@ def render_dashboard_pasar():
                 ["Kecamatan", "Nama Pasar"]
             )
     
-            st.dataframe(
-                tabel_belum,
-                use_container_width=True,
-                hide_index=True
-            )
+            with st.expander(
+                f"📋 Pasar Belum Tera ({len(pasar_belum_tera)})",
+                expanded=False
+            ):
+                st.dataframe(
+                    tabel_belum,
+                    use_container_width=True,
+                    hide_index=True
+                )
     # --- PETA ---
     st.subheader("🗺️ Peta Lokasi Pasar")
     center, zoom = [-6.2, 106.55], 10
@@ -695,7 +687,14 @@ def render_dashboard_pasar():
     folium.LayerControl(collapsed=False).add_to(m)
     map_state = st_folium(m, height=500, use_container_width=True, key="pasar_map")
 
-    if pick_from_click(map_state, fdf, "nama_pasar", "kecamatan", "pasar"): st.rerun()
+    if pick_from_click(
+        map_state,
+        peta_filter,
+        "nama_pasar",
+        "kecamatan",
+        "pasar"
+    ):
+        st.rerun()
 
     # --- GRAFIK TREN ---
     st.subheader("📈 Grafik (Tahun ke Tahun)")
