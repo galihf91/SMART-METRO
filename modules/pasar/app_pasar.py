@@ -385,7 +385,7 @@ def render_data_tahunan():
     else:
         default_mulai = datetime.now().date()
         default_selesai = datetime.now().date()
-    with st.form(form_key):
+    with st.container(border=True):
         st.markdown("#### Pelaksanaan")
 
         tanggal_range = st.date_input(
@@ -506,10 +506,11 @@ def render_data_tahunan():
 
             jumlah_hari = jumlah_hari_otomatis
 
-        simpan = st.form_submit_button(
+        simpan = st.button(
             "💾 Update Data" if existing else "💾 Simpan Data",
             type="primary",
             use_container_width=True,
+            key=f"btn_simpan_pasar_{pasar_id}_{int(tahun)}"
         )
 
     if simpan:
