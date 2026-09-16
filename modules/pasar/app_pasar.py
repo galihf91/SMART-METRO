@@ -491,7 +491,7 @@ def render_data_tahunan():
 
         st.markdown("#### Rekap Kegiatan")
 
-        r1, r2, r3, r4 = st.columns(4)
+        r1, r2, r3 = st.columns(3)
 
         with r1:
             st.metric("Total UTTP", f"{total_uttp:,}".replace(",", "."))
@@ -505,16 +505,6 @@ def render_data_tahunan():
             )
 
         with r3:
-            simpel = st.checkbox(
-                "SIMPEL",
-                value=(
-                    bool(existing.get("simpel"))
-                    if existing and existing.get("simpel") is not None
-                    else False
-                ),
-            )
-
-        with r4:
             st.metric(
                 "Jumlah Hari",
                 jumlah_hari_otomatis
@@ -546,7 +536,6 @@ def render_data_tahunan():
             "neraca": int(neraca),
             "total_uttp": int(total_uttp),
             "total_pedagang": int(total_pedagang),
-            "simpel": bool(simpel),
             "jumlah_hari": int(jumlah_hari),
             "sumber": "smart_metro",
             "updated_at": datetime.now(timezone.utc).isoformat(),
@@ -594,7 +583,6 @@ def render_data_tahunan():
                 "neraca": "Neraca",
                 "total_uttp": "Total UTTP",
                 "total_pedagang": "Total Pedagang",
-                "simpel": "SIMPEL",
                 "jumlah_hari": "Jumlah Hari",
             }
 
