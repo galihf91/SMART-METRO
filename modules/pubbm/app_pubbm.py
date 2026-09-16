@@ -401,7 +401,7 @@ def simpan_atau_update_perusahaan_pubbm(
         ]
 
         alamat_lama = str(
-            perusahaan.get(
+            spbu.get(
                 "alamat",
                 ""
             )
@@ -409,7 +409,7 @@ def simpan_atau_update_perusahaan_pubbm(
         ).strip()
         
         nomor_spbu_lama = str(
-            perusahaan.get(
+            spbu.get(
                 "nomor_spbu",
                 ""
             )
@@ -4818,8 +4818,7 @@ def run():
                     None
                 )
     def gunakan_data_lama_untuk_edit_pubbm(
-        alat,
-        perusahaan,
+        spbu,
         pengujian
     ):
         """
@@ -4940,107 +4939,127 @@ def run():
                     ""
                 )
             ),
-    
+        
             "nomor_order": (
                 pengujian.get(
                     "nomor_order",
                     ""
                 )
             ),
-    
+        
             "tanggal_pengujian": (
                 pengujian.get(
                     "tanggal_pengujian",
                     ""
                 )
             ),
-    
+        
             "tanggal_cetak": (
                 pengujian.get(
                     "tanggal_sertifikat",
                     ""
                 )
             ),
-    
+        
             "nama_alat": detail.get(
                 "nama_alat",
                 "Pompa Ukur BBM (Dispenser)"
             ),
-            
-            # =================================================
-            # MASTER SPBU
-            # =================================================
+        
+            # =============================================
+            # IDENTITAS MASTER SPBU
+            # =============================================
             "_spbu_id": (
                 pengujian.get(
                     "spbu_id"
+                )
+                or spbu.get(
+                    "id"
                 )
                 or detail.get(
                     "_spbu_id"
                 )
             ),
-            
+        
             "pemilik": str(
-                detail.get(
+                spbu.get(
+                    "nama_spbu",
+                    ""
+                )
+                or detail.get(
                     "pemilik",
                     ""
                 )
                 or ""
             ).strip(),
-            
+        
             "nama_spbu": str(
-                detail.get(
-                    "nama_spbu",
+                spbu.get(
+                    "nomor_spbu",
                     ""
                 )
                 or detail.get(
-                    "nomor_spbu",
+                    "nama_spbu",
                     ""
                 )
                 or ""
             ).strip(),
-            
+        
             "alamat": str(
-                detail.get(
+                spbu.get(
+                    "alamat",
+                    ""
+                )
+                or detail.get(
                     "alamat",
                     ""
                 )
                 or ""
             ).strip(),
-            
+        
             "jenis_lokasi": str(
-                detail.get(
+                spbu.get(
+                    "jenis_lokasi",
+                    ""
+                )
+                or detail.get(
                     "jenis_lokasi",
                     ""
                 )
                 or ""
             ).strip(),
-            
+        
             "kecamatan_spbu": str(
-                detail.get(
+                spbu.get(
+                    "kecamatan",
+                    ""
+                )
+                or detail.get(
                     "kecamatan_spbu",
                     ""
                 )
                 or ""
             ).strip(),
-            
+        
             "media_bbm_master": str(
-                detail.get(
+                spbu.get(
+                    "media_bbm",
+                    ""
+                )
+                or detail.get(
                     "media_bbm_master",
                     ""
                 )
                 or ""
             ).strip(),
-    
+        
             "jenis_pengujian": (
                 pengujian.get(
                     "jenis_pengujian",
                     "Tera Ulang"
                 )
             ),
-    
-            # =============================================
-            # PENERA
-            # =============================================
+        
             "penera_1": pengujian.get(
                 "penera_1",
                 detail.get(
@@ -5048,17 +5067,17 @@ def run():
                     ""
                 )
             ),
-    
+        
             "nip_penera_1": detail.get(
                 "nip_penera_1",
                 ""
             ),
-    
+        
             "golongan_penera_1": detail.get(
                 "golongan_penera_1",
                 ""
             ),
-    
+        
             "penera_2": pengujian.get(
                 "penera_2",
                 detail.get(
@@ -5066,17 +5085,17 @@ def run():
                     ""
                 )
             ),
-    
+        
             "nip_penera_2": detail.get(
                 "nip_penera_2",
                 ""
             ),
-    
+        
             "golongan_penera_2": detail.get(
                 "golongan_penera_2",
                 ""
             ),
-    
+        
             "jumlah_penera": int(
                 detail.get(
                     "jumlah_penera",
@@ -5084,21 +5103,15 @@ def run():
                 )
                 or 1
             ),
-    
-            # =============================================
-            # ALAT STANDAR
-            # =============================================
+        
             "jumlah_alat_standar": (
                 len(alat_standar_df)
                 if not alat_standar_df.empty
                 else 1
             ),
-            
+        
             "alat_standar": alat_standar_df,
-    
-            # =============================================
-            # DISPENSER
-            # =============================================
+        
             "jumlah_dispenser": (
                 int(
                     dispenser_df["No"].nunique()
@@ -5106,7 +5119,7 @@ def run():
                 if not dispenser_df.empty
                 else 1
             ),
-            
+        
             "dispenser": dispenser_df,
         }
     
@@ -5174,8 +5187,7 @@ def run():
             "pubbm_next_mode"
         ] = "📝 Input Data Pengujian"
     def gunakan_data_lama_untuk_pengujian_baru_pubbm(
-        alat,
-        perusahaan,
+        spbu,
         pengujian
     ):
         """
@@ -5326,13 +5338,20 @@ def run():
                 pengujian.get(
                     "spbu_id"
                 )
+                or spbu.get(
+                    "id"
+                )
                 or detail.get(
                     "_spbu_id"
                 )
             ),
             
             "pemilik": str(
-                detail.get(
+                spbu.get(
+                    "nama_spbu",
+                    ""
+                )
+                or detail.get(
                     "pemilik",
                     ""
                 )
@@ -5340,19 +5359,23 @@ def run():
             ).strip(),
             
             "nama_spbu": str(
-                detail.get(
-                    "nama_spbu",
+                spbu.get(
+                    "nomor_spbu",
                     ""
                 )
                 or detail.get(
-                    "nomor_spbu",
+                    "nama_spbu",
                     ""
                 )
                 or ""
             ).strip(),
             
             "alamat": str(
-                detail.get(
+                spbu.get(
+                    "alamat",
+                    ""
+                )
+                or detail.get(
                     "alamat",
                     ""
                 )
@@ -5360,7 +5383,11 @@ def run():
             ).strip(),
             
             "jenis_lokasi": str(
-                detail.get(
+                spbu.get(
+                    "jenis_lokasi",
+                    ""
+                )
+                or detail.get(
                     "jenis_lokasi",
                     ""
                 )
@@ -5368,7 +5395,11 @@ def run():
             ).strip(),
             
             "kecamatan_spbu": str(
-                detail.get(
+                spbu.get(
+                    "kecamatan",
+                    ""
+                )
+                or detail.get(
                     "kecamatan_spbu",
                     ""
                 )
@@ -5376,7 +5407,11 @@ def run():
             ).strip(),
             
             "media_bbm_master": str(
-                detail.get(
+                spbu.get(
+                    "media_bbm",
+                    ""
+                )
+                or detail.get(
                     "media_bbm_master",
                     ""
                 )
@@ -8240,9 +8275,8 @@ def run():
                         f"{pengujian_terpilih.get('id')}"
                     )
                 ):
-                    gunakan_data_lama_untuk_edit_pubbm(
-                        alat=None,
-                        perusahaan=spbu,
+                    gunakan_data_lama_untuk_pengujian_baru_pubbm(
+                        spbu=spbu,
                         pengujian=pengujian_terpilih,
                     )
             
@@ -8259,7 +8293,6 @@ def run():
                     )
                 ):
                     gunakan_data_lama_untuk_pengujian_baru_pubbm(
-                        alat=None,
                         perusahaan=spbu,
                         pengujian=pengujian_terpilih,
                     )
