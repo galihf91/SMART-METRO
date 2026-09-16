@@ -2115,6 +2115,60 @@ def update_spbu_terpilih():
         media_bbm
         or ""
     ).strip()
+def update_mode_manual_spbu():
+    """
+    Saat user memilih input SPBU manual,
+    putuskan hubungan dengan master SPBU
+    yang sebelumnya dipilih.
+    """
+
+    mode_manual = bool(
+        st.session_state.get(
+            "input_manual_spbu",
+            False
+        )
+    )
+
+    if not mode_manual:
+        return
+
+    # =====================================================
+    # PUTUSKAN MASTER SPBU LAMA
+    # =====================================================
+    st.session_state[
+        "spbu_id_pubbm"
+    ] = None
+
+    st.session_state[
+        "spbu_select"
+    ] = ""
+
+    # =====================================================
+    # KOSONGKAN IDENTITAS DARI MASTER LAMA
+    # =====================================================
+    st.session_state[
+        "nama_perusahaan"
+    ] = ""
+
+    st.session_state[
+        "nomor_spbu_pubbm"
+    ] = ""
+
+    st.session_state[
+        "alamat_input_pubbm"
+    ] = ""
+
+    st.session_state[
+        "jenis_lokasi_pubbm"
+    ] = ""
+
+    st.session_state[
+        "kecamatan_spbu_pubbm"
+    ] = ""
+
+    st.session_state[
+        "media_bbm_master_pubbm"
+    ] = ""
 # =========================================================
 # AMBIL RIWAYAT PUBBM PER MASTER SPBU
 # =========================================================
@@ -5868,6 +5922,7 @@ def run():
                 st.checkbox(
                     "Input manual nama SPBU / perusahaan",
                     key="input_manual_spbu",
+                    on_change=update_mode_manual_spbu,
                 )
 
                 if st.session_state.input_manual_spbu:
