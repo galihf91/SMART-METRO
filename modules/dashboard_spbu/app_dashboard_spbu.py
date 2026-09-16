@@ -12,7 +12,7 @@ import os
 from supabase import create_client
 
 st.set_page_config(
-    page_title="Dashboard Pengawasan SPBU – SMART METRO",
+    page_title="Dashboard SPBU – SMART METRO",
     page_icon="⛽",
     layout="wide",
 )
