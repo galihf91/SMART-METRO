@@ -331,9 +331,13 @@ def render_data_tahunan():
     c1, c2 = st.columns([2.2, 1])
 
     with c1:
+        opsi_pasar = [""] + list(pasar_map.keys())
+
         pasar_label = st.selectbox(
             "Nama Pasar",
-            list(pasar_map.keys()),
+            opsi_pasar,
+            index=0,
+            placeholder="Ketik nama pasar...",
             key="pasar_input_nama",
         )
 
@@ -347,9 +351,21 @@ def render_data_tahunan():
             key="pasar_input_tahun",
         )
 
+    if not pasar_label:
+        st.info("Silakan ketik dan pilih nama pasar terlebih dahulu.")
+        return
+    
     pasar_id = pasar_map[pasar_label]
-    master = df_ops[df_ops["id"] == pasar_id].iloc[0]
-    existing = get_existing_record(df_tahunan, pasar_id, int(tahun))
+    
+    master = df_ops[
+        df_ops["id"] == pasar_id
+    ].iloc[0]
+    
+    existing = get_existing_record(
+        df_tahunan,
+        pasar_id,
+        int(tahun)
+    )
 
     st.markdown(
         f"""
