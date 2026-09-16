@@ -5555,9 +5555,13 @@ def run():
         alat_standar_df,
         dispenser_df,
         jumlah_dispenser,
+        jenis_lokasi,
     ):
         errors = []
-
+        if not str(jenis_lokasi).strip():
+            errors.append(
+                "Jenis lokasi SPBU belum dipilih."
+            )
         if not str(pemilik).strip():
             errors.append(
                 "Nama SPBU atau perusahaan belum diisi."
@@ -5919,16 +5923,41 @@ def run():
                     help="Alamat otomatis muncul dan tetap dapat diedit.",
                 )
 
-                st.checkbox(
-                    "Input manual nama SPBU / perusahaan",
-                    key="input_manual_spbu",
-                    on_change=update_mode_manual_spbu,
-                )
-
                 if st.session_state.input_manual_spbu:
+
                     st.text_input(
                         "Nama Pemilik / SPBU / Perusahaan",
                         key="nama_perusahaan",
+                    )
+                
+                    st.selectbox(
+                        "Jenis Lokasi",
+                        [
+                            "SPBU",
+                            "SPBUN",
+                            "BP AKR",
+                            "SHELL",
+                            "VIVO",
+                            "PERTASHOP",
+                        ],
+                        key="jenis_lokasi_pubbm",
+                    )
+                
+                    st.text_input(
+                        "Kecamatan",
+                        key="kecamatan_spbu_pubbm",
+                        placeholder="Contoh: Tigaraksa",
+                    )
+                
+                    st.text_input(
+                        "Media BBM",
+                        key="media_bbm_master_pubbm",
+                        placeholder=(
+                            "Contoh: Pertalite, Pertamax, Bio Solar"
+                        ),
+                        help=(
+                            "Pisahkan beberapa media dengan tanda koma."
+                        ),
                     )
 
             else:
@@ -7138,6 +7167,7 @@ def run():
                 alat_standar_df=alat_standar_df,
                 dispenser_df=dispenser_df,
                 jumlah_dispenser=jumlah_dispenser,
+                jenis_lokasi=jenis_lokasi,
             )
 
             if daftar_error:
