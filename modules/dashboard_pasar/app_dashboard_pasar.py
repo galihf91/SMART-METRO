@@ -109,6 +109,57 @@ def marker_color(year, selected_year):
 # =========================
 # LOAD DATA PASAR
 # =========================
+@st.cache_data(ttl=60)
+def load_master_pasar_supabase():
+    sb = get_supabase()
+
+    data = (
+        sb.table("pasar")
+        .select(
+            "id,nama_pasar,alamat,kecamatan,latitude,longitude,status"
+        )
+        .execute()
+        .data
+        or []
+    )
+
+    df = pd.DataFrame(data)
+
+    if df.empty:
+        return df
+
+    df["lat"] = pd.to_numeric(
+        df["latitude"],
+        errors="coerce"
+    )
+
+    df["lon"] = pd.to_numeric(
+        df["longitude"],
+        errors="coerce"
+    )
+
+    df["nama_pasar"] = (
+        df["nama_pasar"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+
+    df["kecamatan"] = (
+        df["kecamatan"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+
+    df["alamat"] = (
+        df["alamat"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+
+    return df
 @st.cache_resource
 def get_supabase():
     url = None
@@ -313,6 +364,7 @@ def pick_from_click(map_state, df_context, name_col, kec_col, state_prefix):
 # =========================
 def render_dashboard_pasar():
     df = load_pasar_supabase()
+    df_master_pasar = load_master_pasar_supabase()
     geo = load_geojson(FILE_GEOJSON) if os.path.exists(FILE_GEOJSON) else None
     # =====================================================
     # NAVIGASI
@@ -406,10 +458,69 @@ def render_dashboard_pasar():
         cols[2].metric("Tahun", year_pick)
         cols[3].metric("Total Timbangan", int(fdf['jumlah_timbangan_tera_ulang'].sum()))
 
+    # =====================================================
+    # DATA KHUSUS PETA
+    # =====================================================
+    
+    peta_df = df_master_pasar.copy()
+    
+    if not peta_df.empty:
+    
+        # Data tahun yang sedang dipilih
+        data_tahun = df[
+            df["tera_ulang_tahun"] == year_pick
+        ].copy()
+    
+        kolom_status = data_tahun[
+            [
+                "pasar_id",
+                "jumlah_timbangan_tera_ulang"
+            ]
+        ].copy()
+    
+        kolom_status["sudah_tera"] = True
+    
+        peta_df = peta_df.merge(
+            kolom_status,
+            left_on="id",
+            right_on="pasar_id",
+            how="left"
+        )
+    
+        peta_df["sudah_tera"] = (
+            peta_df["sudah_tera"]
+            .fillna(False)
+            .astype(bool)
+        )
+    
+        peta_df["jumlah_timbangan_tera_ulang"] = (
+            pd.to_numeric(
+                peta_df["jumlah_timbangan_tera_ulang"],
+                errors="coerce"
+            )
+            .fillna(0)
+        )
     # --- PETA ---
     st.subheader("🗺️ Peta Lokasi Pasar")
     center, zoom = [-6.2, 106.55], 10
-    coords = fdf[['lat','lon']].dropna() if {'lat','lon'}.issubset(fdf.columns) else pd.DataFrame()
+    peta_filter = peta_df.copy()
+
+    if kec_pick != "(Semua)":
+        peta_filter = peta_filter[
+            peta_filter["kecamatan"] == kec_pick
+        ]
+    
+    if nama_pick != "(Semua)":
+        peta_filter = peta_filter[
+            peta_filter["nama_pasar"] == nama_pick
+        ]
+    
+    coords = (
+        peta_filter[["lat", "lon"]]
+        .dropna()
+        if {"lat", "lon"}.issubset(peta_filter.columns)
+        else pd.DataFrame()
+    )
 
     if not coords.empty:
         if nama_pick != '(Semua)':
@@ -428,16 +539,26 @@ def render_dashboard_pasar():
 
     if not coords.empty:
         cluster = MarkerCluster(name="Pasar").add_to(m)
-        for _, r in fdf.iterrows():
-            if pd.isna(r['lat']) or pd.isna(r['lon']): continue
-            tahun = int(r.get("tera_ulang_tahun", year_pick))
-
+        for _, r in peta_filter.iterrows():
+            if pd.isna(r["lat"]) or pd.isna(r["lon"]):
+                continue
+        
+            if bool(r.get("sudah_tera", False)):
+                warna = "#16A34A"
+                status_text = "Sudah Tera Ulang"
+            else:
+                warna = "#9CA3AF"
+                status_text = "Belum Ada Data"
+        
             folium.CircleMarker(
-                location=[float(r["lat"]), float(r["lon"])],
+                location=[
+                    float(r["lat"]),
+                    float(r["lon"])
+                ],
                 radius=10,
-                color="#16A34A",
+                color=warna,
                 fill=True,
-                fill_color="#16A34A",
+                fill_color=warna,
                 fill_opacity=0.8,
                 weight=2,
                 tooltip=r["nama_pasar"],
@@ -445,7 +566,8 @@ def render_dashboard_pasar():
                     f"""
                     <b>{r['nama_pasar']}</b><br>
                     {r['alamat']}<br>
-                    Tahun: {tahun}<br>
+                    Tahun: {year_pick}<br>
+                    Status: {status_text}<br>
                     Total UTTP: {int(r.get('jumlah_timbangan_tera_ulang', 0))}
                     """,
                     max_width=280
