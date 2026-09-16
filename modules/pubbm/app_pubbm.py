@@ -5878,8 +5878,8 @@ def run():
 
             else:
                 st.info(
-                    "📂 File data perusahaan tidak ditemukan. "
-                    "Silakan input manual."
+                    "Master SPBU belum tersedia di Supabase. "
+                    "Silakan input SPBU secara manual."
                 )
 
                 st.text_input(
