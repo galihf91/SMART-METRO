@@ -430,13 +430,26 @@ def render_dashboard_pasar():
         cluster = MarkerCluster(name="Pasar").add_to(m)
         for _, r in fdf.iterrows():
             if pd.isna(r['lat']) or pd.isna(r['lon']): continue
-            tahun = r.get('tera_ulang_tahun')
+            tahun = int(r.get("tera_ulang_tahun", year_pick))
+
             folium.CircleMarker(
-                location=[float(r['lat']), float(r['lon'])],
-                radius=10, color=marker_color(tahun, year_pick), fill=True,
-                fill_opacity=0.7, weight=2,
-                tooltip=r['nama_pasar'],
-                popup=folium.Popup(f"<b>{r['nama_pasar']}</b><br>{r['alamat']}<br>Tahun: {tahun}", max_width=280)
+                location=[float(r["lat"]), float(r["lon"])],
+                radius=10,
+                color="#16A34A",
+                fill=True,
+                fill_color="#16A34A",
+                fill_opacity=0.8,
+                weight=2,
+                tooltip=r["nama_pasar"],
+                popup=folium.Popup(
+                    f"""
+                    <b>{r['nama_pasar']}</b><br>
+                    {r['alamat']}<br>
+                    Tahun: {tahun}<br>
+                    Total UTTP: {int(r.get('jumlah_timbangan_tera_ulang', 0))}
+                    """,
+                    max_width=280
+                )
             ).add_to(cluster)
         if nama_pick == '(Semua)' and len(coords) > 1:
             m.fit_bounds([[coords['lat'].min(), coords['lon'].min()],
