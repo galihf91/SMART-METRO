@@ -215,9 +215,10 @@ def render_dashboard_pasar():
 
     # --- pending click ---
     pending = st.session_state.pop("pasar_pending_pick", None)
+
     if pending:
-        st.session_state['pasar_kec_sel'] = pending['kec']
-        st.session_state['pasar_name_sel'] = pending['name']
+        st.session_state['pasar_kec_filter'] = pending['kec']
+        st.session_state['pasar_name_filter'] = pending['name']
         st.rerun()
 
     # --- sidebar filter ---
