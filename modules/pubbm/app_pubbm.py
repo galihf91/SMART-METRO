@@ -2202,48 +2202,76 @@ def update_spbu_terpilih():
         or ""
     ).strip()
 # =========================================================
-# AMBIL RIWAYAT PUBBM PER KEGIATAN / SERTIFIKAT
+# AMBIL RIWAYAT PUBBM PER MASTER SPBU
 # =========================================================
 def ambil_riwayat_kegiatan_pubbm(
     supabase,
-    perusahaan,
+    spbu,
 ):
     """
-    Membaca dua struktur PUBBM:
+    Membaca riwayat PUBBM berdasarkan master SPBU.
 
-    FORMAT BARU / schema_pubbm = 3
+    Struktur resmi:
     --------------------------------
-    1 kegiatan = 1 row pengujian
-    N nozzle   = N row pengujian_uttp
+    spbu
+        ↓
+    pengujian.spbu_id
+        ↓
+    pengujian_uttp
+        ↓
+    uttp.spbu_id
 
-    FORMAT LAMA
-    --------------------------------
-    1 nozzle = 1 row pengujian
-    atau dispenser masih disimpan sebagai array JSONB.
+    1 kegiatan / 1 sertifikat
+        = 1 row pengujian
 
-    Output fungsi tetap dibuat kompatibel dengan form PUBBM.
+    N nozzle
+        = N row pengujian_uttp
     """
 
-    perusahaan_id = perusahaan.get(
+    # =====================================================
+    # 1. ID MASTER SPBU
+    # =====================================================
+    spbu_id = spbu.get(
         "id"
     )
 
-    if not perusahaan_id:
+    if (
+        spbu_id is None
+        or str(spbu_id).strip() == ""
+    ):
+        return []
+
+    try:
+        spbu_id = int(
+            float(
+                spbu_id
+            )
+        )
+
+    except (
+        TypeError,
+        ValueError
+    ):
         return []
 
     # =====================================================
-    # 1. MASTER UTTP PUBBM MILIK PERUSAHAAN
+    # 2. MASTER UTTP PUBBM MILIK SPBU
     # =====================================================
     response_uttp = (
         supabase
         .table("uttp")
         .select(
-            "id, perusahaan_id, jenis_uttp, "
-            "merk, tipe, nomor_seri"
+            "id, "
+            "spbu_id, "
+            "perusahaan_id, "
+            "jenis_uttp, "
+            "merk, "
+            "tipe, "
+            "nomor_seri"
         )
         .eq(
-            "perusahaan_id",
-            perusahaan_id
+            "spbu_id",
+            spbu_id
         )
         .eq(
             "jenis_uttp",
@@ -2260,27 +2288,21 @@ def ambil_riwayat_kegiatan_pubbm(
     uttp_map = {
         row["id"]: row
         for row in daftar_uttp
-        if row.get("id") is not None
+        if row.get(
+            "id"
+        ) is not None
     }
 
-    daftar_uttp_id = list(
-        uttp_map.keys()
-    )
-
     # =====================================================
-    # 2. AMBIL PENGUJIAN BERDASARKAN PERUSAHAAN
-    #
-    # Format baru mempunyai:
-    # perusahaan_id terisi
-    # uttp_id = NULL
+    # 3. AMBIL PENGUJIAN BERDASARKAN SPBU
     # =====================================================
     response_pengujian = (
         supabase
         .table("pengujian")
         .select("*")
         .eq(
-            "perusahaan_id",
-            perusahaan_id
+            "spbu_id",
+            spbu_id
         )
         .order(
             "tanggal_pengujian",
@@ -2294,69 +2316,23 @@ def ambil_riwayat_kegiatan_pubbm(
         or []
     )
 
-    # =====================================================
-    # FALLBACK LEGACY
-    #
-    # Untuk berjaga-jaga jika ada data sangat lama yang
-    # perusahaan_id pada pengujian masih NULL.
-    # =====================================================
-    id_pengujian_sudah_ada = {
-        row.get("id")
-        for row in semua_pengujian
-    }
-
-    if daftar_uttp_id:
-
-        response_legacy = (
-            supabase
-            .table("pengujian")
-            .select("*")
-            .in_(
-                "uttp_id",
-                daftar_uttp_id
-            )
-            .execute()
-        )
-
-        for row in (
-            response_legacy.data
-            or []
-        ):
-            if (
-                row.get("id")
-                not in id_pengujian_sudah_ada
-            ):
-                semua_pengujian.append(
-                    row
-                )
-
-                id_pengujian_sudah_ada.add(
-                    row.get("id")
-                )
-
     if not semua_pengujian:
         return []
 
     # =====================================================
-    # 3. HANYA FORMAT PUBBM BARU
-    #
-    # Struktur resmi:
-    # - 1 kegiatan = 1 row pengujian
-    # - uttp_id pada pengujian = NULL
-    # - nozzle disimpan melalui pengujian_uttp
-    # - schema_pubbm = 3
+    # 4. FILTER HANYA PUBBM STRUKTUR BARU
     # =====================================================
     pengujian_baru = []
-    
+
     for row in semua_pengujian:
-    
+
         detail = (
             row.get(
                 "data_pengujian"
             )
             or {}
         )
-    
+
         schema_pubbm = str(
             detail.get(
                 "schema_pubbm",
@@ -2364,416 +2340,438 @@ def ambil_riwayat_kegiatan_pubbm(
             )
             or ""
         ).strip()
-    
+
         if (
-            row.get("uttp_id") is None
+            row.get(
+                "uttp_id"
+            ) is None
             and schema_pubbm == "3"
         ):
             pengujian_baru.append(
                 row
             )
 
-    # =====================================================
-    # DAFTAR HASIL KEGIATAN PUBBM
-    # =====================================================
-    daftar_kegiatan = []
-    # =====================================================
-    # 4. FORMAT BARU
-    # =====================================================
-    if pengujian_baru:
+    if not pengujian_baru:
+        return []
 
-        daftar_header_id = [
-            row.get("id")
-            for row in pengujian_baru
-            if row.get("id") is not None
-        ]
+    # =====================================================
+    # 5. AMBIL SELURUH RELASI NOZZLE
+    # =====================================================
+    daftar_header_id = [
+        row.get(
+            "id"
+        )
+        for row in pengujian_baru
+        if row.get(
+            "id"
+        ) is not None
+    ]
 
-        # =============================================
-        # AMBIL SELURUH RELASI NOZZLE SEKALIGUS
-        # =============================================
-        response_relasi = (
-            supabase
-            .table(
-                "pengujian_uttp"
-            )
-            .select(
-                "id, pengujian_id, uttp_id, "
-                "no_dispenser, posisi, media, "
-                "k_faktor, urutan, hasil"
-            )
-            .in_(
-                "pengujian_id",
-                daftar_header_id
-            )
-            .execute()
+    response_relasi = (
+        supabase
+        .table(
+            "pengujian_uttp"
+        )
+        .select(
+            "id, "
+            "pengujian_id, "
+            "uttp_id, "
+            "no_dispenser, "
+            "posisi, "
+            "media, "
+            "k_faktor, "
+            "urutan, "
+            "hasil"
+        )
+        .in_(
+            "pengujian_id",
+            daftar_header_id
+        )
+        .execute()
+    )
+
+    daftar_relasi = (
+        response_relasi.data
+        or []
+    )
+
+    relasi_per_pengujian = {}
+
+    for relasi in daftar_relasi:
+
+        pengujian_id = relasi.get(
+            "pengujian_id"
         )
 
-        daftar_relasi = (
-            response_relasi.data
+        relasi_per_pengujian.setdefault(
+            pengujian_id,
+            []
+        ).append(
+            relasi
+        )
+
+    # =====================================================
+    # 6. SUSUN KEGIATAN PUBBM
+    # =====================================================
+    daftar_kegiatan = []
+
+    for header in pengujian_baru:
+
+        pengujian_id = header.get(
+            "id"
+        )
+
+        detail_header = (
+            header.get(
+                "data_pengujian"
+            )
+            or {}
+        )
+
+        relasi_kegiatan = (
+            relasi_per_pengujian.get(
+                pengujian_id,
+                []
+            )
             or []
         )
 
-        relasi_per_pengujian = {}
-
-        for relasi in daftar_relasi:
-
-            pengujian_id = relasi.get(
-                "pengujian_id"
-            )
-
-            relasi_per_pengujian.setdefault(
-                pengujian_id,
-                []
-            ).append(
-                relasi
-            )
-
-        # =============================================
-        # BANGUN SATU KEGIATAN
-        # =============================================
-        for header in pengujian_baru:
-
-            pengujian_id = header.get(
-                "id"
-            )
-
-            detail_header = (
-                header.get(
-                    "data_pengujian"
+        # =================================================
+        # URUTKAN SESUAI URUTAN SERTIFIKAT
+        # =================================================
+        relasi_kegiatan = sorted(
+            relasi_kegiatan,
+            key=lambda item: int(
+                item.get(
+                    "urutan",
+                    999999
                 )
-                or {}
+                or 999999
+            )
+        )
+
+        dispenser_records = []
+
+        daftar_media = []
+        daftar_posisi = []
+        nomor_dispenser_set = set()
+
+        for relasi in relasi_kegiatan:
+
+            # =============================================
+            # MASTER UTTP
+            # =============================================
+            uttp_id = relasi.get(
+                "uttp_id"
             )
 
-            relasi_kegiatan = (
-                relasi_per_pengujian.get(
-                    pengujian_id,
-                    []
-                )
-                or []
+            uttp = uttp_map.get(
+                uttp_id,
+                {}
             )
 
-            # Urutkan sesuai urutan pada sertifikat
-            relasi_kegiatan = sorted(
-                relasi_kegiatan,
-                key=lambda item: int(
-                    item.get(
-                        "urutan",
-                        999999
+            # =============================================
+            # NOMOR DISPENSER
+            # =============================================
+            no_dispenser = relasi.get(
+                "no_dispenser"
+            )
+
+            if no_dispenser not in (
+                None,
+                ""
+            ):
+                try:
+                    no_dispenser = int(
+                        no_dispenser
                     )
-                    or 999999
-                )
-            )
+                except (
+                    TypeError,
+                    ValueError
+                ):
+                    pass
 
-            dispenser_records = []
-
-            daftar_media = []
-            daftar_posisi = []
-            nomor_dispenser_set = set()
-
-            for relasi in relasi_kegiatan:
-
-                # =====================================
-                # ID UTTP
-                # =====================================
-                uttp_id = relasi.get(
-                    "uttp_id"
+                nomor_dispenser_set.add(
+                    no_dispenser
                 )
 
-                uttp = uttp_map.get(
-                    uttp_id,
-                    {}
-                )
-
-                # =====================================
-                # NOMOR DISPENSER
-                # Sumber: pengujian_uttp
-                # =====================================
-                no_dispenser = relasi.get(
-                    "no_dispenser"
-                )
-
-                if no_dispenser not in (
-                    None,
+            # =============================================
+            # MASTER UTTP
+            # =============================================
+            merk = str(
+                uttp.get(
+                    "merk",
                     ""
-                ):
-                    try:
-                        no_dispenser = int(
-                            no_dispenser
-                        )
-                    except (
-                        TypeError,
-                        ValueError
-                    ):
-                        pass
-
-                    nomor_dispenser_set.add(
-                        no_dispenser
-                    )
-
-                # =====================================
-                # K-FAKTOR
-                # Sumber: pengujian_uttp
-                # =====================================
-                k_faktor = str(
-                    relasi.get(
-                        "k_faktor"
-                    )
-                    or ""
-                ).strip()
-
-                # =====================================
-                # MASTER UTTP
-                # =====================================
-                merk = str(
-                    uttp.get(
-                        "merk",
-                        ""
-                    )
-                    or ""
-                ).strip()
-
-                tipe = str(
-                    uttp.get(
-                        "tipe",
-                        ""
-                    )
-                    or ""
-                ).strip()
-
-                no_seri = str(
-                    uttp.get(
-                        "nomor_seri",
-                        ""
-                    )
-                    or ""
-                ).strip()
-
-                # =====================================
-                # DATA PER PENGUJIAN
-                # Sumber: pengujian_uttp
-                # =====================================
-                media = str(
-                    relasi.get(
-                        "media"
-                    )
-                    or ""
-                ).strip()
-
-                posisi = str(
-                    relasi.get(
-                        "posisi"
-                    )
-                    or ""
-                ).strip()
-
-                # =====================================
-                # SUSUN DATA NOZZLE UNTUK FORM
-                # =====================================
-                dispenser_records.append({
-                    "_uttp_id": (
-                        uttp_id
-                    ),
-
-                    "No": (
-                        no_dispenser
-                        if no_dispenser is not None
-                        else ""
-                    ),
-
-                    "Posisi": posisi,
-                    "Merk": merk,
-                    "Tipe": tipe,
-                    "No. Seri": no_seri,
-                    "Media": media,
-                    "K-Faktor": k_faktor,
-                })
-
-                # =====================================
-                # RINGKASAN MEDIA
-                # =====================================
-                if (
-                    media
-                    and media not in daftar_media
-                ):
-                    daftar_media.append(
-                        media
-                    )
-
-                # =====================================
-                # RINGKASAN POSISI
-                # =====================================
-                if (
-                    posisi
-                    and posisi not in daftar_posisi
-                ):
-                    daftar_posisi.append(
-                        posisi
-                    )
-
-            # =============================================
-            # SNAPSHOT KEGIATAN
-            # =============================================
-            alat_standar = list(
-                detail_header.get(
-                    "alat_standar",
-                    []
                 )
-                or []
-            )
+                or ""
+            ).strip()
 
-            nip_penera_1 = str(
+            tipe = str(
+                uttp.get(
+                    "tipe",
+                    ""
+                )
+                or ""
+            ).strip()
+
+            no_seri = str(
+                uttp.get(
+                    "nomor_seri",
+                    ""
+                )
+                or ""
+            ).strip()
+
+            # =============================================
+            # DATA PER PENGUJIAN
+            # =============================================
+            posisi = str(
+                relasi.get(
+                    "posisi",
+                    ""
+                )
+                or ""
+            ).strip()
+
+            media = str(
+                relasi.get(
+                    "media",
+                    ""
+                )
+                or ""
+            ).strip()
+
+            k_faktor = str(
+                relasi.get(
+                    "k_faktor",
+                    ""
+                )
+                or ""
+            ).strip()
+
+            dispenser_records.append({
+                "_uttp_id": (
+                    uttp_id
+                ),
+
+                "No": (
+                    no_dispenser
+                    if no_dispenser is not None
+                    else ""
+                ),
+
+                "Posisi": posisi,
+                "Merk": merk,
+                "Tipe": tipe,
+                "No. Seri": no_seri,
+                "Media": media,
+                "K-Faktor": k_faktor,
+            })
+
+            if (
+                media
+                and media not in daftar_media
+            ):
+                daftar_media.append(
+                    media
+                )
+
+            if (
+                posisi
+                and posisi not in daftar_posisi
+            ):
+                daftar_posisi.append(
+                    posisi
+                )
+
+        # =================================================
+        # SNAPSHOT PENERA / ALAT STANDAR
+        # =================================================
+        alat_standar = list(
+            detail_header.get(
+                "alat_standar",
+                []
+            )
+            or []
+        )
+
+        # =================================================
+        # DETAIL VIRTUAL UNTUK FORM
+        # =================================================
+        detail_gabungan = {
+            "schema_pubbm": 3,
+
+            "_spbu_id": (
+                spbu_id
+            ),
+
+            "nama_alat": (
+                "Pompa Ukur BBM (Dispenser)"
+            ),
+
+            # =============================================
+            # IDENTITAS SPBU DARI MASTER SPBU
+            # =============================================
+            "pemilik": str(
+                spbu.get(
+                    "nama_spbu",
+                    ""
+                )
+                or ""
+            ).strip(),
+
+            "nama_spbu": str(
+                spbu.get(
+                    "nomor_spbu",
+                    ""
+                )
+                or ""
+            ).strip(),
+
+            "alamat": str(
+                spbu.get(
+                    "alamat",
+                    ""
+                )
+                or ""
+            ).strip(),
+
+            "jenis_lokasi": str(
+                spbu.get(
+                    "jenis_lokasi",
+                    ""
+                )
+                or ""
+            ).strip(),
+
+            "kecamatan_spbu": str(
+                spbu.get(
+                    "kecamatan",
+                    ""
+                )
+                or ""
+            ).strip(),
+
+            "media_bbm_master": str(
+                spbu.get(
+                    "media_bbm",
+                    ""
+                )
+                or ""
+            ).strip(),
+
+            # =============================================
+            # DATA DISPENSER
+            # =============================================
+            "jumlah_dispenser": len(
+                nomor_dispenser_set
+            ),
+
+            "jumlah_nozzle": len(
+                dispenser_records
+            ),
+
+            "posisi_nozzle": (
+                daftar_posisi
+            ),
+
+            "media": (
+                daftar_media
+            ),
+
+            "dispenser": (
+                dispenser_records
+            ),
+
+            # =============================================
+            # ALAT STANDAR
+            # =============================================
+            "alat_standar": (
+                alat_standar
+            ),
+
+            "jumlah_alat_standar": len(
+                alat_standar
+            ),
+
+            # =============================================
+            # PENERA
+            # =============================================
+            "penera_1": str(
+                header.get(
+                    "penera_1",
+                    ""
+                )
+                or ""
+            ).strip(),
+
+            "nip_penera_1": str(
                 detail_header.get(
                     "nip_penera_1",
                     ""
                 )
                 or ""
-            ).strip()
+            ).strip(),
 
-            golongan_penera_1 = str(
+            "golongan_penera_1": str(
                 detail_header.get(
                     "golongan_penera_1",
                     ""
                 )
                 or ""
-            ).strip()
+            ).strip(),
 
-            nip_penera_2 = str(
+            "penera_2": str(
+                header.get(
+                    "penera_2",
+                    ""
+                )
+                or ""
+            ).strip(),
+
+            "nip_penera_2": str(
                 detail_header.get(
                     "nip_penera_2",
                     ""
                 )
                 or ""
-            ).strip()
+            ).strip(),
 
-            golongan_penera_2 = str(
+            "golongan_penera_2": str(
                 detail_header.get(
                     "golongan_penera_2",
                     ""
                 )
                 or ""
-            ).strip()
+            ).strip(),
 
-            # =============================================
-            # DETAIL VIRTUAL UNTUK FORM PUBBM
-            # =============================================
-            detail_gabungan = {
-                "schema_pubbm": 3,
-
-                "nama_alat": (
-                    "Pompa Ukur BBM (Dispenser)"
-                ),
-
-                "nama_spbu": str(
-                    perusahaan.get(
-                        "nomor_spbu",
-                        ""
-                    )
-                    or ""
-                ).strip(),
-
-                "pemilik": str(
-                    perusahaan.get(
-                        "nama_perusahaan",
-                        ""
-                    )
-                    or ""
-                ).strip(),
-
-                "alamat": str(
-                    perusahaan.get(
-                        "alamat",
-                        ""
-                    )
-                    or ""
-                ).strip(),
-
-                "jumlah_dispenser": len(
-                    nomor_dispenser_set
-                ),
-
-                "jumlah_nozzle": len(
-                    dispenser_records
-                ),
-
-                "posisi_nozzle": (
-                    daftar_posisi
-                ),
-
-                "media": (
-                    daftar_media
-                ),
-
-                "dispenser": (
-                    dispenser_records
-                ),
-
-                "alat_standar": (
-                    alat_standar
-                ),
-
-                "jumlah_alat_standar": len(
-                    alat_standar
-                ),
-
-                "penera_1": str(
-                    header.get(
-                        "penera_1",
-                        ""
-                    )
-                    or ""
-                ).strip(),
-
-                "nip_penera_1": (
-                    nip_penera_1
-                ),
-
-                "golongan_penera_1": (
-                    golongan_penera_1
-                ),
-
-                "penera_2": str(
+            "jumlah_penera": (
+                2
+                if str(
                     header.get(
                         "penera_2",
                         ""
                     )
                     or ""
-                ).strip(),
+                ).strip()
+                else 1
+            ),
+        }
 
-                "nip_penera_2": (
-                    nip_penera_2
-                ),
+        kegiatan = dict(
+            header
+        )
 
-                "golongan_penera_2": (
-                    golongan_penera_2
-                ),
+        kegiatan[
+            "data_pengujian"
+        ] = detail_gabungan
 
-                "jumlah_penera": (
-                    2
-                    if str(
-                        header.get(
-                            "penera_2",
-                            ""
-                        )
-                        or ""
-                    ).strip()
-                    else 1
-                ),
-            }
-
-            kegiatan = dict(
-                header
-            )
-
-            kegiatan[
-                "data_pengujian"
-            ] = detail_gabungan
-
-            daftar_kegiatan.append(
-                kegiatan
-            )
+        daftar_kegiatan.append(
+            kegiatan
+        )
 
     # =====================================================
-    # 6. URUTKAN SEMUA KEGIATAN
+    # 7. URUTKAN RIWAYAT
     # =====================================================
     daftar_kegiatan = sorted(
         daftar_kegiatan,
@@ -2785,6 +2783,7 @@ def ambil_riwayat_kegiatan_pubbm(
                 )
                 or ""
             ),
+
             int(
                 item.get(
                     "id",
