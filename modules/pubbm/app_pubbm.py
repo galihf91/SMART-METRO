@@ -3375,6 +3375,63 @@ def run():
             "alamat_input_pubbm"
         ] = alamat_spbu_restore
         # =====================================================
+        # IDENTITAS MASTER SPBU
+        # =====================================================
+        spbu_id_restore = data.get(
+            "_spbu_id"
+        )
+        
+        if (
+            spbu_id_restore is not None
+            and str(spbu_id_restore).strip() != ""
+        ):
+            try:
+                spbu_id_restore = int(
+                    float(spbu_id_restore)
+                )
+            except (
+                TypeError,
+                ValueError
+            ):
+                spbu_id_restore = None
+        
+        else:
+            spbu_id_restore = None
+        
+        st.session_state[
+            "spbu_id_pubbm"
+        ] = spbu_id_restore
+        
+        st.session_state[
+            "jenis_lokasi_pubbm"
+        ] = str(
+            data.get(
+                "jenis_lokasi",
+                ""
+            )
+            or ""
+        ).strip()
+        
+        st.session_state[
+            "kecamatan_spbu_pubbm"
+        ] = str(
+            data.get(
+                "kecamatan_spbu",
+                ""
+            )
+            or ""
+        ).strip()
+        
+        st.session_state[
+            "media_bbm_master_pubbm"
+        ] = str(
+            data.get(
+                "media_bbm_master",
+                ""
+            )
+            or ""
+        ).strip()
+        # =====================================================
         # NOMOR SPBU
         # =====================================================
         st.session_state[
@@ -5009,6 +5066,10 @@ def run():
     
             "jumlah_alat_standar_pubbm",
             "jumlah_dispenser_pubbm",
+            "spbu_id_pubbm",
+            "jenis_lokasi_pubbm",
+            "kecamatan_spbu_pubbm",
+            "media_bbm_master_pubbm",
         }
     
         prefix_form = (
@@ -5278,6 +5339,33 @@ def run():
             nomor_spbu = str(
                 st.session_state.get(
                     "nomor_spbu_pubbm",
+                    ""
+                )
+                or ""
+            ).strip()
+            spbu_id = st.session_state.get(
+                "spbu_id_pubbm"
+            )
+            
+            jenis_lokasi = str(
+                st.session_state.get(
+                    "jenis_lokasi_pubbm",
+                    ""
+                )
+                or ""
+            ).strip()
+            
+            kecamatan_spbu = str(
+                st.session_state.get(
+                    "kecamatan_spbu_pubbm",
+                    ""
+                )
+                or ""
+            ).strip()
+            
+            media_bbm_master = str(
+                st.session_state.get(
+                    "media_bbm_master_pubbm",
                     ""
                 )
                 or ""
@@ -6299,36 +6387,48 @@ def run():
             "nomor_order": nomor_order,
             "tanggal_pengujian": tanggal_pengujian,
             "tanggal_cetak": tanggal_tanda_tangan,
-    
+        
             "nama_alat": "Pompa Ukur BBM (Dispenser)",
-    
+        
+            # =====================================================
+            # IDENTITAS MASTER SPBU
+            # =====================================================
+            "_spbu_id": spbu_id,
+        
             "pemilik": pemilik,
+        
             "nama_spbu": nomor_spbu,
+        
             "alamat": alamat,
-    
+        
+            "jenis_lokasi": jenis_lokasi,
+        
+            "kecamatan_spbu": kecamatan_spbu,
+        
+            "media_bbm_master": media_bbm_master,
+        
             "jenis_pengujian": jenis_pengujian,
-    
+        
             "penera_1": penera_1,
             "nip_penera_1": nip_penera_1,
             "golongan_penera_1": golongan_penera_1,
-    
+        
             "penera_2": penera_2,
             "nip_penera_2": nip_penera_2,
             "golongan_penera_2": golongan_penera_2,
-    
+        
             "jumlah_penera": jumlah_penera,
-
+        
             "jumlah_alat_standar": jumlah_alat_standar,
             "alat_standar": alat_standar_df,
-
-            # Tetap disimpan untuk kompatibilitas generator lama
+        
             "merk_bus": merk_bus,
             "nomor_seri_bus": nomor_seri_bus,
             "telusuran_bus": telusuran_bus,
-
+        
             "jumlah_dispenser": jumlah_dispenser,
             "dispenser": dispenser_df,
-                    }
+        }
     
         col_simpan, col_reset = st.columns(2)
 
