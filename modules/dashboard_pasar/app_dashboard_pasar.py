@@ -108,6 +108,60 @@ def marker_color(year, selected_year):
 # =========================
 # LOAD DATA PASAR
 # =========================
+@st.cache_data(ttl=60)
+def load_pasar_supabase():
+    sb = get_supabase()
+
+    pasar = (
+        sb.table("pasar")
+        .select("id,nama_pasar,alamat,kecamatan,latitude,longitude,status")
+        .execute()
+        .data
+        or []
+    )
+
+    tahunan = (
+        sb.table("pasar_tahunan")
+        .select("*")
+        .execute()
+        .data
+        or []
+    )
+
+    df_pasar = pd.DataFrame(pasar)
+    df_tahunan = pd.DataFrame(tahunan)
+
+    if df_pasar.empty or df_tahunan.empty:
+        return pd.DataFrame()
+
+    df = df_tahunan.merge(
+        df_pasar,
+        left_on="pasar_id",
+        right_on="id",
+        how="left"
+    )
+
+    df["lat"] = pd.to_numeric(
+        df["latitude"],
+        errors="coerce"
+    )
+
+    df["lon"] = pd.to_numeric(
+        df["longitude"],
+        errors="coerce"
+    )
+
+    df["tera_ulang_tahun"] = pd.to_numeric(
+        df["tahun"],
+        errors="coerce"
+    )
+
+    df["jumlah_timbangan_tera_ulang"] = pd.to_numeric(
+        df["total_uttp"],
+        errors="coerce"
+    ).fillna(0)
+
+    return df
 @st.cache_data
 def load_excel(path_like):
     try:
@@ -185,7 +239,7 @@ def pick_from_click(map_state, df_context, name_col, kec_col, state_prefix):
 # DASHBOARD PASAR
 # =========================
 def render_dashboard_pasar():
-    df = load_excel(FILE_EXCEL)
+    df = load_pasar_supabase()
     geo = load_geojson(FILE_GEOJSON) if os.path.exists(FILE_GEOJSON) else None
     # =====================================================
     # NAVIGASI
