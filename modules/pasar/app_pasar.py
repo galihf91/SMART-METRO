@@ -170,16 +170,25 @@ def render_header():
 
 
 def render_nav():
-    c1, c2, _ = st.columns([1.6, 1.4, 6])
+    c1, c2, _ = st.columns([1.8, 1.5, 6])
 
     with c1:
-        if st.button("← Kembali", use_container_width=True, key="pasar_back"):
-            st.session_state["halaman"] = "home"
+        if st.button(
+            "← Pengujian UTTP",
+            use_container_width=True,
+            key="pasar_back"
+        ):
+            st.session_state.halaman_uttp = "home_uttp"
             st.rerun()
 
     with c2:
-        if st.button("🏠 Home", use_container_width=True, key="pasar_home"):
-            st.session_state["halaman"] = "home"
+        if st.button(
+            "🏠 Home SMART METRO",
+            use_container_width=True,
+            key="pasar_home"
+        ):
+            st.session_state.halaman = "home"
+            st.session_state.halaman_uttp = "home_uttp"
             st.rerun()
 
 
