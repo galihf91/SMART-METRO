@@ -552,6 +552,60 @@ def render_dashboard_pasar():
             )
             .fillna(0)
         )
+    # =====================================================
+    # DAFTAR PASAR BELUM TERA
+    # =====================================================
+    
+    if not peta_df.empty and "sudah_tera" in peta_df.columns:
+    
+        pasar_belum_tera = peta_df[
+            peta_df["sudah_tera"] == False
+        ].copy()
+    
+        if kec_pick != "(Semua)":
+            pasar_belum_tera = pasar_belum_tera[
+                pasar_belum_tera["kecamatan"] == kec_pick
+            ]
+    
+        if not pasar_belum_tera.empty:
+            with st.expander(
+                f"📋 Pasar Belum Tera ({len(pasar_belum_tera)})",
+                expanded=False
+            ):
+                st.dataframe(
+                    tabel_belum,
+                    use_container_width=True,
+                    hide_index=True
+                )
+            st.markdown("---")
+            st.subheader("📋 Daftar Pasar Belum Tera")
+    
+            tabel_belum = pasar_belum_tera[
+                [
+                    "nama_pasar",
+                    "kecamatan",
+                    "alamat"
+                ]
+            ].copy()
+    
+            tabel_belum.rename(
+                columns={
+                    "nama_pasar": "Nama Pasar",
+                    "kecamatan": "Kecamatan",
+                    "alamat": "Alamat"
+                },
+                inplace=True
+            )
+    
+            tabel_belum = tabel_belum.sort_values(
+                ["Kecamatan", "Nama Pasar"]
+            )
+    
+            st.dataframe(
+                tabel_belum,
+                use_container_width=True,
+                hide_index=True
+            )
     # --- PETA ---
     st.subheader("🗺️ Peta Lokasi Pasar")
     center, zoom = [-6.2, 106.55], 10
