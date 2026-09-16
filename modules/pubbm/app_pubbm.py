@@ -939,16 +939,117 @@ def simpan_pengujian_pubbm_ke_supabase(
     )
 
     # =====================================================
-    # 7. PERUSAHAAN / SPBU
+    # 7. MASTER SPBU
     # =====================================================
-    perusahaan_id = (
-        simpan_atau_update_perusahaan_pubbm(
+    spbu_id_input = data.get(
+        "_spbu_id"
+    )
+    
+    jenis_lokasi = str(
+        data.get(
+            "jenis_lokasi",
+            ""
+        )
+        or ""
+    ).strip()
+    
+    kecamatan_spbu = str(
+        data.get(
+            "kecamatan_spbu",
+            ""
+        )
+        or ""
+    ).strip()
+    
+    media_bbm_master = str(
+        data.get(
+            "media_bbm_master",
+            ""
+        )
+        or ""
+    ).strip()
+    
+    # =====================================================
+    # SIMPAN / UPDATE MASTER SPBU
+    #
+    # `pemilik` pada struktur form PUBBM saat ini
+    # merupakan nama SPBU / nama lokasi yang tampil.
+    # =====================================================
+    spbu_id = (
+        simpan_atau_update_spbu_pubbm(
             supabase=supabase,
-            nama_perusahaan=pemilik,
-            alamat=alamat,
-            nomor_spbu=nomor_spbu,
+    
+            spbu_id=(
+                spbu_id_input
+            ),
+    
+            nama_spbu=(
+                pemilik
+            ),
+    
+            nomor_spbu=(
+                nomor_spbu
+            ),
+    
+            alamat=(
+                alamat
+            ),
+    
+            jenis_lokasi=(
+                jenis_lokasi
+            ),
+    
+            kecamatan=(
+                kecamatan_spbu
+            ),
+    
+            media_bbm=(
+                media_bbm_master
+            ),
         )
     )
+    
+    # =====================================================
+    # SIMPAN KEMBALI ID MASTER KE DATA AKTIF
+    # =====================================================
+    data[
+        "_spbu_id"
+    ] = spbu_id
+    
+    # =====================================================
+    # PERUSAHAAN PEMILIK
+    #
+    # Untuk struktur PUBBM baru, perusahaan_id tidak lagi
+    # digunakan sebagai identitas lokasi SPBU.
+    #
+    # Jika suatu saat badan usaha / pemilik sudah dipetakan,
+    # ID tersebut dapat disimpan di _perusahaan_id.
+    # =====================================================
+    perusahaan_id = data.get(
+        "_perusahaan_id"
+    )
+    
+    if (
+        perusahaan_id is not None
+        and str(
+            perusahaan_id
+        ).strip() != ""
+    ):
+        try:
+            perusahaan_id = int(
+                float(
+                    perusahaan_id
+                )
+            )
+    
+        except (
+            TypeError,
+            ValueError
+        ):
+            perusahaan_id = None
+    
+    else:
+        perusahaan_id = None
 
     # =====================================================
     # 8. TANGGAL
@@ -1049,10 +1150,25 @@ def simpan_pengujian_pubbm_ke_supabase(
     # tabel relasi pengujian_uttp.
     # =====================================================
     payload_pengujian = {
+        # =================================================
+        # LOKASI SPBU
+        # =================================================
+        "spbu_id": (
+            spbu_id
+        ),
+    
+        # =================================================
+        # BADAN USAHA / PEMILIK
+        #
+        # Boleh NULL selama belum dipetakan.
+        # =================================================
         "perusahaan_id": (
             perusahaan_id
         ),
-
+    
+        # =================================================
+        # PUBBM = BANYAK UTTP
+        # =================================================
         "uttp_id": None,
 
         "tanggal_pengujian": (
@@ -1321,6 +1437,14 @@ def simpan_pengujian_pubbm_ke_supabase(
                 supabase
                 .table("uttp")
                 .update({
+                    "spbu_id": (
+                        spbu_id
+                    ),
+            
+                    "perusahaan_id": (
+                        perusahaan_id
+                    ),
+            
                     "merk": merk,
             
                     "tipe": (
@@ -1344,8 +1468,8 @@ def simpan_pengujian_pubbm_ke_supabase(
                     uttp_id_lama
                 )
                 .eq(
-                    "perusahaan_id",
-                    perusahaan_id
+                    "spbu_id",
+                    spbu_id
                 )
                 .eq(
                     "jenis_uttp",
@@ -1373,7 +1497,15 @@ def simpan_pengujian_pubbm_ke_supabase(
             uttp_id = (
                 get_or_create_nozzle_pubbm(
                     supabase=supabase,
-                    perusahaan_id=perusahaan_id,
+        
+                    spbu_id=(
+                        spbu_id
+                    ),
+        
+                    perusahaan_id=(
+                        perusahaan_id
+                    ),
+        
                     merk=merk,
                     tipe=tipe,
                     nomor_seri=nomor_seri,
