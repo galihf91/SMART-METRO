@@ -3636,6 +3636,10 @@ def run():
 
         # =====================================================
         # PULIHKAN PILIHAN SPBU
+        #
+        # Prioritas:
+        # 1. _spbu_id
+        # 2. Nama SPBU sebagai fallback
         # =====================================================
         df_spbu = st.session_state.get(
             "data_spbu"
@@ -3643,20 +3647,163 @@ def run():
         
         spbu_ditemukan = False
         
+        spbu_id_restore = data.get(
+            "_spbu_id"
+        )
+        
+        if (
+            spbu_id_restore is not None
+            and str(
+                spbu_id_restore
+            ).strip() != ""
+        ):
+            try:
+                spbu_id_restore = int(
+                    float(
+                        spbu_id_restore
+                    )
+                )
+        
+            except (
+                TypeError,
+                ValueError
+            ):
+                spbu_id_restore = None
+        
+        else:
+            spbu_id_restore = None
+        
+        
+        # =====================================================
+        # 1. CARI BERDASARKAN ID MASTER
+        # =====================================================
         if (
             df_spbu is not None
             and not df_spbu.empty
+            and spbu_id_restore is not None
+            and "ID SPBU" in df_spbu.columns
+        ):
+            row_spbu = df_spbu[
+                pd.to_numeric(
+                    df_spbu["ID SPBU"],
+                    errors="coerce"
+                )
+                == spbu_id_restore
+            ]
+        
+            if not row_spbu.empty:
+                data_spbu_restore = (
+                    row_spbu.iloc[0]
+                )
+        
+                nama_master = str(
+                    data_spbu_restore.get(
+                        "Nama SPBU",
+                        ""
+                    )
+                    or ""
+                ).strip()
+        
+                nomor_master = str(
+                    data_spbu_restore.get(
+                        "Nomor SPBU",
+                        ""
+                    )
+                    or ""
+                ).strip()
+        
+                alamat_master = str(
+                    data_spbu_restore.get(
+                        "Alamat",
+                        ""
+                    )
+                    or ""
+                ).strip()
+        
+                jenis_lokasi_master = str(
+                    data_spbu_restore.get(
+                        "Jenis Lokasi",
+                        ""
+                    )
+                    or ""
+                ).strip()
+        
+                kecamatan_master = str(
+                    data_spbu_restore.get(
+                        "Kecamatan",
+                        ""
+                    )
+                    or ""
+                ).strip()
+        
+                media_master = str(
+                    data_spbu_restore.get(
+                        "Media BBM",
+                        ""
+                    )
+                    or ""
+                ).strip()
+        
+                st.session_state[
+                    "spbu_id_pubbm"
+                ] = spbu_id_restore
+        
+                st.session_state[
+                    "spbu_select"
+                ] = nama_master
+        
+                st.session_state[
+                    "nama_perusahaan"
+                ] = nama_master
+        
+                st.session_state[
+                    "nomor_spbu_pubbm"
+                ] = nomor_master
+        
+                st.session_state[
+                    "alamat_input_pubbm"
+                ] = alamat_master
+        
+                st.session_state[
+                    "jenis_lokasi_pubbm"
+                ] = jenis_lokasi_master
+        
+                st.session_state[
+                    "kecamatan_spbu_pubbm"
+                ] = kecamatan_master
+        
+                st.session_state[
+                    "media_bbm_master_pubbm"
+                ] = media_master
+        
+                st.session_state[
+                    "input_manual_spbu"
+                ] = False
+        
+                spbu_ditemukan = True
+        
+        
+        # =====================================================
+        # 2. FALLBACK BERDASARKAN NAMA
+        # =====================================================
+        if (
+            not spbu_ditemukan
+            and df_spbu is not None
+            and not df_spbu.empty
             and nama_spbu_restore
         ):
-            daftar_spbu = (
+            row_spbu = df_spbu[
                 df_spbu["Nama SPBU"]
-                .dropna()
                 .astype(str)
                 .str.strip()
-                .tolist()
-            )
+                == nama_spbu_restore
+            ]
         
-            if nama_spbu_restore in daftar_spbu:
+            if not row_spbu.empty:
+                data_spbu_restore = (
+                    row_spbu.iloc[0]
+                )
+        
                 st.session_state[
                     "spbu_select"
                 ] = nama_spbu_restore
@@ -3665,7 +3812,61 @@ def run():
                     "input_manual_spbu"
                 ] = False
         
+                # Ambil ID master jika tersedia
+                spbu_id_fallback = (
+                    data_spbu_restore.get(
+                        "ID SPBU"
+                    )
+                )
+        
+                if pd.isna(
+                    spbu_id_fallback
+                ):
+                    spbu_id_fallback = None
+        
+                elif (
+                    spbu_id_fallback is not None
+                    and str(
+                        spbu_id_fallback
+                    ).strip() != ""
+                ):
+                    try:
+                        spbu_id_fallback = int(
+                            float(
+                                spbu_id_fallback
+                            )
+                        )
+                    except (
+                        TypeError,
+                        ValueError
+                    ):
+                        spbu_id_fallback = None
+        
+                st.session_state[
+                    "spbu_id_pubbm"
+                ] = spbu_id_fallback
+        
                 spbu_ditemukan = True
+        
+        
+        # =====================================================
+        # 3. TIDAK ADA DI MASTER → INPUT MANUAL
+        # =====================================================
+        if (
+            nama_spbu_restore
+            and not spbu_ditemukan
+        ):
+            st.session_state[
+                "spbu_select"
+            ] = ""
+        
+            st.session_state[
+                "spbu_id_pubbm"
+            ] = None
+        
+            st.session_state[
+                "input_manual_spbu"
+            ] = True
         
         
         # Jika nama SPBU tidak ada pada master,
