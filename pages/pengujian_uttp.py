@@ -271,7 +271,23 @@ def halaman_home_uttp():
                 pindah_halaman_uttp("tangki_ukur_mobil")
 
     with col8:
-        st.empty()
+        with st.container(border=True):
+            st.markdown("## 🏪 Data Pasar")
+            st.write(
+                "Input dan pembaruan data kegiatan tera ulang "
+                "pasar setiap tahun."
+            )
+            st.write(
+                "**Data:** Timbangan, pedagang, pelaksanaan, "
+                "dan data pendukung Dashboard Pasar"
+            )
+    
+            if st.button(
+                "Masuk ke Data Pasar",
+                use_container_width=True,
+                key="menu_uttp_pasar"
+            ):
+                pindah_halaman_uttp("pasar")
         
     st.divider()
     st.caption("SMART METRO — Pengujian UTTP")        
@@ -315,6 +331,9 @@ def run():
     
     elif halaman_aktif == "tangki_ukur_mobil":
         from modules.tangki_ukur_mobil.app_tangki_ukur_mobil import run
+        run()
+    elif halaman_aktif == "pasar":
+        from modules.pasar.app_pasar import run
         run()
     
     
