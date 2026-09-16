@@ -6370,8 +6370,8 @@ def run():
             )
         else:
             st.warning(
-                "Pilihan media belum tersedia. "
-                "Periksa nama SPBU atau data_media_spbu.xlsx."
+                "Pilihan media belum tersedia pada "
+                "master SPBU maupun master media SPBU."
             )
 
             media_options = [
