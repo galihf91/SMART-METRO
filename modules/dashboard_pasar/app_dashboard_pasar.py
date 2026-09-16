@@ -11,6 +11,7 @@ import json
 import glob
 import base64
 import os
+from supabase import create_client
 
 st.set_page_config(
     page_title="Dashboard Pasar – SMART METRO",
@@ -108,6 +109,47 @@ def marker_color(year, selected_year):
 # =========================
 # LOAD DATA PASAR
 # =========================
+@st.cache_resource
+def get_supabase():
+    url = None
+    key = None
+
+    try:
+        url = st.secrets.get("SUPABASE_URL")
+        key = (
+            st.secrets.get("SUPABASE_KEY")
+            or st.secrets.get("SUPABASE_ANON_KEY")
+        )
+    except Exception:
+        pass
+
+    if not url or not key:
+        try:
+            cfg = st.secrets.get("supabase", {})
+            url = url or cfg.get("url")
+            key = (
+                key
+                or cfg.get("key")
+                or cfg.get("anon_key")
+            )
+        except Exception:
+            pass
+
+    url = url or os.getenv("SUPABASE_URL")
+    key = (
+        key
+        or os.getenv("SUPABASE_KEY")
+        or os.getenv("SUPABASE_ANON_KEY")
+    )
+
+    if not url or not key:
+        st.error(
+            "Koneksi Supabase belum tersedia. "
+            "Pastikan SUPABASE_URL dan SUPABASE_KEY tersedia."
+        )
+        st.stop()
+
+    return create_client(url, key)
 @st.cache_data(ttl=60)
 def load_pasar_supabase():
     sb = get_supabase()
