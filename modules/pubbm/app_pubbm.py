@@ -4378,57 +4378,110 @@ def run():
         # =====================================================
         # PULIHKAN DATA DISPENSER
         # =====================================================
-        dispenser_df = data.get(
+        dispenser_data = data.get(
             "dispenser"
         )
-
+        
+        # =====================================================
+        # NORMALISASI MENJADI DATAFRAME
+        # =====================================================
+        if isinstance(
+            dispenser_data,
+            pd.DataFrame
+        ):
+            dispenser_df = (
+                dispenser_data.copy()
+            )
+        
+        elif isinstance(
+            dispenser_data,
+            list
+        ):
+            dispenser_df = pd.DataFrame(
+                dispenser_data
+            )
+        
+        else:
+            dispenser_df = pd.DataFrame()
+        
+        # =====================================================
+        # PASTIKAN KOLOM DISPENSER LENGKAP
+        # =====================================================
+        kolom_dispenser = [
+            "_uttp_id",
+            "No",
+            "Posisi",
+            "Merk",
+            "Tipe",
+            "No. Seri",
+            "Media",
+            "K-Faktor",
+        ]
+        
+        for kolom in kolom_dispenser:
+            if kolom not in dispenser_df.columns:
+                dispenser_df[
+                    kolom
+                ] = None if kolom == "_uttp_id" else ""
+        
+        dispenser_df = (
+            dispenser_df[
+                kolom_dispenser
+            ]
+            .copy()
+        )
+        
         # =====================================================
         # NORMALISASI NOMOR DISPENSER
         # =====================================================
         if (
-            isinstance(
-                dispenser_df,
-                pd.DataFrame
-            )
-            and not dispenser_df.empty
+            not dispenser_df.empty
             and "No" in dispenser_df.columns
         ):
-            dispenser_df = (
-                dispenser_df.copy()
-            )
-
             dispenser_df["No"] = (
                 pd.to_numeric(
                     dispenser_df["No"],
                     errors="coerce"
                 )
             )
-
+        
             dispenser_df = (
                 dispenser_df[
                     dispenser_df["No"].notna()
                 ]
                 .copy()
             )
-
+        
             dispenser_df["No"] = (
                 dispenser_df["No"]
                 .astype(int)
             )
-
-        else:
-            dispenser_df = pd.DataFrame(
-                dispenser_records,
-                columns=[
-                    "_uttp_id",
-                    "No",
-                    "Posisi",
-                    "Merk",
-                    "Tipe",
-                    "No. Seri",
-                    "Media",
-                    "K-Faktor",
-                ]
+        
+        # =====================================================
+        # NORMALISASI _uttp_id
+        # =====================================================
+        if (
+            not dispenser_df.empty
+            and "_uttp_id" in dispenser_df.columns
+        ):
+            dispenser_df[
+                "_uttp_id"
+            ] = pd.to_numeric(
+                dispenser_df[
+                    "_uttp_id"
+                ],
+                errors="coerce"
+            )
+        
+            dispenser_df[
+                "_uttp_id"
+            ] = dispenser_df[
+                "_uttp_id"
+            ].where(
+                dispenser_df[
+                    "_uttp_id"
+                ].notna(),
+                None
             )
 
         # =====================================================
