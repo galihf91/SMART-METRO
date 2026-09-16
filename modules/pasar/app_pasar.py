@@ -94,6 +94,69 @@ def format_tanggal_pelaksanaan(tanggal_mulai, tanggal_selesai):
         f"{tanggal_selesai.day} {bulan_selesai} {tanggal_selesai.year}"
     )
 
+def parse_tanggal_pelaksanaan(teks, fallback_year=None):
+    from datetime import date
+
+    if not teks:
+        today = datetime.now().date()
+        return today, today
+
+    teks = str(teks).strip()
+
+    bulan_lookup = {
+        "januari": 1,
+        "februari": 2,
+        "maret": 3,
+        "april": 4,
+        "mei": 5,
+        "juni": 6,
+        "juli": 7,
+        "agustus": 8,
+        "september": 9,
+        "oktober": 10,
+        "november": 11,
+        "desember": 12,
+    }
+
+    try:
+        # Contoh:
+        # 4-5 Februari 2026
+        m = re.match(
+            r"^\s*(\d{1,2})-(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})\s*$",
+            teks
+        )
+
+        if m:
+            d1 = int(m.group(1))
+            d2 = int(m.group(2))
+            bulan = bulan_lookup[m.group(3).lower()]
+            tahun = int(m.group(4))
+
+            return (
+                date(tahun, bulan, d1),
+                date(tahun, bulan, d2)
+            )
+
+        # Contoh:
+        # 6 Februari 2026
+        m = re.match(
+            r"^\s*(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})\s*$",
+            teks
+        )
+
+        if m:
+            d = int(m.group(1))
+            bulan = bulan_lookup[m.group(2).lower()]
+            tahun = int(m.group(3))
+
+            tgl = date(tahun, bulan, d)
+            return tgl, tgl
+
+    except Exception:
+        pass
+
+    today = datetime.now().date()
+    return today, today
 @st.cache_data(ttl=60, show_spinner=False)
 def load_master_pasar():
     try:
@@ -314,18 +377,37 @@ def render_data_tahunan():
 
     form_key = f"form_pasar_{pasar_id}_{int(tahun)}"
 
+    if existing:
+        default_mulai, default_selesai = parse_tanggal_pelaksanaan(
+            existing.get("tanggal_pelaksanaan"),
+            int(tahun)
+        )
+    else:
+        default_mulai = datetime.now().date()
+        default_selesai = datetime.now().date()
     with st.form(form_key):
         st.markdown("#### Pelaksanaan")
 
         tanggal_range = st.date_input(
             "Tanggal Pelaksanaan",
-            value=(
-                datetime.now().date(),
-                datetime.now().date()
-            ),
+            value=(default_mulai, default_selesai),
             format="DD/MM/YYYY"
         )
-
+        if isinstance(tanggal_range, (tuple, list)) and len(tanggal_range) == 2:
+            tanggal_mulai = tanggal_range[0]
+            tanggal_selesai = tanggal_range[1]
+        else:
+            tanggal_mulai = tanggal_range
+            tanggal_selesai = tanggal_range
+        
+        jumlah_hari_otomatis = (
+            tanggal_selesai - tanggal_mulai
+        ).days + 1
+        
+        tanggal_pelaksanaan = format_tanggal_pelaksanaan(
+            tanggal_mulai,
+            tanggal_selesai
+        )
         if isinstance(tanggal_range, (tuple, list)) and len(tanggal_range) == 2:
             tanggal_mulai = tanggal_range[0]
             tanggal_selesai = tanggal_range[1]
@@ -422,7 +504,7 @@ def render_data_tahunan():
                 jumlah_hari_otomatis
             )
 
-jumlah_hari = jumlah_hari_otomatis
+            jumlah_hari = jumlah_hari_otomatis
 
         simpan = st.form_submit_button(
             "💾 Update Data" if existing else "💾 Simpan Data",
