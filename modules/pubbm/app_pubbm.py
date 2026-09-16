@@ -2172,6 +2172,59 @@ def update_mode_manual_spbu():
     st.session_state[
         "media_bbm_master_pubbm"
     ] = ""
+
+def update_kecamatan_dari_alamat_pubbm():
+    """
+    Mengambil nama kecamatan dari teks alamat.
+
+    Contoh:
+    Jalan Raya Tigaraksa Kecamatan Tigaraksa
+    Kabupaten Tangerang
+
+    hasil:
+    Tigaraksa
+    """
+
+    alamat = str(
+        st.session_state.get(
+            "alamat_input_pubbm",
+            ""
+        )
+        or ""
+    ).strip()
+
+    if not alamat:
+        return
+
+    # =====================================================
+    # POLA:
+    # Kecamatan Tigaraksa Kabupaten Tangerang
+    # Kecamatan Kelapa Dua, Kabupaten Tangerang
+    # Kecamatan Pasar Kemis
+    # =====================================================
+    match = re.search(
+        r"\bKecamatan\s+"
+        r"(.+?)"
+        r"(?="
+        r"\s+(?:Kabupaten|Kota|Provinsi|Desa|Kelurahan|RT|RW)\b"
+        r"|[,;\n]"
+        r"|$"
+        r")",
+        alamat,
+        re.IGNORECASE,
+    )
+
+    if not match:
+        return
+
+    kecamatan = str(
+        match.group(1)
+    ).strip()
+
+    if kecamatan:
+        st.session_state[
+            "kecamatan_spbu_pubbm"
+        ] = kecamatan.title()
 # =========================================================
 # AMBIL RIWAYAT PUBBM PER MASTER SPBU
 # =========================================================
@@ -5911,13 +5964,22 @@ def run():
                     placeholder="Ketik nama SPBU...",
                     key="spbu_select",
                     on_change=update_spbu_terpilih,
+                    disabled=st.session_state.get(
+                        "input_manual_spbu",
+                        False
+                    ),
                 )
 
                 st.text_area(
                     "Alamat",
                     height=90,
                     key="alamat_input_pubbm",
-                    help="Alamat otomatis muncul dan tetap dapat diedit.",
+                    help=(
+                        "Alamat otomatis muncul dan tetap dapat diedit. "
+                        "Jika terdapat kata 'Kecamatan', nama kecamatan "
+                        "akan terisi otomatis."
+                    ),
+                    on_change=update_kecamatan_dari_alamat_pubbm,
                 )
                 st.checkbox(
                     "Input manual nama SPBU / perusahaan",
@@ -5949,17 +6011,6 @@ def run():
                         key="kecamatan_spbu_pubbm",
                         placeholder="Contoh: Tigaraksa",
                     )
-                
-                    st.text_input(
-                        "Media BBM",
-                        key="media_bbm_master_pubbm",
-                        placeholder=(
-                            "Contoh: Pertalite, Pertamax, Bio Solar"
-                        ),
-                        help=(
-                            "Pisahkan beberapa media dengan tanda koma."
-                        ),
-                    )
 
             else:
                 st.info(
@@ -5984,6 +6035,7 @@ def run():
                         "Contoh: Jalan Aria Wasangkara Desa Tapos "
                         "Kecamatan Tigaraksa Kabupaten Tangerang"
                     ),
+                    on_change=update_kecamatan_dari_alamat_pubbm,
                 )
             # =====================================================
             # NOMOR SPBU
