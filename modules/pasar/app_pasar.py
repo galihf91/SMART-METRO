@@ -53,6 +53,46 @@ def get_supabase():
 
     return create_client(url, key)
 
+bulan_indonesia = {
+    1: "Januari",
+    2: "Februari",
+    3: "Maret",
+    4: "April",
+    5: "Mei",
+    6: "Juni",
+    7: "Juli",
+    8: "Agustus",
+    9: "September",
+    10: "Oktober",
+    11: "November",
+    12: "Desember",
+}
+
+def format_tanggal_pelaksanaan(tanggal_mulai, tanggal_selesai):
+    bulan_mulai = bulan_indonesia[tanggal_mulai.month]
+    bulan_selesai = bulan_indonesia[tanggal_selesai.month]
+
+    if tanggal_mulai == tanggal_selesai:
+        return (
+            f"{tanggal_mulai.day} "
+            f"{bulan_mulai} "
+            f"{tanggal_mulai.year}"
+        )
+
+    if (
+        tanggal_mulai.month == tanggal_selesai.month
+        and tanggal_mulai.year == tanggal_selesai.year
+    ):
+        return (
+            f"{tanggal_mulai.day}-{tanggal_selesai.day} "
+            f"{bulan_mulai} "
+            f"{tanggal_mulai.year}"
+        )
+
+    return (
+        f"{tanggal_mulai.day} {bulan_mulai} {tanggal_mulai.year} - "
+        f"{tanggal_selesai.day} {bulan_selesai} {tanggal_selesai.year}"
+    )
 
 @st.cache_data(ttl=60, show_spinner=False)
 def load_master_pasar():
@@ -277,11 +317,25 @@ def render_data_tahunan():
     with st.form(form_key):
         st.markdown("#### Pelaksanaan")
 
-        tanggal_pelaksanaan = st.text_input(
+        tanggal_range = st.date_input(
             "Tanggal Pelaksanaan",
-            value=safe_text(existing.get("tanggal_pelaksanaan")) if existing else "",
-            placeholder="Contoh: 4-5 Februari 2026 atau 11,12,13 Februari 2026",
+            value=(
+                datetime.now().date(),
+                datetime.now().date()
+            ),
+            format="DD/MM/YYYY"
         )
+
+        if isinstance(tanggal_range, (tuple, list)) and len(tanggal_range) == 2:
+            tanggal_mulai = tanggal_range[0]
+            tanggal_selesai = tanggal_range[1]
+        else:
+            tanggal_mulai = tanggal_range
+            tanggal_selesai = tanggal_range
+        
+        jumlah_hari_otomatis = (
+            tanggal_selesai - tanggal_mulai
+        ).days + 1
 
         st.markdown("#### Jumlah Timbangan")
 
@@ -363,16 +417,12 @@ def render_data_tahunan():
             )
 
         with r4:
-            jumlah_hari = st.number_input(
+            st.metric(
                 "Jumlah Hari",
-                min_value=1,
-                step=1,
-                value=(
-                    max(1, safe_int(existing.get("jumlah_hari"), 1))
-                    if existing
-                    else 1
-                ),
+                jumlah_hari_otomatis
             )
+
+jumlah_hari = jumlah_hari_otomatis
 
         simpan = st.form_submit_button(
             "💾 Update Data" if existing else "💾 Simpan Data",
