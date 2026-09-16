@@ -404,6 +404,11 @@ def render_dashboard_pasar():
     st.sidebar.markdown("---"); st.sidebar.subheader("Filter Pasar")
     years = sorted(pd.to_numeric(df['tera_ulang_tahun'], errors='coerce').dropna().astype(int).unique())
     year_pick = st.sidebar.selectbox("Tahun Tera Ulang", years[::-1], key='pasar_year_pick')
+    status_pick = st.sidebar.selectbox(
+        "Status",
+        ["(Semua)", "Sudah Tera", "Belum Tera"],
+        key="pasar_status_filter"
+    )
 
     df_year = df[df['tera_ulang_tahun'] == year_pick].copy()
     all_kec = uniq(df_year['kecamatan'], clean=True) if not df_year.empty else []
@@ -551,6 +556,15 @@ def render_dashboard_pasar():
     st.subheader("🗺️ Peta Lokasi Pasar")
     center, zoom = [-6.2, 106.55], 10
     peta_filter = peta_df.copy()
+    if status_pick == "Sudah Tera":
+        peta_filter = peta_filter[
+            peta_filter["sudah_tera"] == True
+        ]
+    
+    elif status_pick == "Belum Tera":
+        peta_filter = peta_filter[
+            peta_filter["sudah_tera"] == False
+        ]
 
     if kec_pick != "(Semua)":
         peta_filter = peta_filter[
