@@ -480,6 +480,7 @@ def simpan_atau_update_perusahaan_pubbm(
 # =========================================================
 def get_or_create_nozzle_pubbm(
     supabase,
+    spbu_id,
     perusahaan_id,
     merk,
     tipe,
@@ -490,12 +491,17 @@ def get_or_create_nozzle_pubbm(
 
     Ketentuan:
     - 1 nozzle = 1 UTTP
+    - nozzle terikat ke lokasi melalui spbu_id
+    - perusahaan_id boleh kosong
     - media dan posisi BUKAN identitas master UTTP
     - media dan posisi disimpan pada pengujian_uttp
-    - fungsi ini dipakai untuk membuat UTTP baru
-      apabila nozzle belum mempunyai _uttp_id
+    - fungsi ini hanya membuat UTTP baru jika nozzle
+      belum mempunyai _uttp_id
     """
 
+    # =====================================================
+    # NORMALISASI
+    # =====================================================
     merk = str(
         merk or ""
     ).strip()
@@ -509,6 +515,29 @@ def get_or_create_nozzle_pubbm(
     ).strip()
 
     # =====================================================
+    # VALIDASI SPBU
+    # =====================================================
+    if (
+        spbu_id is None
+        or str(spbu_id).strip() == ""
+    ):
+        raise ValueError(
+            "ID master SPBU belum tersedia."
+        )
+
+    try:
+        spbu_id = int(
+            float(spbu_id)
+        )
+    except (
+        TypeError,
+        ValueError
+    ):
+        raise ValueError(
+            "ID master SPBU tidak valid."
+        )
+
+    # =====================================================
     # VALIDASI MASTER NOZZLE
     # =====================================================
     if not merk:
@@ -517,47 +546,76 @@ def get_or_create_nozzle_pubbm(
         )
 
     # =====================================================
+    # NORMALISASI PERUSAHAAN
+    #
+    # perusahaan_id sekarang bersifat opsional.
+    # =====================================================
+    if (
+        perusahaan_id is not None
+        and str(perusahaan_id).strip() != ""
+    ):
+        try:
+            perusahaan_id = int(
+                float(perusahaan_id)
+            )
+        except (
+            TypeError,
+            ValueError
+        ):
+            perusahaan_id = None
+
+    else:
+        perusahaan_id = None
+
+    # =====================================================
     # BUAT UTTP BARU
     #
-    # Tidak mencari berdasarkan media / posisi,
-    # karena keduanya merupakan data per pengujian.
+    # Tidak mencari berdasarkan:
+    # - media
+    # - posisi
+    # - tipe
+    # - nomor seri
     #
-    # Tidak mencari berdasarkan tipe / nomor seri,
-    # karena keduanya boleh kosong dan beberapa nozzle
-    # dapat memiliki nilai yang sama.
+    # Karena identitas UTTP dipertahankan melalui _uttp_id.
     # =====================================================
+    payload_uttp = {
+        "spbu_id": spbu_id,
+
+        "perusahaan_id": (
+            perusahaan_id
+        ),
+
+        "jenis_uttp": (
+            "Pompa Ukur BBM"
+        ),
+
+        "merk": merk,
+
+        "tipe": (
+            tipe
+            if tipe
+            else None
+        ),
+
+        "nomor_seri": (
+            nomor_seri
+            if nomor_seri
+            else None
+        ),
+
+        "kapasitas": None,
+
+        "lokasi": "SPBU",
+
+        "status": "aktif",
+    }
+
     response = (
         supabase
         .table("uttp")
-        .insert({
-            "perusahaan_id": (
-                perusahaan_id
-            ),
-
-            "jenis_uttp": (
-                "Pompa Ukur BBM"
-            ),
-
-            "merk": merk,
-
-            "tipe": (
-                tipe
-                if tipe
-                else None
-            ),
-
-            "nomor_seri": (
-                nomor_seri
-                if nomor_seri
-                else None
-            ),
-
-            "kapasitas": None,
-
-            "lokasi": "SPBU",
-
-            "status": "aktif",
-        })
+        .insert(
+            payload_uttp
+        )
         .execute()
     )
 
