@@ -24,6 +24,334 @@ def get_supabase_pubbm():
         url,
         key
     )
+def simpan_atau_update_spbu_pubbm(
+    supabase,
+    spbu_id=None,
+    nama_spbu="",
+    nomor_spbu="",
+    alamat="",
+    jenis_lokasi="",
+    kecamatan="",
+    media_bbm="",
+):
+    """
+    Simpan / update master SPBU.
+
+    Aturan:
+    1. Jika spbu_id sudah diketahui:
+       update row SPBU tersebut.
+
+    2. Jika spbu_id belum ada:
+       cari berdasarkan nomor_spbu.
+
+    3. Jika nomor_spbu kosong / tidak ditemukan:
+       cari berdasarkan nama_spbu.
+
+    4. Jika masih belum ditemukan:
+       buat master SPBU baru.
+    """
+
+    # =====================================================
+    # NORMALISASI INPUT
+    # =====================================================
+    nama_spbu = str(
+        nama_spbu or ""
+    ).strip()
+
+    nomor_spbu = str(
+        nomor_spbu or ""
+    ).strip()
+
+    alamat = str(
+        alamat or ""
+    ).strip()
+
+    jenis_lokasi = str(
+        jenis_lokasi or ""
+    ).strip()
+
+    kecamatan = str(
+        kecamatan or ""
+    ).strip()
+
+    media_bbm = str(
+        media_bbm or ""
+    ).strip()
+
+    # =====================================================
+    # VALIDASI
+    # =====================================================
+    if not nama_spbu:
+        raise ValueError(
+            "Nama SPBU belum diisi."
+        )
+
+    # =====================================================
+    # 1. JIKA ID SPBU SUDAH DIKENAL
+    # =====================================================
+    if (
+        spbu_id is not None
+        and str(spbu_id).strip() != ""
+    ):
+        try:
+            spbu_id = int(
+                float(spbu_id)
+            )
+
+        except (
+            TypeError,
+            ValueError
+        ):
+            raise ValueError(
+                "ID SPBU tidak valid."
+            )
+
+        response_spbu = (
+            supabase
+            .table("spbu")
+            .select(
+                "id, "
+                "nama_spbu, "
+                "nomor_spbu, "
+                "alamat, "
+                "jenis_lokasi, "
+                "kecamatan, "
+                "media_bbm"
+            )
+            .eq(
+                "id",
+                spbu_id
+            )
+            .execute()
+        )
+
+        if not response_spbu.data:
+            raise ValueError(
+                "Master SPBU yang dipilih "
+                "tidak ditemukan."
+            )
+
+        spbu_lama = (
+            response_spbu.data[0]
+        )
+
+        # =============================================
+        # SUSUN DATA UPDATE
+        # =============================================
+        data_update = {}
+
+        data_baru = {
+            "nama_spbu": nama_spbu,
+
+            "nomor_spbu": (
+                nomor_spbu
+                if nomor_spbu
+                else None
+            ),
+
+            "alamat": (
+                alamat
+                if alamat
+                else None
+            ),
+
+            "jenis_lokasi": (
+                jenis_lokasi
+                if jenis_lokasi
+                else None
+            ),
+
+            "kecamatan": (
+                kecamatan
+                if kecamatan
+                else None
+            ),
+
+            "media_bbm": (
+                media_bbm
+                if media_bbm
+                else None
+            ),
+
+            "status": "aktif",
+        }
+
+        for kolom, nilai_baru in (
+            data_baru.items()
+        ):
+            nilai_lama = (
+                spbu_lama.get(
+                    kolom
+                )
+            )
+
+            if nilai_lama is None:
+                nilai_lama = ""
+
+            if nilai_baru is None:
+                nilai_baru_compare = ""
+
+            else:
+                nilai_baru_compare = str(
+                    nilai_baru
+                ).strip()
+
+            nilai_lama_compare = str(
+                nilai_lama
+            ).strip()
+
+            if (
+                nilai_baru_compare
+                != nilai_lama_compare
+            ):
+                data_update[
+                    kolom
+                ] = nilai_baru
+
+        if data_update:
+            (
+                supabase
+                .table("spbu")
+                .update(
+                    data_update
+                )
+                .eq(
+                    "id",
+                    spbu_id
+                )
+                .execute()
+            )
+
+        return spbu_id
+
+    # =====================================================
+    # 2. CARI BERDASARKAN NOMOR SPBU
+    # =====================================================
+    if nomor_spbu:
+
+        response_nomor = (
+            supabase
+            .table("spbu")
+            .select(
+                "id"
+            )
+            .eq(
+                "nomor_spbu",
+                nomor_spbu
+            )
+            .execute()
+        )
+
+        if response_nomor.data:
+
+            spbu_id_ditemukan = (
+                response_nomor.data[0][
+                    "id"
+                ]
+            )
+
+            return simpan_atau_update_spbu_pubbm(
+                supabase=supabase,
+                spbu_id=spbu_id_ditemukan,
+                nama_spbu=nama_spbu,
+                nomor_spbu=nomor_spbu,
+                alamat=alamat,
+                jenis_lokasi=jenis_lokasi,
+                kecamatan=kecamatan,
+                media_bbm=media_bbm,
+            )
+
+    # =====================================================
+    # 3. CARI BERDASARKAN NAMA SPBU
+    # =====================================================
+    response_nama = (
+        supabase
+        .table("spbu")
+        .select(
+            "id"
+        )
+        .ilike(
+            "nama_spbu",
+            nama_spbu
+        )
+        .execute()
+    )
+
+    if response_nama.data:
+
+        spbu_id_ditemukan = (
+            response_nama.data[0][
+                "id"
+            ]
+        )
+
+        return simpan_atau_update_spbu_pubbm(
+            supabase=supabase,
+            spbu_id=spbu_id_ditemukan,
+            nama_spbu=nama_spbu,
+            nomor_spbu=nomor_spbu,
+            alamat=alamat,
+            jenis_lokasi=jenis_lokasi,
+            kecamatan=kecamatan,
+            media_bbm=media_bbm,
+        )
+
+    # =====================================================
+    # 4. SPBU BARU
+    # =====================================================
+    payload_spbu = {
+        "nama_spbu": nama_spbu,
+
+        "nomor_spbu": (
+            nomor_spbu
+            if nomor_spbu
+            else None
+        ),
+
+        "alamat": (
+            alamat
+            if alamat
+            else None
+        ),
+
+        "jenis_lokasi": (
+            jenis_lokasi
+            if jenis_lokasi
+            else None
+        ),
+
+        "kecamatan": (
+            kecamatan
+            if kecamatan
+            else None
+        ),
+
+        "media_bbm": (
+            media_bbm
+            if media_bbm
+            else None
+        ),
+
+        "status": "aktif",
+    }
+
+    response_insert = (
+        supabase
+        .table("spbu")
+        .insert(
+            payload_spbu
+        )
+        .execute()
+    )
+
+    if not response_insert.data:
+        raise RuntimeError(
+            "Master SPBU gagal disimpan."
+        )
+
+    return response_insert.data[0][
+        "id"
+    ]
 def simpan_atau_update_perusahaan_pubbm(
     supabase,
     nama_perusahaan,
