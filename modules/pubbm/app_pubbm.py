@@ -2819,75 +2819,210 @@ def run():
             st.rerun()
             
             
-    @st.cache_data
+    @st.cache_data(ttl=60)
     def load_data_media_spbu():
+        """
+        Membaca master kategori media SPBU dari Supabase.
+        """
+    
         try:
-            df = pd.read_excel("data/data_media_spbu.xlsx")
-            df.columns = df.columns.str.strip()
-            return df
-        except FileNotFoundError:
-            return pd.DataFrame(
-                {
-                    "NAMA SPBU": [
-                        "SPBU",
-                        "SPBU BP AKR",
-                        "SPBU SHELL",
-                        "SPBU VIVO",
-                        "PERTASHOP"
-                    ],
-                    "MEDIA": [
-                        "Pertalite, Pertamax, Pertamax GREEN, Pertamax Turbo, Bio Solar, Pertamina Dex",
-                        "BP 92, BP Ultimate, BP Ultimate Diesel",
-                        "Super, V-Power, V-Power Diesel, V-Power Nitro+",
-                        "Revvo 90, Revvo 92, Revvo 95",
-                        "Pertamax"
+            supabase = get_supabase_pubbm()
+    
+            response = (
+                supabase
+                .table("media_spbu")
+                .select(
+                    "kategori_spbu, media, status"
+                )
+                .eq(
+                    "status",
+                    "aktif"
+                )
+                .order(
+                    "kategori_spbu"
+                )
+                .execute()
+            )
+    
+            rows = (
+                response.data
+                or []
+            )
+    
+            if not rows:
+                return pd.DataFrame(
+                    columns=[
+                        "KATEGORI SPBU",
+                        "MEDIA",
                     ]
+                )
+    
+            df = pd.DataFrame(
+                rows
+            )
+    
+            df = df.rename(
+                columns={
+                    "kategori_spbu": "KATEGORI SPBU",
+                    "media": "MEDIA",
                 }
             )
     
+            df["KATEGORI SPBU"] = (
+                df["KATEGORI SPBU"]
+                .fillna("")
+                .astype(str)
+                .str.strip()
+            )
     
-    def get_kategori_spbu(nama_spbu):
-        nama = str(nama_spbu).upper()
+            df["MEDIA"] = (
+                df["MEDIA"]
+                .fillna("")
+                .astype(str)
+                .str.strip()
+            )
+    
+            return df[
+                [
+                    "KATEGORI SPBU",
+                    "MEDIA",
+                ]
+            ]
+    
+        except Exception as exc:
+            st.warning(
+                "Master media SPBU dari Supabase "
+                f"tidak dapat dibaca: {exc}"
+            )
+    
+            return pd.DataFrame(
+                columns=[
+                    "KATEGORI SPBU",
+                    "MEDIA",
+                ]
+            )
+    
+    
+    def get_kategori_spbu(
+        nama_spbu="",
+        jenis_lokasi="",
+    ):
+        """
+        Menentukan kategori media.
+    
+        Prioritas:
+        1. jenis_lokasi dari master SPBU
+        2. fallback dari nama SPBU
+        """
+    
+        jenis = str(
+            jenis_lokasi or ""
+        ).upper().strip()
+    
+        nama = str(
+            nama_spbu or ""
+        ).upper().strip()
+    
+        if jenis:
+            if "SHELL" in jenis:
+                return "SHELL"
+    
+            if "BP" in jenis:
+                return "BP AKR"
+    
+            if "VIVO" in jenis:
+                return "VIVO"
+    
+            if "PERTASHOP" in jenis:
+                return "PERTASHOP"
+    
+            if "SPBU" in jenis:
+                return "SPBU"
     
         if "SHELL" in nama:
-            return "SPBU SHELL"
+            return "SHELL"
     
-        elif "BP AKR" in nama or "BP" in nama:
-            return "SPBU BP AKR"
+        if "BP AKR" in nama:
+            return "BP AKR"
     
-        elif "VIVO" in nama:
-            return "SPBU VIVO"
+        if "VIVO" in nama:
+            return "VIVO"
     
-        elif "PERTASHOP" in nama:
+        if "PERTASHOP" in nama:
             return "PERTASHOP"
     
-        else:
-            return "SPBU"
+        return "SPBU"
     
     
-    def get_media_options(nama_spbu, df_media):
-        kategori = get_kategori_spbu(nama_spbu)
+    def get_media_options(
+        nama_spbu,
+        df_media,
+        jenis_lokasi="",
+        media_bbm_master="",
+    ):
+        """
+        Pilihan media nozzle.
     
-        if df_media is None or df_media.empty:
+        Prioritas:
+        1. media_bbm dari master SPBU
+        2. master kategori media_spbu
+        """
+    
+        # =====================================================
+        # 1. MEDIA AKTUAL DARI MASTER SPBU
+        # =====================================================
+        media_master = str(
+            media_bbm_master or ""
+        ).strip()
+    
+        if media_master:
+            media_list = [
+                item.strip()
+                for item in media_master.split(",")
+                if item.strip()
+            ]
+    
+            if media_list:
+                return media_list
+    
+        # =====================================================
+        # 2. FALLBACK BERDASARKAN KATEGORI
+        # =====================================================
+        kategori = get_kategori_spbu(
+            nama_spbu=nama_spbu,
+            jenis_lokasi=jenis_lokasi,
+        )
+    
+        if (
+            df_media is None
+            or df_media.empty
+        ):
             return []
     
         row = df_media[
-            df_media["NAMA SPBU"].astype(str).str.upper().str.strip()
+            df_media["KATEGORI SPBU"]
+            .astype(str)
+            .str.upper()
+            .str.strip()
             == kategori.upper()
         ]
     
         if row.empty:
             return []
     
-        media_text = row.iloc[0]["MEDIA"]
+        media_text = str(
+            row.iloc[0].get(
+                "MEDIA",
+                ""
+            )
+            or ""
+        ).strip()
     
-        media_list = [
-            m.strip()
-            for m in str(media_text).split(",")
-            if m.strip()
+        return [
+            item.strip()
+            for item in media_text.split(",")
+            if item.strip()
         ]
-    
-        return media_list
     @st.cache_data(ttl=60)
     def load_data_bejana():
         """
@@ -6218,9 +6353,16 @@ def run():
         # =========================
         st.subheader("Data Pompa Ukur BBM")
 
-        df_media = st.session_state.get("data_media_spbu")
-        media_options = get_media_options(pemilik, df_media)
-
+        df_media = st.session_state.get(
+            "data_media_spbu"
+        )
+        
+        media_options = get_media_options(
+            nama_spbu=pemilik,
+            df_media=df_media,
+            jenis_lokasi=jenis_lokasi,
+            media_bbm_master=media_bbm_master,
+        )
         if media_options:
             st.success(
                 "Pilihan media tersedia: "
