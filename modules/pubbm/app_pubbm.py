@@ -1797,19 +1797,53 @@ def update_spbu_terpilih():
             "spbu_select",
             ""
         )
+        or ""
     ).strip()
 
     df_spbu = st.session_state.get(
         "data_spbu"
     )
 
+    # =====================================================
+    # JIKA PILIHAN KOSONG
+    # =====================================================
+    if not selected:
+
+        st.session_state[
+            "spbu_id_pubbm"
+        ] = None
+
+        st.session_state[
+            "nomor_spbu_pubbm"
+        ] = ""
+
+        st.session_state[
+            "alamat_input_pubbm"
+        ] = ""
+
+        st.session_state[
+            "jenis_lokasi_pubbm"
+        ] = ""
+
+        st.session_state[
+            "kecamatan_spbu_pubbm"
+        ] = ""
+
+        st.session_state[
+            "media_bbm_master_pubbm"
+        ] = ""
+
+        return
+
     if (
-        not selected
-        or df_spbu is None
+        df_spbu is None
         or df_spbu.empty
     ):
         return
 
+    # =====================================================
+    # CARI MASTER SPBU
+    # =====================================================
     row = df_spbu[
         df_spbu["Nama SPBU"]
         .astype(str)
@@ -1822,50 +1856,161 @@ def update_spbu_terpilih():
 
     data = row.iloc[0]
 
-    st.session_state["nama_perusahaan"] = selected
+    # =====================================================
+    # ID MASTER SPBU
+    # =====================================================
+    spbu_id = data.get(
+        "ID SPBU"
+    )
 
+    if pd.isna(
+        spbu_id
+    ):
+        spbu_id = None
+
+    elif (
+        spbu_id is not None
+        and str(spbu_id).strip() != ""
+    ):
+        try:
+            spbu_id = int(
+                float(
+                    spbu_id
+                )
+            )
+        except (
+            TypeError,
+            ValueError
+        ):
+            spbu_id = None
+
+    st.session_state[
+        "spbu_id_pubbm"
+    ] = spbu_id
+
+    # =====================================================
+    # NAMA SPBU
+    # =====================================================
+    st.session_state[
+        "nama_perusahaan"
+    ] = selected
+
+    # =====================================================
+    # ALAMAT
+    # =====================================================
     alamat_spbu = data.get(
         "Alamat",
         ""
     )
 
-    if pd.isna(alamat_spbu):
+    if pd.isna(
+        alamat_spbu
+    ):
         alamat_spbu = ""
 
     st.session_state[
         "alamat_input_pubbm"
-    ] = str(alamat_spbu).strip()
-    # =====================================================
-    # PERBARUI NOMOR SPBU SESUAI MASTER
-    # =====================================================
-    nomor_spbu = str(
-        data.get(
-            "Nomor SPBU",
-            ""
-        )
+    ] = str(
+        alamat_spbu
         or ""
     ).strip()
-    
-    # Fallback khusus data lama
-    if (
-        not nomor_spbu
-        or nomor_spbu.lower() == "nan"
+
+    # =====================================================
+    # NOMOR SPBU
+    # =====================================================
+    nomor_spbu = data.get(
+        "Nomor SPBU",
+        ""
+    )
+
+    if pd.isna(
+        nomor_spbu
     ):
+        nomor_spbu = ""
+
+    nomor_spbu = str(
+        nomor_spbu
+        or ""
+    ).strip()
+
+    # Fallback untuk data lama
+    if not nomor_spbu:
+
         match_spbu = re.search(
             r"SPBU\s*[\d\.-]+",
             selected,
             re.IGNORECASE,
         )
-    
+
         nomor_spbu = (
             match_spbu.group(0).upper()
             if match_spbu
             else ""
         )
-    
+
     st.session_state[
         "nomor_spbu_pubbm"
     ] = nomor_spbu
+
+    # =====================================================
+    # JENIS LOKASI
+    # =====================================================
+    jenis_lokasi = data.get(
+        "Jenis Lokasi",
+        ""
+    )
+
+    if pd.isna(
+        jenis_lokasi
+    ):
+        jenis_lokasi = ""
+
+    st.session_state[
+        "jenis_lokasi_pubbm"
+    ] = str(
+        jenis_lokasi
+        or ""
+    ).strip()
+
+    # =====================================================
+    # KECAMATAN
+    # =====================================================
+    kecamatan = data.get(
+        "Kecamatan",
+        ""
+    )
+
+    if pd.isna(
+        kecamatan
+    ):
+        kecamatan = ""
+
+    st.session_state[
+        "kecamatan_spbu_pubbm"
+    ] = str(
+        kecamatan
+        or ""
+    ).strip()
+
+    # =====================================================
+    # MEDIA BBM MASTER
+    # =====================================================
+    media_bbm = data.get(
+        "Media BBM",
+        ""
+    )
+
+    if pd.isna(
+        media_bbm
+    ):
+        media_bbm = ""
+
+    st.session_state[
+        "media_bbm_master_pubbm"
+    ] = str(
+        media_bbm
+        or ""
+    ).strip()
 # =========================================================
 # AMBIL RIWAYAT PUBBM PER KEGIATAN / SERTIFIKAT
 # =========================================================
@@ -3185,6 +3330,17 @@ def run():
         st.session_state.golongan_penera_2_pubbm = ""
     if "pubbm_generated_files" not in st.session_state:
         st.session_state.pubbm_generated_files = {}
+    if "spbu_id_pubbm" not in st.session_state:
+        st.session_state.spbu_id_pubbm = None
+    
+    if "jenis_lokasi_pubbm" not in st.session_state:
+        st.session_state.jenis_lokasi_pubbm = ""
+    
+    if "kecamatan_spbu_pubbm" not in st.session_state:
+        st.session_state.kecamatan_spbu_pubbm = ""
+    
+    if "media_bbm_master_pubbm" not in st.session_state:
+        st.session_state.media_bbm_master_pubbm = ""
         
     def pulihkan_data_pubbm():
         data = st.session_state.get("data_pubbm", {})
@@ -3963,6 +4119,10 @@ def run():
             "pubbm_draft_widget",
             "pubbm_mode_sebelumnya",
             "pubbm_edit_nomor_sertifikat_asli",
+            "spbu_id_pubbm",
+            "jenis_lokasi_pubbm",
+            "kecamatan_spbu_pubbm",
+            "media_bbm_master_pubbm",
         }
 
         for key in list(st.session_state.keys()):
