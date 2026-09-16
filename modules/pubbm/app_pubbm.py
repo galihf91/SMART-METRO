@@ -1936,6 +1936,9 @@ def update_spbu_terpilih():
         st.session_state[
             "media_bbm_master_pubbm"
         ] = ""
+        st.session_state[
+            "input_manual_spbu"
+        ] = False
 
         return
 
@@ -4014,21 +4017,6 @@ def run():
             st.session_state[
                 "input_manual_spbu"
             ] = True
-        
-        
-        # Jika nama SPBU tidak ada pada master,
-        # tampilkan sebagai input manual
-        if (
-            nama_spbu_restore
-            and not spbu_ditemukan
-        ):
-            st.session_state[
-                "spbu_select"
-            ] = ""
-        
-            st.session_state[
-                "input_manual_spbu"
-            ] = True
     
         # Sertifikat
         st.session_state["jenis_pengujian_pubbm"] = data.get(
@@ -5501,6 +5489,7 @@ def run():
             "media_restore_",
             "jumlah_posisi_",
             "bejana_select_",
+            "uttp_id_",
         )
     
         for key in list(
@@ -5922,7 +5911,11 @@ def run():
                     key="alamat_input_pubbm",
                     help="Alamat otomatis muncul dan tetap dapat diedit.",
                 )
-
+                st.checkbox(
+                    "Input manual nama SPBU / perusahaan",
+                    key="input_manual_spbu",
+                    on_change=update_mode_manual_spbu,
+                )
                 if st.session_state.input_manual_spbu:
 
                     st.text_input(
@@ -8034,32 +8027,6 @@ def run():
             spbu = opsi_spbu[
                 pilihan_spbu
             ]
-            
-            # =====================================================
-            # SELURUH UTTP ID MILIK SPBU YANG SAMA
-            # =====================================================
-            uttp_ids = (
-                data_pilihan.get(
-                    "uttp_ids",
-                    []
-                )
-                or []
-            )
-            
-            # =====================================================
-            # FALLBACK DATA LAMA
-            # Jika SPBU lama hanya mempunyai satu UTTP
-            # =====================================================
-            if not uttp_ids:
-                uttp_id_lama = alat.get(
-                    "id"
-                )
-            
-                if uttp_id_lama is not None:
-                    uttp_ids = [
-                        uttp_id_lama
-                    ]
-    
             # =====================================================
             # 5. AMBIL RIWAYAT PUBBM PER KEGIATAN
             #
@@ -8274,7 +8241,7 @@ def run():
                         f"{pengujian_terpilih.get('id')}"
                     )
                 ):
-                    gunakan_data_lama_untuk_pengujian_baru_pubbm(
+                    gunakan_data_lama_untuk_edit_pubbm(
                         spbu=spbu,
                         pengujian=pengujian_terpilih,
                     )
@@ -8292,7 +8259,7 @@ def run():
                     )
                 ):
                     gunakan_data_lama_untuk_pengujian_baru_pubbm(
-                        perusahaan=spbu,
+                        spbu=spbu,
                         pengujian=pengujian_terpilih,
                     )
             
