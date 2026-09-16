@@ -1121,23 +1121,60 @@ def simpan_pengujian_pubbm_ke_supabase(
     # =====================================================
     data_pengujian_header = {
         "schema_pubbm": 3,
-
+    
+        # =================================================
+        # SNAPSHOT IDENTITAS SPBU
+        # =================================================
+        "_spbu_id": (
+            spbu_id
+        ),
+    
+        "pemilik": (
+            pemilik
+        ),
+    
+        "nama_spbu": (
+            nomor_spbu
+        ),
+    
+        "alamat": (
+            alamat
+        ),
+    
+        "jenis_lokasi": (
+            jenis_lokasi
+        ),
+    
+        "kecamatan_spbu": (
+            kecamatan_spbu
+        ),
+    
+        "media_bbm_master": (
+            media_bbm_master
+        ),
+    
+        # =================================================
+        # ALAT STANDAR
+        # =================================================
         "alat_standar": (
             alat_standar_records
         ),
-
+    
+        # =================================================
+        # SNAPSHOT PENERA
+        # =================================================
         "nip_penera_1": (
             nip_penera_1
         ),
-
+    
         "golongan_penera_1": (
             golongan_penera_1
         ),
-
+    
         "nip_penera_2": (
             nip_penera_2
         ),
-
+    
         "golongan_penera_2": (
             golongan_penera_2
         ),
