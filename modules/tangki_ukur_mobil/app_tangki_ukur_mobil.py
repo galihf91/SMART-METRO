@@ -2472,31 +2472,69 @@ def update_penera_tum(
         )
     ).strip()
 
+def sinkron_nomor_sertifikat_tum():
+    st.session_state[
+        "tum_nomor_sertifikat"
+    ] = str(
+        st.session_state.get(
+            "tum_nomor_sertifikat_widget",
+            ""
+        )
+        or ""
+    ).strip()
 
+
+def sinkron_nomor_order_tum():
+    st.session_state[
+        "tum_nomor_order"
+    ] = str(
+        st.session_state.get(
+            "tum_nomor_order_widget",
+            ""
+        )
+        or ""
+    ).strip()
 def update_tanggal_tum():
     tanggal = st.session_state.get(
         "tum_tanggal_pengujian",
         date.today()
     )
 
-    st.session_state.tum_masa_berlaku = (
-        tambah_2_tahun(
-            tanggal
-        )
+    st.session_state[
+        "tum_masa_berlaku"
+    ] = tambah_2_tahun(
+        tanggal
     )
 
-    st.session_state.tum_nomor_sertifikat = (
+    nomor_sertifikat_baru = (
         generate_nomor_sertifikat(
             tanggal
         )
     )
 
-    st.session_state.tum_nomor_order = (
+    nomor_order_baru = (
         generate_nomor_order(
             tanggal
         )
     )
 
+    # State data permanen
+    st.session_state[
+        "tum_nomor_sertifikat"
+    ] = nomor_sertifikat_baru
+
+    st.session_state[
+        "tum_nomor_order"
+    ] = nomor_order_baru
+
+    # State widget
+    st.session_state[
+        "tum_nomor_sertifikat_widget"
+    ] = nomor_sertifikat_baru
+
+    st.session_state[
+        "tum_nomor_order_widget"
+    ] = nomor_order_baru
 
 def kembali_ke_input_tum():
     st.session_state.tum_mode = (
@@ -4010,44 +4048,6 @@ def run():
             st.subheader(
                 "Data Pengujian"
             )
-            # =====================================================
-            # PENGAMAN NOMOR DOKUMEN TUM
-            # =====================================================
-            tanggal_nomor_tum = st.session_state.get(
-                "tum_tanggal_pengujian",
-                date.today()
-            )
-
-            nomor_sertifikat_tum_state = str(
-                st.session_state.get(
-                    "tum_nomor_sertifikat",
-                    ""
-                )
-                or ""
-            ).strip()
-
-            nomor_order_tum_state = str(
-                st.session_state.get(
-                    "tum_nomor_order",
-                    ""
-                )
-                or ""
-            ).strip()
-
-            if not nomor_sertifikat_tum_state:
-                st.session_state[
-                    "tum_nomor_sertifikat"
-                ] = generate_nomor_sertifikat(
-                    tanggal_nomor_tum
-                )
-
-            if not nomor_order_tum_state:
-                st.session_state[
-                    "tum_nomor_order"
-                ] = generate_nomor_order(
-                    tanggal_nomor_tum
-                )
-
             jenis_pengujian = (
                 st.selectbox(
                     "Jenis Pengujian",
@@ -4143,23 +4143,85 @@ def run():
                     key="tum_satuan_suhu"
                 )
 
-            nomor_sertifikat = (
-                st.text_input(
-                    "Nomor Sertifikat",
-                    key=(
-                        "tum_nomor_sertifikat"
-                    )
-                )
+            # =====================================================
+            # NOMOR DOKUMEN
+            # State data dan widget DIPISAH
+            # =====================================================
+
+            tanggal_nomor_tum = st.session_state.get(
+                "tum_tanggal_pengujian",
+                date.today()
             )
 
-            nomor_order = (
-                st.text_input(
-                    "Nomor Order",
-                    key=(
-                        "tum_nomor_order"
+            # ---------------------------------------------
+            # Nomor Sertifikat
+            # ---------------------------------------------
+            if (
+                "tum_nomor_sertifikat_widget"
+                not in st.session_state
+            ):
+                st.session_state[
+                    "tum_nomor_sertifikat_widget"
+                ] = (
+                    str(
+                        st.session_state.get(
+                            "tum_nomor_sertifikat",
+                            ""
+                        )
+                        or ""
+                    ).strip()
+                    or generate_nomor_sertifikat(
+                        tanggal_nomor_tum
                     )
                 )
+
+            nomor_sertifikat = st.text_input(
+                "Nomor Sertifikat",
+                key="tum_nomor_sertifikat_widget",
+                on_change=(
+                    sinkron_nomor_sertifikat_tum
+                ),
             )
+
+            # Pastikan state data juga selalu terisi
+            st.session_state[
+                "tum_nomor_sertifikat"
+            ] = nomor_sertifikat
+
+            # ---------------------------------------------
+            # Nomor Order
+            # ---------------------------------------------
+            if (
+                "tum_nomor_order_widget"
+                not in st.session_state
+            ):
+                st.session_state[
+                    "tum_nomor_order_widget"
+                ] = (
+                    str(
+                        st.session_state.get(
+                            "tum_nomor_order",
+                            ""
+                        )
+                        or ""
+                    ).strip()
+                    or generate_nomor_order(
+                        tanggal_nomor_tum
+                    )
+                )
+
+            nomor_order = st.text_input(
+                "Nomor Order",
+                key="tum_nomor_order_widget",
+                on_change=(
+                    sinkron_nomor_order_tum
+                ),
+            )
+
+            # Pastikan state data juga selalu terisi
+            st.session_state[
+                "tum_nomor_order"
+            ] = nomor_order
 
         # =================================================
         # PENERA
