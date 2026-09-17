@@ -340,130 +340,72 @@ def render_header():
 
     st.markdown(
         """
-        <style>
+<style>
+.dashboard-header {
+    width: 100%;
+    padding: 28px 30px;
+    margin-bottom: 24px;
+    border-radius: 16px;
+    background: linear-gradient(
+        135deg,
+        #1E3A8A 0%,
+        #2563EB 100%
+    );
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+}
 
-        .dashboard-header {
-            width: 100%;
-            padding: 28px 30px;
-            margin-bottom: 24px;
-            border-radius: 16px;
+.dashboard-header h1 {
+    color: white;
+    font-size: 31px;
+    font-weight: 800;
+    margin: 0 0 6px 0;
+}
 
-            background:
-                linear-gradient(
-                    135deg,
-                    #1E3A8A 0%,
-                    #2563EB 100%
-                );
+.dashboard-header p {
+    color: rgba(255,255,255,0.92);
+    font-size: 15px;
+    margin: 0;
+}
 
-            box-shadow:
-                0 8px 20px
-                rgba(15, 23, 42, 0.12);
-        }
+.kpi-card {
+    background: white;
+    border-radius: 14px;
+    padding: 17px;
+    min-height: 115px;
+    border: 1px solid #E2E8F0;
+    box-shadow: 0 4px 12px rgba(15,23,42,0.06);
+}
 
-        .dashboard-header h1 {
-            color: white;
-            font-size: 31px;
-            font-weight: 800;
-            margin: 0;
-        }
+.kpi-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748B;
+    margin-bottom: 8px;
+}
 
-        .dashboard-header p {
-            color:
-                rgba(
-                    255,
-                    255,
-                    255,
-                    0.92
-                );
+.kpi-value {
+    font-size: 29px;
+    font-weight: 800;
+    color: #0F172A;
+    line-height: 1.1;
+}
 
-            font-size: 15px;
-            margin-top: 5px;
-            margin-bottom: 0;
-        }
+.kpi-sub {
+    font-size: 12px;
+    color: #94A3B8;
+    margin-top: 6px;
+}
 
-        .kpi-card {
-            background: white;
+.company-card {
+    background: #F8FAFC;
+    padding: 18px 20px;
+    border-radius: 14px;
+    border-left: 6px solid #2563EB;
+    margin-bottom: 15px;
+}
+</style>
 
-            border-radius: 14px;
-
-            padding:
-                17px 17px;
-
-            min-height: 115px;
-
-            border:
-                1px solid
-                #E2E8F0;
-
-            box-shadow:
-                0 4px 12px
-                rgba(
-                    15,
-                    23,
-                    42,
-                    0.06
-                );
-        }
-
-        .kpi-title {
-            font-size: 13px;
-            font-weight: 600;
-            color: #64748B;
-
-            margin-bottom:
-                8px;
-        }
-
-        .kpi-value {
-            font-size: 29px;
-            font-weight: 800;
-            color: #0F172A;
-
-            line-height: 1.1;
-        }
-
-        .kpi-sub {
-            font-size: 12px;
-            color: #94A3B8;
-
-            margin-top: 6px;
-        }
-
-        .company-card {
-
-            background:
-                #F8FAFC;
-
-            padding:
-                18px 20px;
-
-            border-radius:
-                14px;
-
-            border-left:
-                6px solid
-                #2563EB;
-
-            margin-bottom:
-                15px;
-        }
-
-        </style>
-
-        <div class="dashboard-header">
-
-            <h1>
-                ⚖️ Dashboard Pengawasan UTTP
-            </h1>
-
-            <p>
-                Monitoring kepemilikan UTTP,
-                masa berlaku tera,
-                riwayat pengujian,
-                dan prioritas pengawasan.
-            </p>
-
-        </div>
+<div class="dashboard-header"><h1>⚖️ Dashboard Pengawasan UTTP</h1><p>Monitoring kepemilikan UTTP, masa berlaku tera, riwayat pengujian, dan prioritas pengawasan.</p></div>
         """,
         unsafe_allow_html=True,
     )
@@ -476,30 +418,29 @@ def render_kpi(
     color,
 ):
 
+    title_safe = html.escape(
+        str(title)
+    )
+
+    value_safe = html.escape(
+        str(value)
+    )
+
+    subtitle_safe = html.escape(
+        str(subtitle)
+    )
+
+    card_html = (
+        f'<div class="kpi-card" '
+        f'style="border-top:5px solid {color};">'
+        f'<div class="kpi-title">{title_safe}</div>'
+        f'<div class="kpi-value">{value_safe}</div>'
+        f'<div class="kpi-sub">{subtitle_safe}</div>'
+        f'</div>'
+    )
+
     st.markdown(
-        f"""
-        <div
-            class="kpi-card"
-            style="
-                border-top:
-                5px solid {color};
-            "
-        >
-
-            <div class="kpi-title">
-                {html.escape(str(title))}
-            </div>
-
-            <div class="kpi-value">
-                {html.escape(str(value))}
-            </div>
-
-            <div class="kpi-sub">
-                {html.escape(str(subtitle))}
-            </div>
-
-        </div>
-        """,
+        card_html,
         unsafe_allow_html=True,
     )
 
