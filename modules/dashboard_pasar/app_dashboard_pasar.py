@@ -741,112 +741,90 @@ def render_dashboard_pasar():
             if nama_pick != "(Semua)":
         
                 with c1:
-                    chart_pedagang = (
-                        alt.Chart(agg)
-                        .mark_area(
-                            line={"strokeWidth": 3},
-                            point={"filled": True, "size": 90},
-                            opacity=0.18
-                        )
-                        .encode(
-                            x=alt.X(
-                                "Tahun:O",
-                                title="Tahun",
-                                axis=alt.Axis(
-                                    labelAngle=0,
-                                    labelFontSize=12,
-                                    titleFontSize=13
-                                )
-                            ),
-                            y=alt.Y(
+                    base_pedagang = alt.Chart(agg).encode(
+                        x=alt.X(
+                            "Tahun:O",
+                            title="Tahun",
+                            axis=alt.Axis(labelAngle=0)
+                        ),
+                        y=alt.Y(
+                            "total_pedagang:Q",
+                            title="Jumlah Pedagang"
+                        ),
+                        tooltip=[
+                            alt.Tooltip("Tahun:O", title="Tahun"),
+                            alt.Tooltip(
                                 "total_pedagang:Q",
                                 title="Jumlah Pedagang",
-                                axis=alt.Axis(
-                                    labelFontSize=12,
-                                    titleFontSize=13,
-                                    format=",.0f"
-                                )
-                            ),
-                            tooltip=[
-                                alt.Tooltip("Tahun:O", title="Tahun"),
-                                alt.Tooltip(
-                                    "total_pedagang:Q",
-                                    title="Jumlah Pedagang",
-                                    format=",.0f"
-                                )
-                            ]
-                        )
-                        .properties(
-                            title={
-                                "text": "Perkembangan Jumlah Pedagang",
-                                "subtitle": f"{nama_pick}",
-                                "fontSize": 18,
-                                "subtitleFontSize": 12,
-                                "anchor": "start"
-                            },
-                            height=300
-                        )
-                        .configure_view(
-                            strokeWidth=0
-                        )
-                        .configure_axis(
-                            gridOpacity=0.15
-                        )
+                                format=",.0f"
+                            )
+                        ]
+                    )
+                    
+                    area_pedagang = base_pedagang.mark_area(
+                        opacity=0.15
+                    )
+                    
+                    line_pedagang = base_pedagang.mark_line(
+                        strokeWidth=3
+                    )
+                    
+                    point_pedagang = base_pedagang.mark_point(
+                        filled=True,
+                        size=90
+                    )
+                    
+                    chart_pedagang = (
+                        area_pedagang
+                        + line_pedagang
+                        + point_pedagang
+                    ).properties(
+                        title=f"Perkembangan Jumlah Pedagang - {nama_pick}",
+                        height=300
                     )
         
                 with c2:
-                    chart_uttp = (
-                        alt.Chart(agg)
-                        .mark_area(
-                            line={"strokeWidth": 3},
-                            point={"filled": True, "size": 90},
-                            opacity=0.18
-                        )
-                        .encode(
-                            x=alt.X(
-                                "Tahun:O",
-                                title="Tahun",
-                                axis=alt.Axis(
-                                    labelAngle=0,
-                                    labelFontSize=12,
-                                    titleFontSize=13
-                                )
-                            ),
-                            y=alt.Y(
+                    base_uttp = alt.Chart(agg).encode(
+                        x=alt.X(
+                            "Tahun:O",
+                            title="Tahun",
+                            axis=alt.Axis(labelAngle=0)
+                        ),
+                        y=alt.Y(
+                            "total_uttp:Q",
+                            title="Jumlah Timbangan"
+                        ),
+                        tooltip=[
+                            alt.Tooltip("Tahun:O", title="Tahun"),
+                            alt.Tooltip(
                                 "total_uttp:Q",
                                 title="Jumlah Timbangan",
-                                axis=alt.Axis(
-                                    labelFontSize=12,
-                                    titleFontSize=13,
-                                    format=",.0f"
-                                )
-                            ),
-                            tooltip=[
-                                alt.Tooltip("Tahun:O", title="Tahun"),
-                                alt.Tooltip(
-                                    "total_uttp:Q",
-                                    title="Jumlah Timbangan",
-                                    format=",.0f"
-                                )
-                            ]
-                        )
-                        .properties(
-                            title={
-                                "text": "Perkembangan Jumlah Timbangan",
-                                "subtitle": f"{nama_pick}",
-                                "fontSize": 18,
-                                "subtitleFontSize": 12,
-                                "anchor": "start"
-                            },
-                            height=300
-                        )
-                        .configure_view(
-                            strokeWidth=0
-                        )
-                        .configure_axis(
-                            gridOpacity=0.15
-                        )
+                                format=",.0f"
+                            )
+                        ]
                     )
+                    
+                    area_uttp = base_uttp.mark_area(
+                        opacity=0.15
+                    )
+                    
+                    line_uttp = base_uttp.mark_line(
+                        strokeWidth=3
+                    )
+                    
+                    point_uttp = base_uttp.mark_point(
+                        filled=True,
+                        size=90
+                    )
+                    
+                    chart_uttp = (
+                        area_uttp
+                        + line_uttp
+                        + point_uttp
+                    ).properties(
+                        title=f"Perkembangan Jumlah Timbangan - {nama_pick}",
+                        height=300
+)
                 # =====================================================
                 # PERUBAHAN DIBANDING 1 TAHUN SEBELUMNYA
                 # =====================================================
