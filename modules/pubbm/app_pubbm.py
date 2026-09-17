@@ -3086,10 +3086,6 @@ def run():
                     "telusuran, "
                     "status"
                 )
-                .eq(
-                    "status",
-                    "aktif"
-                )
                 .order(
                     "merk"
                 )
@@ -3712,8 +3708,16 @@ def run():
         st.session_state.data_spbu = (
             load_data_spbu()
         )
-    if "data_bejana" not in st.session_state:
-        st.session_state.data_bejana = load_data_bejana()
+    if (
+        "data_bejana" not in st.session_state
+        or st.session_state.data_bejana is None
+        or st.session_state.data_bejana.empty
+    ):
+        load_data_bejana.clear()
+    
+        st.session_state.data_bejana = (
+            load_data_bejana()
+        )
     if "data_media_spbu" not in st.session_state:
         st.session_state.data_media_spbu = load_data_media_spbu()
     if "data_pubbm" not in st.session_state:
