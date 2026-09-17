@@ -131,6 +131,7 @@ def load_data_dashboard_uttp():
         (
             "id, "
             "perusahaan_id, "
+            "uttp_id, "
             "tanggal_pengujian, "
             "tanggal_sertifikat, "
             "jenis_pengujian, "
@@ -518,15 +519,11 @@ def build_monitoring_data(
     # PUBBM mempunyai spbu_id.
     # =====================================================
     master = master[
-        master[
-            "perusahaan_id"
-        ].notna()
-    ].copy()
-
-    master = master[
-        master[
-            "spbu_id"
-        ].isna()
+        (
+            master["perusahaan_id"].notna()
+            |
+            master["spbu_id"].notna()
+        )
     ].copy()
 
     # =====================================================
@@ -591,37 +588,26 @@ def build_monitoring_data(
     )
 
     # =====================================================
-    # PENGUJIAN UTTP UMUM
+    # PENGUJIAN SELURUH MODUL UTTP
+    #
+    # Dashboard tidak lagi bergantung pada schema tertentu.
+    # Selama pengujian terhubung ke master UTTP,
+    # riwayat dianggap valid.
     # =====================================================
     if df_pengujian.empty:
 
-        pengujian_umum = (
-            pd.DataFrame()
-        )
+        pengujian_all = pd.DataFrame()
 
     else:
 
-        pengujian_umum = (
+        pengujian_all = (
             df_pengujian.copy()
         )
 
-        pengujian_umum = (
-            pengujian_umum[
-                pengujian_umum.apply(
-                    is_pengujian_uttp_umum,
-                    axis=1,
-                )
-            ]
-            .copy()
-        )
-
     # =====================================================
-    # BELUM ADA RIWAYAT
+    # BELUM ADA PENGUJIAN SAMA SEKALI
     # =====================================================
-    if (
-        pengujian_umum.empty
-        or df_relasi.empty
-    ):
+    if pengujian_all.empty:
 
         monitor[
             "status_tera"
@@ -631,159 +617,6 @@ def build_monitoring_data(
             "jumlah_pengujian"
         ] = 0
 
-        for col in [
-            "pengujian_id_terakhir",
-            "tanggal_pengujian",
-            "tanggal_sertifikat",
-            "jenis_pengujian",
-            "hasil_pengujian",
-            "nomor_order",
-            "nomor_sertifikat",
-            "penera_1",
-            "penera_2",
-            "berlaku_sampai",
-            "sisa_hari",
-        ]:
-
-            monitor[
-                col
-            ] = None
-
-        return (
-            monitor,
-            pd.DataFrame(),
-        )
-
-    # =====================================================
-    # SIAPKAN HEADER
-    # =====================================================
-    pengujian_umum = (
-        pengujian_umum
-        .rename(
-            columns={
-                "id":
-                "pengujian_id",
-
-                "hasil":
-                "hasil_pengujian",
-            }
-        )
-        .copy()
-    )
-
-    pengujian_umum[
-        "pengujian_id"
-    ] = pd.to_numeric(
-        pengujian_umum[
-            "pengujian_id"
-        ],
-        errors="coerce",
-    )
-
-    pengujian_umum[
-        "tanggal_pengujian_dt"
-    ] = pd.to_datetime(
-        pengujian_umum[
-            "tanggal_pengujian"
-        ],
-        errors="coerce",
-    )
-
-    pengujian_umum[
-        "berlaku_sampai_dt"
-    ] = pd.to_datetime(
-        pengujian_umum[
-            "berlaku_sampai"
-        ],
-        errors="coerce",
-    )
-
-    pengujian_umum[
-        "pengujian_id_num"
-    ] = pd.to_numeric(
-        pengujian_umum[
-            "pengujian_id"
-        ],
-        errors="coerce",
-    ).fillna(0)
-
-    # =====================================================
-    # RELASI
-    # =====================================================
-    relasi = (
-        df_relasi.copy()
-    )
-
-    relasi[
-        "pengujian_id"
-    ] = pd.to_numeric(
-        relasi[
-            "pengujian_id"
-        ],
-        errors="coerce",
-    )
-
-    relasi[
-        "uttp_id"
-    ] = pd.to_numeric(
-        relasi[
-            "uttp_id"
-        ],
-        errors="coerce",
-    )
-
-    daftar_pengujian_id = set(
-        pengujian_umum[
-            "pengujian_id"
-        ]
-        .dropna()
-        .tolist()
-    )
-
-    relasi = relasi[
-        relasi[
-            "pengujian_id"
-        ].isin(
-            daftar_pengujian_id
-        )
-    ].copy()
-
-    # =====================================================
-    # HISTORY PER UTTP
-    # =====================================================
-    
-    # Pastikan kolom uttp_id hanya berasal dari
-    # tabel pengujian_uttp.
-    pengujian_umum = pengujian_umum.drop(
-        columns=["uttp_id"],
-        errors="ignore",
-    )
-    
-    history = (
-        relasi[
-            [
-                "pengujian_id",
-                "uttp_id",
-            ]
-        ]
-        .merge(
-            pengujian_umum,
-            on="pengujian_id",
-            how="left",
-            validate="many_to_one",
-        )
-    )
-
-    if history.empty:
-
-        monitor[
-            "status_tera"
-        ] = STATUS_BELUM_UJI
-    
-        monitor[
-            "jumlah_pengujian"
-        ] = 0
-    
         for col in [
             "pengujian_id_terakhir",
             "tanggal_pengujian",
@@ -798,7 +631,247 @@ def build_monitoring_data(
             "sisa_hari",
         ]:
             monitor[col] = None
-    
+
+        return (
+            monitor,
+            pd.DataFrame(),
+        )
+
+    # =====================================================
+    # SIAPKAN HEADER PENGUJIAN
+    # =====================================================
+    pengujian_all = (
+        pengujian_all
+        .rename(
+            columns={
+                "id":
+                "pengujian_id",
+
+                "hasil":
+                "hasil_pengujian",
+            }
+        )
+        .copy()
+    )
+
+    pengujian_all[
+        "pengujian_id"
+    ] = pd.to_numeric(
+        pengujian_all[
+            "pengujian_id"
+        ],
+        errors="coerce",
+    )
+
+    if (
+        "uttp_id"
+        not in pengujian_all.columns
+    ):
+        pengujian_all[
+            "uttp_id"
+        ] = None
+
+    pengujian_all[
+        "uttp_id"
+    ] = pd.to_numeric(
+        pengujian_all[
+            "uttp_id"
+        ],
+        errors="coerce",
+    )
+
+    pengujian_all[
+        "tanggal_pengujian_dt"
+    ] = pd.to_datetime(
+        pengujian_all[
+            "tanggal_pengujian"
+        ],
+        errors="coerce",
+    )
+
+    pengujian_all[
+        "berlaku_sampai_dt"
+    ] = pd.to_datetime(
+        pengujian_all[
+            "berlaku_sampai"
+        ],
+        errors="coerce",
+    )
+
+    pengujian_all[
+        "pengujian_id_num"
+    ] = pd.to_numeric(
+        pengujian_all[
+            "pengujian_id"
+        ],
+        errors="coerce",
+    ).fillna(0)
+
+    # =====================================================
+    # ID MASTER UTTP YANG MEMANG MASUK DASHBOARD
+    # =====================================================
+    master_uttp_ids = set(
+        monitor[
+            "uttp_id"
+        ]
+        .dropna()
+        .tolist()
+    )
+
+    history_parts = []
+
+    # =====================================================
+    # 1. HISTORY MELALUI pengujian_uttp
+    #
+    # Dipakai UTTP Umum, Timbangan, TUM,
+    # Meter Air, dan modul struktur baru lainnya.
+    # =====================================================
+    if not df_relasi.empty:
+
+        relasi = (
+            df_relasi.copy()
+        )
+
+        relasi[
+            "pengujian_id"
+        ] = pd.to_numeric(
+            relasi[
+                "pengujian_id"
+            ],
+            errors="coerce",
+        )
+
+        relasi[
+            "uttp_id"
+        ] = pd.to_numeric(
+            relasi[
+                "uttp_id"
+            ],
+            errors="coerce",
+        )
+
+        # Hanya relasi milik master yang tampil
+        # pada dashboard ini.
+        relasi = relasi[
+            relasi[
+                "uttp_id"
+            ].isin(
+                master_uttp_ids
+            )
+        ].copy()
+
+        if not relasi.empty:
+
+            # uttp_id dari relasi adalah sumber utama.
+            header_relasi = (
+                pengujian_all
+                .drop(
+                    columns=[
+                        "uttp_id"
+                    ],
+                    errors="ignore",
+                )
+            )
+
+            history_relasi = (
+                relasi[
+                    [
+                        "pengujian_id",
+                        "uttp_id",
+                    ]
+                ]
+                .merge(
+                    header_relasi,
+                    on="pengujian_id",
+                    how="left",
+                    validate="many_to_one",
+                )
+            )
+
+            history_parts.append(
+                history_relasi
+            )
+
+    # =====================================================
+    # 2. HISTORY DARI pengujian.uttp_id
+    #
+    # Fallback untuk modul yang menyimpan relasi langsung
+    # pada header pengujian.
+    # =====================================================
+    history_direct = (
+        pengujian_all[
+            pengujian_all[
+                "uttp_id"
+            ].isin(
+                master_uttp_ids
+            )
+        ]
+        .copy()
+    )
+
+    if not history_direct.empty:
+
+        history_parts.append(
+            history_direct
+        )
+
+    # =====================================================
+    # GABUNGKAN SELURUH HISTORY
+    # =====================================================
+    if history_parts:
+
+        history = pd.concat(
+            history_parts,
+            ignore_index=True,
+            sort=False,
+        )
+
+        # Pengujian yang mempunyai pengujian.uttp_id
+        # sekaligus pengujian_uttp tidak boleh dihitung 2 kali.
+        history = (
+            history
+            .drop_duplicates(
+                subset=[
+                    "pengujian_id",
+                    "uttp_id",
+                ],
+                keep="last",
+            )
+            .copy()
+        )
+
+    else:
+
+        history = pd.DataFrame()
+
+    # =====================================================
+    # MASTER ADA, TETAPI BELUM PUNYA RIWAYAT
+    # =====================================================
+    if history.empty:
+
+        monitor[
+            "status_tera"
+        ] = STATUS_BELUM_UJI
+
+        monitor[
+            "jumlah_pengujian"
+        ] = 0
+
+        for col in [
+            "pengujian_id_terakhir",
+            "tanggal_pengujian",
+            "tanggal_sertifikat",
+            "jenis_pengujian",
+            "hasil_pengujian",
+            "nomor_order",
+            "nomor_sertifikat",
+            "penera_1",
+            "penera_2",
+            "berlaku_sampai",
+            "sisa_hari",
+        ]:
+            monitor[col] = None
+
         return (
             monitor,
             history,
