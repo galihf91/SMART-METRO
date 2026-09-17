@@ -122,8 +122,7 @@ def halaman_home_dashboard():
         "Silakan pilih dashboard yang akan ditampilkan:"
     )
 
-    col1, col2 = st.columns(2)
-
+    col1, col2, col3 = st.columns(3)
     # =====================================================
     # DASHBOARD PASAR
     # =====================================================
@@ -177,7 +176,30 @@ def halaman_home_dashboard():
     st.divider()
     st.caption("SMART METRO — Dashboard Tera Ulang")
 
-
+    # =====================================================
+    # DASHBOARD UTTP
+    # =====================================================
+    with col3:
+        with st.container(border=True):
+            st.markdown("## ⚖️ Dashboard UTTP")
+    
+            st.write(
+                "Menampilkan data kepemilikan UTTP perusahaan, "
+                "status masa berlaku tera, jenis UTTP, "
+                "serta riwayat pengujian."
+            )
+    
+            st.write(
+                "**Informasi utama:** Pemilik UTTP, jenis alat, "
+                "status tera, masa berlaku, dan pengujian terakhir."
+            )
+    
+            if st.button(
+                "Masuk ke Dashboard UTTP",
+                use_container_width=True,
+                key="menu_dashboard_uttp"
+            ):
+                pindah_halaman_dashboard("uttp")
 # =========================================================
 # ROUTER INTERNAL DASHBOARD TERA ULANG
 # =========================================================
@@ -204,7 +226,12 @@ def run():
         )
 
         run_dashboard_spbu()
-
+    elif halaman_aktif == "uttp":
+        from modules.dashboard_uttp.app_dashboard_uttp import (
+            run as run_dashboard_uttp
+        )
+    
+        run_dashboard_uttp()
     else:
         st.session_state.halaman_dashboard = "home_dashboard"
         st.rerun()
