@@ -6698,17 +6698,17 @@ def run():
                         label_visibility="collapsed"
                     )
 
-    with sub_penunjukan2:
-        st.markdown(
-            f"**{satuan_tampilan}**"
-        )
-                with sub_penunjukan2:
-                    st.markdown(f"**{satuan_tampilan}**")
-
-            penunjukan_val = satuan_to_kg(
-                penunjukan_tampil,
-                satuan_tampilan
-            )
+            with sub_penunjukan2:
+                st.markdown(
+                    f"**{satuan_tampilan}**"
+                )
+                        with sub_penunjukan2:
+                            st.markdown(f"**{satuan_tampilan}**")
+        
+                    penunjukan_val = satuan_to_kg(
+                        penunjukan_tampil,
+                        satuan_tampilan
+                    )
 
             # --- BKD ---
             with cols[3]:
