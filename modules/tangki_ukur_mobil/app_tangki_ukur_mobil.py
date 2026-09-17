@@ -2268,8 +2268,30 @@ def init_tum_state():
     }
 
     for key, value in defaults.items():
-        if key not in st.session_state:
-            st.session_state[key] = value
+
+        # Nomor dokumen:
+        # jika belum ada ATAU kosong,
+        # selalu gunakan default yang sudah dihitung.
+        if key in (
+            "tum_nomor_sertifikat",
+            "tum_nomor_order",
+        ):
+            if not str(
+                st.session_state.get(
+                    key,
+                    ""
+                )
+                or ""
+            ).strip():
+                st.session_state[
+                    key
+                ] = value
+    
+        # State lainnya tetap seperti sebelumnya.
+        elif key not in st.session_state:
+            st.session_state[
+                key
+            ] = value
     
     # =====================================================
     # PENGAMAN NOMOR DOKUMEN
