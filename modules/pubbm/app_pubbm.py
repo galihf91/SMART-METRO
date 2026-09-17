@@ -2999,7 +2999,7 @@ def run():
         def tambah_media(nama_media):
             nama_media = str(
                 nama_media or ""
-            ).strip()
+            ).strip().upper()
     
             if not nama_media:
                 return
