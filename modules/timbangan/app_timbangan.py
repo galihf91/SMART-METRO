@@ -6684,7 +6684,7 @@ def run():
                 sub_penunjukan1, sub_penunjukan2 = st.columns(
                     [4, 1]
                 )
-            
+
                 with sub_penunjukan1:
                     penunjukan_tampil = st.number_input(
                         f"Penunjukan {nomor_baris}",
@@ -6698,17 +6698,15 @@ def run():
                         label_visibility="collapsed"
                     )
 
-            with sub_penunjukan2:
-                st.markdown(
-                    f"**{satuan_tampilan}**"
-                )
-                        with sub_penunjukan2:
-                            st.markdown(f"**{satuan_tampilan}**")
-        
-                    penunjukan_val = satuan_to_kg(
-                        penunjukan_tampil,
-                        satuan_tampilan
+                with sub_penunjukan2:
+                    st.markdown(
+                        f"**{satuan_tampilan}**"
                     )
+
+            penunjukan_val = satuan_to_kg(
+                penunjukan_tampil,
+                satuan_tampilan
+            )
 
             # --- BKD ---
             with cols[3]:
