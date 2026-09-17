@@ -2984,12 +2984,36 @@ def run():
         media_bbm_master="",
     ):
         """
-        Pilihan media nozzle.
+        Menggabungkan:
+        1. Media aktual dari master SPBU
+        2. Seluruh media standar berdasarkan kategori SPBU
     
-        Prioritas:
-        1. media_bbm dari master SPBU
-        2. master kategori media_spbu
+        Hasil dibuat unik tanpa duplikat.
         """
+    
+        media_hasil = []
+    
+        # =====================================================
+        # FUNGSI TAMBAH MEDIA TANPA DUPLIKAT
+        # =====================================================
+        def tambah_media(nama_media):
+            nama_media = str(
+                nama_media or ""
+            ).strip()
+    
+            if not nama_media:
+                return
+    
+            # Cek duplikat tanpa membedakan huruf besar/kecil
+            sudah_ada = any(
+                item.lower() == nama_media.lower()
+                for item in media_hasil
+            )
+    
+            if not sudah_ada:
+                media_hasil.append(
+                    nama_media
+                )
     
         # =====================================================
         # 1. MEDIA AKTUAL DARI MASTER SPBU
@@ -2999,17 +3023,13 @@ def run():
         ).strip()
     
         if media_master:
-            media_list = [
-                item.strip()
-                for item in media_master.split(",")
-                if item.strip()
-            ]
-    
-            if media_list:
-                return media_list
+            for item in media_master.split(","):
+                tambah_media(
+                    item
+                )
     
         # =====================================================
-        # 2. FALLBACK BERDASARKAN KATEGORI
+        # 2. MEDIA STANDAR BERDASARKAN KATEGORI
         # =====================================================
         kategori = get_kategori_spbu(
             nama_spbu=nama_spbu,
@@ -3017,35 +3037,40 @@ def run():
         )
     
         if (
-            df_media is None
-            or df_media.empty
+            df_media is not None
+            and not df_media.empty
         ):
-            return []
+            rows_kategori = df_media[
+                df_media["KATEGORI SPBU"]
+                .fillna("")
+                .astype(str)
+                .str.upper()
+                .str.strip()
+                == kategori.upper()
+            ]
     
-        row = df_media[
-            df_media["KATEGORI SPBU"]
-            .astype(str)
-            .str.upper()
-            .str.strip()
-            == kategori.upper()
-        ]
+            if not rows_kategori.empty:
     
-        if row.empty:
-            return []
+                # Bisa membaca satu atau lebih row kategori
+                for _, row_media in rows_kategori.iterrows():
     
-        media_text = str(
-            row.iloc[0].get(
-                "MEDIA",
-                ""
-            )
-            or ""
-        ).strip()
+                    media_text = str(
+                        row_media.get(
+                            "MEDIA",
+                            ""
+                        )
+                        or ""
+                    ).strip()
     
-        return [
-            item.strip()
-            for item in media_text.split(",")
-            if item.strip()
-        ]
+                    if not media_text:
+                        continue
+    
+                    for item in media_text.split(","):
+                        tambah_media(
+                            item
+                        )
+    
+        return media_hasil
     @st.cache_data(ttl=60)
     def load_data_bejana():
         """
@@ -3714,8 +3739,16 @@ def run():
         st.session_state.data_bejana = (
             load_data_bejana()
         )
-    if "data_media_spbu" not in st.session_state:
-        st.session_state.data_media_spbu = load_data_media_spbu()
+    if (
+        "data_media_spbu" not in st.session_state
+        or st.session_state.data_media_spbu is None
+        or st.session_state.data_media_spbu.empty
+    ):
+    load_data_media_spbu.clear()
+
+    st.session_state.data_media_spbu = (
+        load_data_media_spbu()
+    )
     if "data_pubbm" not in st.session_state:
         st.session_state.data_pubbm = {}
     if "nip_penera_1_pubbm" not in st.session_state:
