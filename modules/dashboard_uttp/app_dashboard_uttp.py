@@ -130,7 +130,6 @@ def load_data_dashboard_uttp():
         (
             "id, "
             "perusahaan_id, "
-            "uttp_id, "
             "tanggal_pengujian, "
             "tanggal_sertifikat, "
             "jenis_pengujian, "
@@ -820,6 +819,10 @@ def build_monitoring_data(
         on="pengujian_id",
         how="left",
     )
+    if "uttp_id" not in history.columns:
+        raise RuntimeError(
+            "Kolom uttp_id tidak ditemukan pada relasi pengujian_uttp."
+        )
 
     if history.empty:
 
