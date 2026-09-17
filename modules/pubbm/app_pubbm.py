@@ -8015,10 +8015,51 @@ def run():
     
         try:
             supabase = get_supabase_pubbm()
-    
             # =====================================================
-            # 1. AMBIL MASTER SPBU AKTIF
+            # 1. AMBIL SPBU YANG SUDAH PERNAH TERA ULANG
             # =====================================================
+            
+            response_pengujian_spbu = (
+                supabase
+                .table("pengujian")
+                .select(
+                    "spbu_id, jenis_pengujian"
+                )
+                .eq(
+                    "jenis_pengujian",
+                    "Tera Ulang"
+                )
+                .not_.is_(
+                    "spbu_id",
+                    "null"
+                )
+                .execute()
+            )
+            
+            daftar_pengujian_spbu = (
+                response_pengujian_spbu.data
+                or []
+            )
+            
+            # Ambil ID SPBU unik
+            id_spbu_tera_ulang = sorted({
+                row.get("spbu_id")
+                for row in daftar_pengujian_spbu
+                if row.get("spbu_id") is not None
+            })
+            
+            if not id_spbu_tera_ulang:
+                st.info(
+                    "Belum ada SPBU yang memiliki riwayat "
+                    "Tera Ulang."
+                )
+                st.stop()
+            
+            
+            # =====================================================
+            # 2. AMBIL MASTER SPBU BERDASARKAN ID TERSEBUT
+            # =====================================================
+            
             response_spbu = (
                 supabase
                 .table("spbu")
@@ -8031,6 +8072,10 @@ def run():
                     "kecamatan, "
                     "media_bbm, "
                     "status"
+                )
+                .in_(
+                    "id",
+                    id_spbu_tera_ulang
                 )
                 .eq(
                     "status",
@@ -8046,6 +8091,13 @@ def run():
                 response_spbu.data
                 or []
             )
+            
+            if not daftar_spbu:
+                st.info(
+                    "Belum ada SPBU aktif yang memiliki "
+                    "riwayat Tera Ulang."
+                )
+                st.stop()
             
             if not daftar_spbu:
                 st.info(
