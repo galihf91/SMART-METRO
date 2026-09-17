@@ -484,33 +484,91 @@ def get_or_create_master_uttp_umum(
 
     if uttp_id_lama is not None:
 
-        response_update = (
+        # =====================================================
+        # CEK MASTER UTTP LAMA
+        # =====================================================
+        response_uttp_lama = (
             supabase
             .table("uttp")
-            .update(
-                payload_uttp
+            .select(
+                "id, perusahaan_id"
             )
             .eq(
                 "id",
                 uttp_id_lama
             )
-            .eq(
-                "perusahaan_id",
-                perusahaan_id
-            )
+            .limit(1)
             .execute()
         )
-
-        if not response_update.data:
-            raise RuntimeError(
-                "Master UTTP lama tidak ditemukan "
-                "atau tidak sesuai dengan perusahaan."
+    
+        # =====================================================
+        # MASTER LAMA MASIH ADA
+        # =====================================================
+        if response_uttp_lama.data:
+    
+            uttp_lama = (
+                response_uttp_lama.data[0]
             )
-
-        return (
-            uttp_id_lama,
-            False
-        )
+    
+            perusahaan_id_lama = (
+                uttp_lama.get(
+                    "perusahaan_id"
+                )
+            )
+    
+            try:
+                perusahaan_id_lama = (
+                    int(perusahaan_id_lama)
+                    if perusahaan_id_lama is not None
+                    else None
+                )
+            except (
+                TypeError,
+                ValueError
+            ):
+                perusahaan_id_lama = None
+    
+            # =================================================
+            # PERUSAHAAN TIDAK BERUBAH
+            # → UPDATE MASTER UTTP YANG SAMA
+            # =================================================
+            if (
+                perusahaan_id_lama
+                == perusahaan_id
+            ):
+    
+                response_update = (
+                    supabase
+                    .table("uttp")
+                    .update(
+                        payload_uttp
+                    )
+                    .eq(
+                        "id",
+                        uttp_id_lama
+                    )
+                    .execute()
+                )
+    
+                if not response_update.data:
+                    raise RuntimeError(
+                        "Master UTTP lama gagal diperbarui."
+                    )
+    
+                return (
+                    uttp_id_lama,
+                    False
+                )
+    
+            # =================================================
+            # PERUSAHAAN BERUBAH
+            #
+            # Jangan pindahkan master UTTP lama karena mungkin
+            # masih digunakan oleh riwayat pengujian lain.
+            #
+            # Biarkan proses di bawah mencari / membuat
+            # master UTTP untuk perusahaan yang baru.
+            # =================================================
     # =====================================================
     # CARI MASTER YANG SUDAH ADA
     # =====================================================
