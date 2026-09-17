@@ -421,7 +421,7 @@ def render_header():
 }
 </style>
 
-<div class="dashboard-header"><h1>⚖️ Dashboard UTTP</h1><p>Monitoring kepemilikan UTTP, masa berlaku tera, riwayat pengujian, dan prioritas pengawasan.</p></div>
+<div class="dashboard-header"><h1>⚖️ Dashboard Monitoring UTTP SMART METRO</h1><p>Monitoring seluruh UTTP, status tera/tera ulang, masa berlaku, riwayat pengujian, dan prioritas pengawasan.</p></div>
         """,
         unsafe_allow_html=True,
     )
@@ -1955,8 +1955,8 @@ def render_dashboard_uttp():
 
         (
             df_perusahaan,
-            df_uttp,
             df_spbu,
+            df_uttp,
             df_pengujian,
             df_relasi,
         ) = (
@@ -1978,8 +1978,8 @@ def render_dashboard_uttp():
         history,
     ) = build_monitoring_data(
         df_perusahaan,
-        df_uttp,
         df_spbu,
+        df_uttp,
         df_pengujian,
         df_relasi,
     )
@@ -2115,33 +2115,6 @@ def render_dashboard_uttp():
             .copy()
         )
 
-    data_filter = (
-        monitor.copy()
-    )
-
-    perusahaan_id_pick = None
-
-    if (
-        perusahaan_pick
-        != "(Semua)"
-    ):
-
-        perusahaan_id_pick = (
-            perusahaan_options[
-                perusahaan_pick
-            ]
-        )
-
-        data_filter = (
-            data_filter[
-                data_filter[
-                    "perusahaan_id"
-                ]
-                == perusahaan_id_pick
-            ]
-            .copy()
-        )
-
     # =====================================================
     # JENIS UTTP
     # =====================================================
@@ -2233,14 +2206,19 @@ def render_dashboard_uttp():
     # MODE SEMUA PERUSAHAAN
     # =====================================================
     if (
-        perusahaan_pick
+        pemilik_pick
         == "(Semua)"
     ):
+
+        # =================================================
+        # KPI UMUM SMART METRO
+        # =================================================
 
         total_pemilik = (
             fdf[
                 "pemilik_key"
             ]
+            .dropna()
             .nunique()
         )
 
@@ -2248,51 +2226,74 @@ def render_dashboard_uttp():
             fdf[
                 "uttp_id"
             ]
+            .dropna()
             .nunique()
         )
 
-        total_aktif = int(
-            (
-                fdf[
-                    "status_tera"
-                ]
-                == STATUS_AKTIF
-            ).sum()
+        total_aktif = (
+            fdf.loc[
+                fdf["status_tera"]
+                == STATUS_AKTIF,
+                "uttp_id"
+            ]
+            .dropna()
+            .nunique()
         )
 
-        total_jatuh_tempo = int(
-            (
-                fdf[
-                    "status_tera"
-                ]
-                == STATUS_JATUH_TEMPO
-            ).sum()
+        total_jatuh_tempo = (
+            fdf.loc[
+                fdf["status_tera"]
+                == STATUS_JATUH_TEMPO,
+                "uttp_id"
+            ]
+            .dropna()
+            .nunique()
         )
 
-        total_kedaluwarsa = int(
-            (
-                fdf[
-                    "status_tera"
-                ]
-                == STATUS_KEDALUWARSA
-            ).sum()
+        total_kedaluwarsa = (
+            fdf.loc[
+                fdf["status_tera"]
+                == STATUS_KEDALUWARSA,
+                "uttp_id"
+            ]
+            .dropna()
+            .nunique()
         )
 
-        total_belum_uji = int(
-            (
-                fdf[
-                    "status_tera"
-                ]
-                == STATUS_BELUM_UJI
-            ).sum()
+        total_belum_uji = (
+            fdf.loc[
+                fdf["status_tera"]
+                == STATUS_BELUM_UJI,
+                "uttp_id"
+            ]
+            .dropna()
+            .nunique()
         )
 
-        c1, c2, c3, c4, c5, c6 = (
-            st.columns(6)
+        total_data_kurang = (
+            fdf.loc[
+                fdf["status_tera"]
+                == STATUS_DATA_KURANG,
+                "uttp_id"
+            ]
+            .dropna()
+            .nunique()
         )
 
-        with c1:
+        total_status = (
+            total_aktif
+            + total_jatuh_tempo
+            + total_kedaluwarsa
+            + total_belum_uji
+            + total_data_kurang
+        )
 
+        # =================================================
+        # IDENTITAS
+        # =================================================
+        k1, k2 = st.columns(2)
+
+        with k1:
             render_kpi(
                 "Pemilik / Lokasi",
                 total_pemilik,
@@ -2300,17 +2301,26 @@ def render_dashboard_uttp():
                 "#1D4ED8",
             )
 
-        with c2:
-
+        with k2:
             render_kpi(
                 "Total UTTP",
                 total_uttp,
-                "Master UTTP",
+                "Seluruh master alat aktif",
                 "#2563EB",
             )
 
-        with c3:
+        st.markdown(
+            "#### Status Tera / Tera Ulang"
+        )
 
+        # =================================================
+        # STATUS
+        # =================================================
+        s1, s2, s3, s4, s5 = (
+            st.columns(5)
+        )
+
+        with s1:
             render_kpi(
                 "Tera Aktif",
                 total_aktif,
@@ -2318,8 +2328,7 @@ def render_dashboard_uttp():
                 "#16A34A",
             )
 
-        with c4:
-
+        with s2:
             render_kpi(
                 f"≤ {BATAS_JATUH_TEMPO_HARI} Hari",
                 total_jatuh_tempo,
@@ -2327,22 +2336,43 @@ def render_dashboard_uttp():
                 "#F59E0B",
             )
 
-        with c5:
-
+        with s3:
             render_kpi(
                 "Kedaluwarsa",
                 total_kedaluwarsa,
-                "Perlu pengawasan",
+                "Perlu tindak lanjut",
                 "#DC2626",
             )
 
-        with c6:
-
+        with s4:
             render_kpi(
                 "Belum Uji",
                 total_belum_uji,
                 "Belum ada riwayat",
                 "#64748B",
+            )
+
+        with s5:
+            render_kpi(
+                "Data Belum Lengkap",
+                total_data_kurang,
+                "Perlu verifikasi",
+                "#475569",
+            )
+
+        # =================================================
+        # VALIDASI
+        # =================================================
+        if total_status != total_uttp:
+
+            selisih = (
+                total_uttp
+                - total_status
+            )
+
+            st.warning(
+                f"Ada {abs(selisih)} UTTP "
+                "yang statusnya belum terklasifikasi."
             )
 
         # =================================================
@@ -2355,6 +2385,8 @@ def render_dashboard_uttp():
                 [
                     STATUS_KEDALUWARSA,
                     STATUS_JATUH_TEMPO,
+                    STATUS_BELUM_UJI,
+                    STATUS_DATA_KURANG,
                 ]
             )
         ].copy()
@@ -2390,7 +2422,7 @@ def render_dashboard_uttp():
                     [
                         "prioritas",
                         "sisa_sort",
-                        "nama_perusahaan",
+                        "pemilik_display",
                     ]
                 )
                 .head(25)
@@ -2405,7 +2437,7 @@ def render_dashboard_uttp():
             priority_view = (
                 priority[
                     [
-                        "nama_perusahaan",
+                        "pemilik_display",
                         "jenis_uttp",
                         "merk",
                         "nomor_seri",
@@ -2434,7 +2466,7 @@ def render_dashboard_uttp():
             )
 
             priority_view.columns = [
-                "Perusahaan",
+                "Pemilik / Lokasi",
                 "Jenis UTTP",
                 "Merek",
                 "Nomor Seri",
