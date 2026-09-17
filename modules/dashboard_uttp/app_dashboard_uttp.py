@@ -1009,35 +1009,28 @@ def render_detail_perusahaan(
     # =====================================================
     # CARD PERUSAHAAN
     # =====================================================
+    company_html = (
+        '<div class="company-card">'
+        '<div style="'
+        'font-size:22px;'
+        'font-weight:800;'
+        'color:#0F172A;'
+        '">'
+        f'🏢 {html.escape(nama_perusahaan)}'
+        '</div>'
+        '<div style="'
+        'font-size:13px;'
+        'color:#475569;'
+        'margin-top:6px;'
+        '">'
+        '<b>Alamat:</b> '
+        f'{html.escape(alamat)}'
+        '</div>'
+        '</div>'
+    )
+    
     st.markdown(
-        dedent(
-            f"""
-            <div class="company-card">
-    
-                <div
-                    style="
-                        font-size:22px;
-                        font-weight:800;
-                        color:#0F172A;
-                    "
-                >
-                    🏢 {html.escape(nama_perusahaan)}
-                </div>
-    
-                <div
-                    style="
-                        font-size:13px;
-                        color:#475569;
-                        margin-top:6px;
-                    "
-                >
-                    <b>Alamat:</b>
-                    {html.escape(alamat)}
-                </div>
-    
-            </div>
-            """
-        ),
+        company_html,
         unsafe_allow_html=True,
     )
 
