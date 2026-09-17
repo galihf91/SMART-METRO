@@ -462,6 +462,7 @@ def home():
                     <li>UTTP Umum</li>
                     <li>Meter air</li>
                     <li>Tangki Ukur Mobil</li>
+                    <li>Pasar</li>
                 </ul>
                 <p>
                     <b>Output:</b> Cerapan dan/atau sertifikat PDF
