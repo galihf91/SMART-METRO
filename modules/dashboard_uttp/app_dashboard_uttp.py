@@ -3,6 +3,7 @@ from datetime import date
 
 import pandas as pd
 import streamlit as st
+import altair as alt
 from supabase import create_client
 
 
@@ -2149,23 +2150,170 @@ def render_dashboard_uttp():
             "📊 Komposisi Jenis UTTP"
         )
 
+        # =================================================
+        # SIAPKAN DATA
+        # =================================================
         jenis_global = (
             fdf
+            .assign(
+                jenis_display=(
+                    fdf["jenis_uttp"]
+                    .fillna("")
+                    .astype(str)
+                    .str.strip()
+                    .replace(
+                        "",
+                        "Jenis Belum Diisi"
+                    )
+                )
+            )
             .groupby(
-                "jenis_uttp"
+                "jenis_display"
             )[
                 "uttp_id"
             ]
             .nunique()
+            .rename(
+                "Jumlah UTTP"
+            )
+            .reset_index()
+            .rename(
+                columns={
+                    "jenis_display":
+                    "Jenis UTTP"
+                }
+            )
             .sort_values(
+                "Jumlah UTTP",
                 ascending=False
+            )
+            .reset_index(
+                drop=True
             )
         )
 
         if not jenis_global.empty:
 
-            st.bar_chart(
+            jumlah_jenis = len(
                 jenis_global
+            )
+
+            total_dalam_grafik = int(
+                jenis_global[
+                    "Jumlah UTTP"
+                ].sum()
+            )
+
+            # Tinggi dinamis tetapi tetap compact
+            tinggi_chart = min(
+                max(
+                    220,
+                    jumlah_jenis * 34
+                ),
+                480
+            )
+
+            nilai_maks = max(
+                1,
+                int(
+                    jenis_global[
+                        "Jumlah UTTP"
+                    ].max()
+                )
+            )
+
+            st.caption(
+                f"{total_dalam_grafik:,} UTTP "
+                f"• {jumlah_jenis} jenis alat"
+            )
+
+            # =================================================
+            # BASE CHART
+            # =================================================
+            base = (
+                alt.Chart(
+                    jenis_global
+                )
+                .encode(
+                    y=alt.Y(
+                        "Jenis UTTP:N",
+                        sort="-x",
+                        title=None,
+                        axis=alt.Axis(
+                            labelLimit=220,
+                            labelFontSize=12
+                        )
+                    ),
+
+                    x=alt.X(
+                        "Jumlah UTTP:Q",
+                        title="Jumlah UTTP",
+                        scale=alt.Scale(
+                            domain=[
+                                0,
+                                nilai_maks * 1.18
+                            ]
+                        ),
+                        axis=alt.Axis(
+                            tickMinStep=1,
+                            grid=True
+                        )
+                    ),
+
+                    tooltip=[
+                        alt.Tooltip(
+                            "Jenis UTTP:N",
+                            title="Jenis UTTP"
+                        ),
+                        alt.Tooltip(
+                            "Jumlah UTTP:Q",
+                            title="Jumlah",
+                            format=",.0f"
+                        ),
+                    ]
+                )
+            )
+
+            # =================================================
+            # BATANG
+            # =================================================
+            bar = base.mark_bar(
+                size=22,
+                cornerRadiusEnd=7,
+                color="#2563EB"
+            )
+
+            # =================================================
+            # LABEL NILAI
+            # =================================================
+            label = (
+                base
+                .mark_text(
+                    align="left",
+                    baseline="middle",
+                    dx=7,
+                    fontSize=12,
+                    fontWeight="bold",
+                    color="#334155"
+                )
+                .encode(
+                    text=alt.Text(
+                        "Jumlah UTTP:Q",
+                        format=".0f"
+                    )
+                )
+            )
+
+            chart = (
+                bar
+                + label
+            ).properties(
+                height=tinggi_chart
+            )
+
+            st.altair_chart(
+                chart,
+                use_container_width=True
             )
 
     # =====================================================
