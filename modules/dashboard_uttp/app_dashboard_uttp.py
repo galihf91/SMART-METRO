@@ -2158,52 +2158,6 @@ def render_dashboard_uttp():
             )
 
         # =================================================
-        # RINGKASAN PER PERUSAHAAN
-        # =================================================
-        st.markdown("---")
-
-        st.subheader(
-            "🏢 Ringkasan Kepemilikan UTTP per Perusahaan"
-        )
-
-        summary = (
-            build_company_summary(
-                fdf
-            )
-        )
-
-        if not summary.empty:
-
-            view_summary = (
-                summary[
-                    [
-                        "nama_perusahaan",
-                        "total_uttp",
-                        "tera_aktif",
-                        "akan_habis",
-                        "kedaluwarsa",
-                        "belum_uji",
-                    ]
-                ]
-                .copy()
-            )
-
-            view_summary.columns = [
-                "Perusahaan",
-                "Total UTTP",
-                "Tera Aktif",
-                "Akan Habis",
-                "Kedaluwarsa",
-                "Belum Uji",
-            ]
-
-            st.dataframe(
-                view_summary,
-                use_container_width=True,
-                hide_index=True,
-            )
-
-        # =================================================
         # KOMPOSISI JENIS UTTP GLOBAL
         # =================================================
         st.markdown("---")
