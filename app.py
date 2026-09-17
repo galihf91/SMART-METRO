@@ -497,6 +497,7 @@ def home():
                 <ul class="menu-list">
                     <li>Dashboard Pasar</li>
                     <li>Dashboard SPBU</li>
+                    <li>Dashboard UTTP</li>
                 </ul>
                 <p>
                     <b>Informasi:</b> Peta lokasi, data kecamatan,
