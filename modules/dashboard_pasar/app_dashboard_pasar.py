@@ -669,7 +669,77 @@ def render_dashboard_pasar():
 
     m = folium.Map(location=center, zoom_start=zoom, control_scale=True, tiles=None)
     folium.TileLayer("OpenStreetMap", control=False).add_to(m)
+    # =====================================================
+    # LEGEND STATUS TERA PASAR
+    # =====================================================
+    legend_html = f"""
+    <div style="
+        position: fixed;
+        bottom: 35px;
+        left: 35px;
+        z-index: 9999;
+        background-color: white;
+        padding: 12px 16px;
+        border-radius: 10px;
+        border: 1px solid #D1D5DB;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+        font-size: 13px;
+        min-width: 175px;
+    ">
 
+        <div style="
+            font-weight:700;
+            margin-bottom:8px;
+            color:#111827;
+        ">
+            Status Tera Ulang {year_pick}
+        </div>
+
+        <div style="
+            display:flex;
+            align-items:center;
+            gap:8px;
+            margin-bottom:6px;
+        ">
+            <span style="
+                width:12px;
+                height:12px;
+                border-radius:50%;
+                background:#16A34A;
+                display:inline-block;
+            "></span>
+
+            <span>
+                Sudah Tera Ulang
+            </span>
+        </div>
+
+        <div style="
+            display:flex;
+            align-items:center;
+            gap:8px;
+        ">
+            <span style="
+                width:12px;
+                height:12px;
+                border-radius:50%;
+                background:#9CA3AF;
+                display:inline-block;
+            "></span>
+
+            <span>
+                Belum Tera Ulang
+            </span>
+        </div>
+
+    </div>
+    """
+
+    m.get_root().html.add_child(
+        folium.Element(
+            legend_html
+        )
+    )
     if geo:
         folium.GeoJson(geo, name="Batas Kecamatan",
                        style_function=lambda x: {"color":"#8000FF","weight":2,"fillOpacity":0},
@@ -686,7 +756,7 @@ def render_dashboard_pasar():
                 status_text = "Sudah Tera Ulang"
             else:
                 warna = "#9CA3AF"
-                status_text = "Belum Ada Data"
+                status_text = "Belum Tera Ulang"
         
             folium.CircleMarker(
                 location=[
