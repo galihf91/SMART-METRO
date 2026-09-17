@@ -962,6 +962,242 @@ def render_dashboard_pasar():
                 chart_pasar_umum,
                 use_container_width=True
             )
+            # =====================================================
+            # PERUBAHAN DIBANDING 1 TAHUN SEBELUMNYA
+            # KABUPATEN TANGERANG
+            # =====================================================
+            tahun_sekarang = int(year_pick)
+            tahun_sebelumnya = tahun_sekarang - 1
+
+            data_sekarang = agg[
+                agg["tera_ulang_tahun"]
+                == tahun_sekarang
+            ]
+
+            data_sebelumnya = agg[
+                agg["tera_ulang_tahun"]
+                == tahun_sebelumnya
+            ]
+
+            if not data_sekarang.empty:
+
+                pedagang_sekarang = float(
+                    data_sekarang.iloc[0][
+                        "total_pedagang"
+                    ]
+                )
+
+                uttp_sekarang = float(
+                    data_sekarang.iloc[0][
+                        "total_uttp"
+                    ]
+                )
+
+                pasar_sekarang = float(
+                    data_sekarang.iloc[0][
+                        "jumlah_pasar"
+                    ]
+                )
+
+                if not data_sebelumnya.empty:
+
+                    pedagang_sebelumnya = float(
+                        data_sebelumnya.iloc[0][
+                            "total_pedagang"
+                        ]
+                    )
+
+                    uttp_sebelumnya = float(
+                        data_sebelumnya.iloc[0][
+                            "total_uttp"
+                        ]
+                    )
+
+                    pasar_sebelumnya = float(
+                        data_sebelumnya.iloc[0][
+                            "jumlah_pasar"
+                        ]
+                    )
+
+                    persen_pedagang = (
+                        hitung_perubahan_persen(
+                            pedagang_sekarang,
+                            pedagang_sebelumnya
+                        )
+                    )
+
+                    persen_uttp = (
+                        hitung_perubahan_persen(
+                            uttp_sekarang,
+                            uttp_sebelumnya
+                        )
+                    )
+
+                    persen_pasar = (
+                        hitung_perubahan_persen(
+                            pasar_sekarang,
+                            pasar_sebelumnya
+                        )
+                    )
+
+                else:
+                    persen_pedagang = None
+                    persen_uttp = None
+                    persen_pasar = None
+
+                st.markdown(
+                    "#### 📊 Perubahan Kabupaten Tangerang "
+                    "dari Tahun Sebelumnya"
+                )
+
+                m1, m2, m3 = st.columns(3)
+
+                # =================================================
+                # PEDAGANG
+                # =================================================
+                with m1:
+
+                    if persen_pedagang is not None:
+
+                        arah = (
+                            "Naik"
+                            if persen_pedagang > 0
+                            else "Turun"
+                            if persen_pedagang < 0
+                            else "Tetap"
+                        )
+
+                        tanda = (
+                            "+"
+                            if persen_pedagang > 0
+                            else ""
+                        )
+
+                        st.metric(
+                            "Jumlah Pedagang",
+                            f"{int(pedagang_sekarang):,}"
+                            .replace(",", "."),
+                            delta=(
+                                f"{tanda}"
+                                f"{persen_pedagang:.1f}%"
+                            )
+                        )
+
+                        st.caption(
+                            f"{arah} dibanding tahun "
+                            f"{tahun_sebelumnya}"
+                        )
+
+                    else:
+                        st.metric(
+                            "Jumlah Pedagang",
+                            f"{int(pedagang_sekarang):,}"
+                            .replace(",", ".")
+                        )
+
+                        st.caption(
+                            f"Data tahun "
+                            f"{tahun_sebelumnya} "
+                            f"belum tersedia."
+                        )
+
+                # =================================================
+                # TIMBANGAN
+                # =================================================
+                with m2:
+
+                    if persen_uttp is not None:
+
+                        arah = (
+                            "Naik"
+                            if persen_uttp > 0
+                            else "Turun"
+                            if persen_uttp < 0
+                            else "Tetap"
+                        )
+
+                        tanda = (
+                            "+"
+                            if persen_uttp > 0
+                            else ""
+                        )
+
+                        st.metric(
+                            "Jumlah Timbangan",
+                            f"{int(uttp_sekarang):,}"
+                            .replace(",", "."),
+                            delta=(
+                                f"{tanda}"
+                                f"{persen_uttp:.1f}%"
+                            )
+                        )
+
+                        st.caption(
+                            f"{arah} dibanding tahun "
+                            f"{tahun_sebelumnya}"
+                        )
+
+                    else:
+                        st.metric(
+                            "Jumlah Timbangan",
+                            f"{int(uttp_sekarang):,}"
+                            .replace(",", ".")
+                        )
+
+                        st.caption(
+                            f"Data tahun "
+                            f"{tahun_sebelumnya} "
+                            f"belum tersedia."
+                        )
+
+                # =================================================
+                # PASAR
+                # =================================================
+                with m3:
+
+                    if persen_pasar is not None:
+
+                        arah = (
+                            "Naik"
+                            if persen_pasar > 0
+                            else "Turun"
+                            if persen_pasar < 0
+                            else "Tetap"
+                        )
+
+                        tanda = (
+                            "+"
+                            if persen_pasar > 0
+                            else ""
+                        )
+
+                        st.metric(
+                            "Jumlah Pasar",
+                            f"{int(pasar_sekarang):,}"
+                            .replace(",", "."),
+                            delta=(
+                                f"{tanda}"
+                                f"{persen_pasar:.1f}%"
+                            )
+                        )
+
+                        st.caption(
+                            f"{arah} dibanding tahun "
+                            f"{tahun_sebelumnya}"
+                        )
+
+                    else:
+                        st.metric(
+                            "Jumlah Pasar",
+                            f"{int(pasar_sekarang):,}"
+                            .replace(",", ".")
+                        )
+
+                        st.caption(
+                            f"Data tahun "
+                            f"{tahun_sebelumnya} "
+                            f"belum tersedia."
+                        )
         else:
             c1, c2 = st.columns(2)
         
