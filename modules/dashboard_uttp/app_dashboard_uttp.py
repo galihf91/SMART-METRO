@@ -1678,32 +1678,25 @@ def render_dashboard_uttp():
     # =====================================================
     # NAVIGASI
     # =====================================================
-    col_back1, col_back2, _ = st.columns(
-        [1.4, 1.4, 5]
-    )
-
-    with col_back1:
+    col_back, col_home, col_space = st.columns([1.4, 1.4, 5])
+    
+    with col_back:
         if st.button(
-            "⬅️ Kembali ke SMART METRO",
-            key="btn_dashboard_uttp_back_home",
+            "← Dashboard Tera Ulang",
             use_container_width=True,
+            key="btn_uttp_kembali_dashboard"
         ):
-            st.session_state[
-                "halaman_uttp"
-            ] = "home_uttp"
-
+            st.session_state.halaman_dashboard = "home_dashboard"
             st.rerun()
-
-    with col_back2:
+    
+    with col_home:
         if st.button(
-            "📊 Kembali ke Dashboard",
-            key="btn_dashboard_uttp_back_dashboard",
+            "🏠 Home SMART METRO",
             use_container_width=True,
+            key="btn_uttp_kembali_home"
         ):
-            st.session_state[
-                "halaman_uttp"
-            ] = "dashboard"
-
+            st.session_state.halaman = "home"
+            st.session_state.halaman_dashboard = "home_dashboard"
             st.rerun()
 
     # =====================================================
