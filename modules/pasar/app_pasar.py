@@ -551,13 +551,17 @@ def render_data_tahunan():
                     .eq("id", int(existing["id"]))
                     .execute()
                 )
+            
                 st.success("Data tahunan pasar berhasil diperbarui.")
+                st.balloons()
+            
             else:
                 sb.table("pasar_tahunan").insert(payload).execute()
+            
                 st.success("Data tahunan pasar berhasil disimpan.")
-
+                st.balloons()
+            
             clear_cache_pasar()
-            st.rerun()
 
         except Exception as e:
             st.error(f"Data gagal disimpan: {e}")
