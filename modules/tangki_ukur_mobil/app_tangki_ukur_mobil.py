@@ -3988,6 +3988,43 @@ def run():
             st.subheader(
                 "Data Pengujian"
             )
+            # =====================================================
+            # PENGAMAN NOMOR DOKUMEN TUM
+            # =====================================================
+            tanggal_nomor_tum = st.session_state.get(
+                "tum_tanggal_pengujian",
+                date.today()
+            )
+
+            nomor_sertifikat_tum_state = str(
+                st.session_state.get(
+                    "tum_nomor_sertifikat",
+                    ""
+                )
+                or ""
+            ).strip()
+
+            nomor_order_tum_state = str(
+                st.session_state.get(
+                    "tum_nomor_order",
+                    ""
+                )
+                or ""
+            ).strip()
+
+            if not nomor_sertifikat_tum_state:
+                st.session_state[
+                    "tum_nomor_sertifikat"
+                ] = generate_nomor_sertifikat(
+                    tanggal_nomor_tum
+                )
+
+            if not nomor_order_tum_state:
+                st.session_state[
+                    "tum_nomor_order"
+                ] = generate_nomor_order(
+                    tanggal_nomor_tum
+                )
 
             jenis_pengujian = (
                 st.selectbox(
