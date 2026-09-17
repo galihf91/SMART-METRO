@@ -9,7 +9,6 @@ import re
 import numpy as np
 import json
 import glob
-import base64
 import os
 from supabase import create_client
 
@@ -36,42 +35,41 @@ def get_base64_of_image(image_path):
     except:
         return None
 
-def render_main_header(title, subtitle, image_path="assets/background_header.jpeg"):
-    if not os.path.exists(image_path):
-        st.warning(f"⚠️ File header tidak ditemukan: `{os.path.abspath(image_path)}`. Gunakan fallback.")
-        img_b64 = None
-    else:
-        img_b64 = get_base64_of_image(image_path)
+def render_main_header(title, subtitle):
+    st.markdown(
+        f"""
+        <div style="
+            background: linear-gradient(90deg, #4B0082, #8000FF);
+            padding: 28px 24px;
+            border-radius: 16px;
+            margin-bottom: 30px;
+            text-align: center;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+        ">
+            <h1 style="
+                color: white;
+                font-size: 32px;
+                margin-bottom: 8px;
+            ">
+                {title}
+            </h1>
 
-    mime = "image/png" if image_path.lower().endswith(".png") else "image/jpeg"
-
-    if img_b64:
-        st.markdown(f"""
-        <style>
-        .main-header {{
-            width: 100%; height: 280px;
-            background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("data:{mime};base64,{img_b64}");
-            background-size: cover; background-position: center 30%; background-repeat: no-repeat;
-            border-radius: 16px; margin-bottom: 30px; display: flex; flex-direction: column;
-            justify-content: center; align-items: center; text-align: center;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.2); background-color: #4B0082;
-        }}
-        .main-header h1 {{ color: white; font-size: 38px; font-weight: 700; text-shadow: 2px 2px 8px black; padding: 0 20px; }}
-        .main-header p {{ color: rgba(255,255,255,0.95); font-size: 18px; text-shadow: 1px 1px 4px black; padding: 0 20px; }}
-        </style>
-        <div class="main-header"><h1>{title}</h1><p>{subtitle}</p></div>
-        """, unsafe_allow_html=True)
-    else:
-        st.markdown(f"""
-        <div style="background: linear-gradient(90deg, #4B0082, #8000FF); padding: 30px 25px; border-radius: 16px;
-                    margin-bottom: 30px; text-align: center; box-shadow: 0 8px 16px rgba(0,0,0,0.15);">
-            <h1 style="color: white; font-size: 32px;">{title}</h1>
-            <p style="color: rgba(255,255,255,0.9); font-size: 18px;">{subtitle}</p>
+            <p style="
+                color: rgba(255,255,255,0.9);
+                font-size: 17px;
+                margin: 0;
+            ">
+                {subtitle}
+            </p>
         </div>
-        """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True
+    )
 
-    st.markdown("<style>#MainMenu,footer{visibility:hidden;}</style>", unsafe_allow_html=True)
-
+    st.markdown(
+        "<style>#MainMenu,footer{visibility:hidden;}</style>",
+        unsafe_allow_html=True
+    )
 # =========================
 # FUNGSI UTILITAS UMUM
 # =========================
