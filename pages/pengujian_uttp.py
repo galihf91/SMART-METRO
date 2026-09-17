@@ -272,7 +272,7 @@ def halaman_home_uttp():
 
     with col8:
         with st.container(border=True):
-            st.markdown("## 🏪 Data Pasar")
+            st.markdown("## 🏪 Pasar")
             st.write(
                 "Input dan pembaruan data kegiatan tera ulang "
                 "pasar setiap tahun."
