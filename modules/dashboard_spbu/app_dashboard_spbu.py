@@ -892,17 +892,206 @@ def render_dashboard_spbu():
 
     # -----------------------------------------------------
     # KPI
+    # Hanya tampil jika user belum memilih SPBU tertentu
     # -----------------------------------------------------
-    c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Total SPBU", len(kpi_df))
-    c2.metric("Tera Aktif", int((kpi_df["status_tera"] == STATUS_AKTIF).sum()))
-    c3.metric(f"≤ {BATAS_JATUH_TEMPO_HARI} Hari", int((kpi_df["status_tera"] == STATUS_JATUH_TEMPO).sum()))
-    c4.metric("Kedaluwarsa", int((kpi_df["status_tera"] == STATUS_KEDALUWARSA).sum()))
-    c5.metric("Belum Ada Pengujian", int((kpi_df["status_tera"] == STATUS_BELUM_UJI).sum()))
-
-    incomplete_count = int((kpi_df["status_tera"] == STATUS_DATA_KURANG).sum())
-    if incomplete_count:
-        st.caption(f"ℹ️ {incomplete_count} SPBU sudah memiliki pengujian tetapi data masa berlaku belum lengkap.")
+    if nama_sel == "(Semua)":
+    
+        total_spbu = len(kpi_df)
+    
+        total_aktif = int(
+            (
+                kpi_df["status_tera"]
+                == STATUS_AKTIF
+            ).sum()
+        )
+    
+        total_jatuh_tempo = int(
+            (
+                kpi_df["status_tera"]
+                == STATUS_JATUH_TEMPO
+            ).sum()
+        )
+    
+        total_kedaluwarsa = int(
+            (
+                kpi_df["status_tera"]
+                == STATUS_KEDALUWARSA
+            ).sum()
+        )
+    
+        total_belum_uji = int(
+            (
+                kpi_df["status_tera"]
+                == STATUS_BELUM_UJI
+            ).sum()
+        )
+    
+        # =====================================================
+        # STYLE CARD KPI
+        # =====================================================
+        st.markdown(
+            """
+            <style>
+            .kpi-card {
+                background: white;
+                border-radius: 14px;
+                padding: 18px 18px;
+                min-height: 118px;
+                border: 1px solid #E2E8F0;
+                box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+            }
+    
+            .kpi-card-title {
+                font-size: 13px;
+                font-weight: 600;
+                color: #64748B;
+                margin-bottom: 8px;
+            }
+    
+            .kpi-card-value {
+                font-size: 30px;
+                font-weight: 800;
+                color: #0F172A;
+                line-height: 1.1;
+            }
+    
+            .kpi-card-sub {
+                font-size: 12px;
+                color: #94A3B8;
+                margin-top: 6px;
+            }
+    
+            .kpi-blue {
+                border-top: 5px solid #2563EB;
+            }
+    
+            .kpi-green {
+                border-top: 5px solid #16A34A;
+            }
+    
+            .kpi-orange {
+                border-top: 5px solid #F59E0B;
+            }
+    
+            .kpi-red {
+                border-top: 5px solid #DC2626;
+            }
+    
+            .kpi-gray {
+                border-top: 5px solid #64748B;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+    
+        c1, c2, c3, c4, c5 = st.columns(5)
+    
+        with c1:
+            st.markdown(
+                f"""
+                <div class="kpi-card kpi-blue">
+                    <div class="kpi-card-title">
+                        ⛽ Total SPBU
+                    </div>
+                    <div class="kpi-card-value">
+                        {total_spbu}
+                    </div>
+                    <div class="kpi-card-sub">
+                        SPBU dalam lingkup filter
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+    
+        with c2:
+            st.markdown(
+                f"""
+                <div class="kpi-card kpi-green">
+                    <div class="kpi-card-title">
+                        ✅ Tera Aktif
+                    </div>
+                    <div class="kpi-card-value">
+                        {total_aktif}
+                    </div>
+                    <div class="kpi-card-sub">
+                        Masa tera masih berlaku
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+    
+        with c3:
+            st.markdown(
+                f"""
+                <div class="kpi-card kpi-orange">
+                    <div class="kpi-card-title">
+                        ⏳ ≤ {BATAS_JATUH_TEMPO_HARI} Hari
+                    </div>
+                    <div class="kpi-card-value">
+                        {total_jatuh_tempo}
+                    </div>
+                    <div class="kpi-card-sub">
+                        Akan jatuh tempo
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+    
+        with c4:
+            st.markdown(
+                f"""
+                <div class="kpi-card kpi-red">
+                    <div class="kpi-card-title">
+                        ⚠️ Kedaluwarsa
+                    </div>
+                    <div class="kpi-card-value">
+                        {total_kedaluwarsa}
+                    </div>
+                    <div class="kpi-card-sub">
+                        Masa tera telah berakhir
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+    
+        with c5:
+            st.markdown(
+                f"""
+                <div class="kpi-card kpi-gray">
+                    <div class="kpi-card-title">
+                        📋 Belum Ada Pengujian
+                    </div>
+                    <div class="kpi-card-value">
+                        {total_belum_uji}
+                    </div>
+                    <div class="kpi-card-sub">
+                        Belum tercatat pengujian
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+    
+        # =====================================================
+        # DATA PENGUJIAN BELUM LENGKAP
+        # =====================================================
+        incomplete_count = int(
+            (
+                kpi_df["status_tera"]
+                == STATUS_DATA_KURANG
+            ).sum()
+        )
+    
+        if incomplete_count:
+            st.info(
+                f"ℹ️ {incomplete_count} SPBU sudah memiliki "
+                "pengujian tetapi data masa berlaku belum lengkap."
+            )
 
     # -----------------------------------------------------
     # PRIORITAS PENGAWASAN
