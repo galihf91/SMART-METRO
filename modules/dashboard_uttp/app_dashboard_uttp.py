@@ -405,7 +405,7 @@ def render_header():
 }
 </style>
 
-<div class="dashboard-header"><h1>⚖️ Dashboard Pengawasan UTTP</h1><p>Monitoring kepemilikan UTTP, masa berlaku tera, riwayat pengujian, dan prioritas pengawasan.</p></div>
+<div class="dashboard-header"><h1>⚖️ Dashboard UTTP</h1><p>Monitoring kepemilikan UTTP, masa berlaku tera, riwayat pengujian, dan prioritas pengawasan.</p></div>
         """,
         unsafe_allow_html=True,
     )
