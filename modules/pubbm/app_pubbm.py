@@ -6264,20 +6264,25 @@ def run():
 
             if "nomor_sertifikat_pubbm" not in st.session_state:
                 st.session_state.nomor_sertifikat_pubbm = (
-                    st.session_state.saved_data.get(
-                        "nomor_sertifikat",
-                        default_sertifikat
+                    st.session_state.get(
+                        "data_pubbm",
+                        {}
+                    ).get(
+                        "nomor_sertifikat"
                     )
+                    or default_sertifikat
                 )
-
+            
             if "nomor_order_pubbm" not in st.session_state:
                 st.session_state.nomor_order_pubbm = (
-                    st.session_state.saved_data.get(
-                        "nomor_order",
-                        default_order
+                    st.session_state.get(
+                        "data_pubbm",
+                        {}
+                    ).get(
+                        "nomor_order"
                     )
+                    or default_order
                 )
-
             nomor_sertifikat = st.text_input(
                 "Nomor Sertifikat",
                 key="nomor_sertifikat_pubbm",
