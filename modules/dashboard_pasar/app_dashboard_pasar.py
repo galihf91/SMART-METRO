@@ -25,66 +25,68 @@ FILE_EXCEL = "data/DATA_DASHBOARD_PASAR.xlsx"
 FILE_GEOJSON = "data/batas_kecamatan_tangerang.geojson"
 
 def render_main_header(title, subtitle):
+    html = (
+        '<div style="'
+        'background:linear-gradient(135deg,#4B0082 0%,#6D28D9 55%,#7C3AED 100%);'
+        'padding:22px 26px;'
+        'border-radius:16px;'
+        'margin-bottom:22px;'
+        'box-shadow:0 8px 20px rgba(75,0,130,0.18);'
+        'color:white;'
+        'display:flex;'
+        'align-items:center;'
+        'gap:16px;'
+        '">'
+        
+        '<div style="'
+        'width:52px;'
+        'height:52px;'
+        'border-radius:14px;'
+        'background:rgba(255,255,255,0.15);'
+        'display:flex;'
+        'align-items:center;'
+        'justify-content:center;'
+        'font-size:28px;'
+        'flex-shrink:0;'
+        '">'
+        '🏪'
+        '</div>'
+        
+        '<div style="flex:1;">'
+        
+        '<div style="'
+        'font-size:12px;'
+        'font-weight:700;'
+        'letter-spacing:0.8px;'
+        'opacity:0.85;'
+        'margin-bottom:3px;'
+        '">'
+        'SMART METRO · TERA ULANG PASAR'
+        '</div>'
+        
+        '<div style="'
+        'font-size:28px;'
+        'font-weight:800;'
+        'line-height:1.2;'
+        'margin-bottom:5px;'
+        '">'
+        f'{title}'
+        '</div>'
+        
+        '<div style="'
+        'font-size:14px;'
+        'opacity:0.9;'
+        'line-height:1.4;'
+        '">'
+        f'{subtitle}'
+        '</div>'
+        
+        '</div>'
+        '</div>'
+    )
+
     st.markdown(
-        f"""
-<div style="
-    background: linear-gradient(135deg, #4B0082 0%, #6D28D9 55%, #7C3AED 100%);
-    padding: 22px 26px;
-    border-radius: 16px;
-    margin-bottom: 22px;
-    box-shadow: 0 8px 20px rgba(75, 0, 130, 0.18);
-    color: white;
-">
-    <div style="
-        display: flex;
-        align-items: center;
-        gap: 14px;
-    ">
-        <div style="
-            width: 50px;
-            height: 50px;
-            border-radius: 14px;
-            background: rgba(255,255,255,0.15);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 27px;
-            flex-shrink: 0;
-        ">
-            🏪
-        </div>
-
-        <div style="flex: 1;">
-            <div style="
-                font-size: 12px;
-                font-weight: 700;
-                letter-spacing: 0.8px;
-                opacity: 0.82;
-                margin-bottom: 3px;
-            ">
-                SMART METRO · TERA ULANG PASAR
-            </div>
-
-            <div style="
-                font-size: 28px;
-                font-weight: 800;
-                line-height: 1.15;
-                margin-bottom: 5px;
-            ">
-                {title}
-            </div>
-
-            <div style="
-                font-size: 14px;
-                opacity: 0.9;
-                line-height: 1.4;
-            ">
-                {subtitle}
-            </div>
-        </div>
-    </div>
-</div>
-        """,
+        html,
         unsafe_allow_html=True
     )
 # =========================
