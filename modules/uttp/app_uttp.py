@@ -456,14 +456,17 @@ def get_or_create_master_uttp_umum(
     # =====================================================
     # PRIORITAS UTTP ID YANG SUDAH DIKENAL
     #
-    # Berasal dari Edit atau penggunaan riwayat.
+    # _uttp_id hanya tersedia jika data berasal dari:
+    # - Edit Pengujian
+    # - Pengujian Baru dari Riwayat
+    #
+    # Nomor seri TIDAK dianggap unik.
     # =====================================================
-    uttp_id_lama = (
-        rincian.get(
-            "_uttp_id"
-        )
+    
+    uttp_id_lama = rincian.get(
+        "_uttp_id"
     )
-
+    
     if (
         uttp_id_lama is not None
         and str(
@@ -476,17 +479,22 @@ def get_or_create_master_uttp_umum(
                     uttp_id_lama
                 )
             )
+    
         except (
             TypeError,
             ValueError
         ):
             uttp_id_lama = None
-
+    
+    
+    # =====================================================
+    # 1. ADA _uttp_id
+    # =====================================================
     if uttp_id_lama is not None:
-
-        # =====================================================
-        # CEK MASTER UTTP LAMA
-        # =====================================================
+    
+        # -------------------------------------------------
+        # Cek master UTTP lama
+        # -------------------------------------------------
         response_uttp_lama = (
             supabase
             .table("uttp")
@@ -501,9 +509,9 @@ def get_or_create_master_uttp_umum(
             .execute()
         )
     
-        # =====================================================
-        # MASTER LAMA MASIH ADA
-        # =====================================================
+        # -------------------------------------------------
+        # Master lama ditemukan
+        # -------------------------------------------------
         if response_uttp_lama.data:
     
             uttp_lama = (
@@ -518,20 +526,27 @@ def get_or_create_master_uttp_umum(
     
             try:
                 perusahaan_id_lama = (
-                    int(perusahaan_id_lama)
-                    if perusahaan_id_lama is not None
+                    int(
+                        perusahaan_id_lama
+                    )
+                    if perusahaan_id_lama
+                    is not None
                     else None
                 )
+    
             except (
                 TypeError,
                 ValueError
             ):
                 perusahaan_id_lama = None
     
-            # =================================================
+    
+            # =============================================
             # PERUSAHAAN TIDAK BERUBAH
-            # → UPDATE MASTER UTTP YANG SAMA
-            # =================================================
+            #
+            # Berarti alat yang sama.
+            # Update master UTTP yang sudah ada.
+            # =============================================
             if (
                 perusahaan_id_lama
                 == perusahaan_id
@@ -552,7 +567,8 @@ def get_or_create_master_uttp_umum(
     
                 if not response_update.data:
                     raise RuntimeError(
-                        "Master UTTP lama gagal diperbarui."
+                        "Master UTTP lama "
+                        "gagal diperbarui."
                     )
     
                 return (
@@ -560,84 +576,46 @@ def get_or_create_master_uttp_umum(
                     False
                 )
     
-            # =================================================
+    
+            # =============================================
             # PERUSAHAAN BERUBAH
             #
-            # Jangan pindahkan master UTTP lama karena mungkin
-            # masih digunakan oleh riwayat pengujian lain.
+            # JANGAN memindahkan master UTTP lama.
+            # Riwayat perusahaan lama harus tetap utuh.
             #
-            # Biarkan proses di bawah mencari / membuat
-            # master UTTP untuk perusahaan yang baru.
-            # =================================================
-    # =====================================================
-    # CARI MASTER YANG SUDAH ADA
-    # =====================================================
-    response_existing = (
-        supabase
-        .table(
-            "uttp"
-        )
-        .select(
-            "id"
-        )
-        .eq(
-            "perusahaan_id",
-            perusahaan_id
-        )
-        .eq(
-            "jenis_uttp",
-            jenis_uttp
-        )
-        .eq(
-            "nomor_seri",
-            nomor_seri
-        )
-        .limit(1)
-        .execute()
-    )
-
-    # =====================================================
-    # SUDAH ADA → UPDATE MASTER
-    # =====================================================
-    if response_existing.data:
-        uttp_id = (
-            response_existing
-            .data[0]["id"]
-        )
-
-        response_update = (
-            supabase
-            .table(
-                "uttp"
+            # Buat master UTTP baru untuk perusahaan baru.
+            # =============================================
+            response_insert = (
+                supabase
+                .table("uttp")
+                .insert(
+                    payload_uttp
+                )
+                .execute()
             )
-            .update(
-                payload_uttp
-            )
-            .eq(
-                "id",
-                uttp_id
-            )
-            .execute()
-        )
-
-        if not response_update.data:
-            raise RuntimeError(
-                "Master UTTP lama gagal diperbarui."
+    
+            if not response_insert.data:
+                raise RuntimeError(
+                    "Master UTTP baru gagal "
+                    "dibuat untuk perusahaan "
+                    "yang baru."
+                )
+    
+            return (
+                response_insert.data[0]["id"],
+                True
             )
 
-        return (
-            uttp_id,
-            False
-        )
 
-    # =====================================================
-    # BELUM ADA → BUAT MASTER BARU
-    # =====================================================
+    # -------------------------------------------------
+    # _uttp_id ada di form tetapi master sudah tidak ada
+    #
+    # Jangan mencari berdasarkan nomor seri.
+    # Buat master baru.
+    # -------------------------------------------------
     response_insert = (
         supabase
-        .table(
-            "uttp"
-        )
+        .table("uttp")
         .insert(
             payload_uttp
         )
@@ -646,13 +624,45 @@ def get_or_create_master_uttp_umum(
 
     if not response_insert.data:
         raise RuntimeError(
-            "Master UTTP gagal disimpan."
+            "Master UTTP baru gagal dibuat."
         )
 
     return (
         response_insert.data[0]["id"],
         True
     )
+
+
+# =====================================================
+# 2. TIDAK ADA _uttp_id
+#
+# Ini berarti rincian UTTP baru.
+#
+# SELALU buat master UTTP baru.
+#
+# Nomor seri tidak digunakan untuk mencari master
+# karena di lapangan beberapa UTTP dapat memiliki
+# nomor seri yang sama.
+# =====================================================
+
+response_insert = (
+    supabase
+    .table("uttp")
+    .insert(
+        payload_uttp
+    )
+    .execute()
+)
+
+if not response_insert.data:
+    raise RuntimeError(
+        "Master UTTP gagal disimpan."
+    )
+
+return (
+    response_insert.data[0]["id"],
+    True
+)
 
 
 # =========================================================
