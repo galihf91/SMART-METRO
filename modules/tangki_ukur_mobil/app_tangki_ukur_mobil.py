@@ -2270,6 +2270,43 @@ def init_tum_state():
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
+    
+    # =====================================================
+    # PENGAMAN NOMOR DOKUMEN
+    # Jika state sudah ada tetapi kosong,
+    # isi kembali dengan nomor default TUM.
+    # =====================================================
+    if not str(
+        st.session_state.get(
+            "tum_nomor_sertifikat",
+            ""
+        )
+        or ""
+    ).strip():
+        st.session_state[
+            "tum_nomor_sertifikat"
+        ] = generate_nomor_sertifikat(
+            st.session_state.get(
+                "tum_tanggal_pengujian",
+                date.today()
+            )
+        )
+    
+    if not str(
+        st.session_state.get(
+            "tum_nomor_order",
+            ""
+        )
+        or ""
+    ).strip():
+        st.session_state[
+            "tum_nomor_order"
+        ] = generate_nomor_order(
+            st.session_state.get(
+                "tum_tanggal_pengujian",
+                date.today()
+            )
+        )
 
 
 def reset_form_tum():
