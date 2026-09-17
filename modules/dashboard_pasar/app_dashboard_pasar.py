@@ -750,11 +750,218 @@ def render_dashboard_pasar():
         st.info("Tidak ada data untuk grafik.")
     else:
         import altair as alt
-        if kec_pick == '(Semua)' and nama_pick == '(Semua)':
-            c1,c2,c3 = st.columns(3)
-            with c1: st.altair_chart(alt.Chart(agg).mark_line(point=True).encode(x='Tahun:O', y='jumlah_pasar:Q').properties(height=250), use_container_width=True)
-            with c2: st.altair_chart(alt.Chart(agg).mark_line(point=True).encode(x='Tahun:O', y='total_uttp:Q'), use_container_width=True)
-            with c3: st.altair_chart(alt.Chart(agg).mark_line(point=True).encode(x='Tahun:O', y='total_pedagang:Q'), use_container_width=True)
+        if (
+            kec_pick == "(Semua)"
+            and nama_pick == "(Semua)"
+        ):
+
+            # =====================================================
+            # GRAFIK UMUM KABUPATEN TANGERANG
+            # Tampilan disamakan dengan grafik Kecamatan / Pasar
+            # =====================================================
+            c1, c2 = st.columns(2)
+
+            # =====================================================
+            # GRAFIK JUMLAH PEDAGANG
+            # =====================================================
+            with c1:
+
+                base_pedagang_umum = alt.Chart(
+                    agg
+                ).encode(
+                    x=alt.X(
+                        "Tahun:O",
+                        title="Tahun",
+                        axis=alt.Axis(
+                            labelAngle=0
+                        )
+                    ),
+                    y=alt.Y(
+                        "total_pedagang:Q",
+                        title="Jumlah Pedagang"
+                    ),
+                    tooltip=[
+                        alt.Tooltip(
+                            "Tahun:O",
+                            title="Tahun"
+                        ),
+                        alt.Tooltip(
+                            "total_pedagang:Q",
+                            title="Jumlah Pedagang",
+                            format=",.0f"
+                        )
+                    ]
+                )
+
+                area_pedagang_umum = (
+                    base_pedagang_umum.mark_area(
+                        opacity=0.15
+                    )
+                )
+
+                line_pedagang_umum = (
+                    base_pedagang_umum.mark_line(
+                        strokeWidth=3
+                    )
+                )
+
+                point_pedagang_umum = (
+                    base_pedagang_umum.mark_point(
+                        filled=True,
+                        size=90
+                    )
+                )
+
+                chart_pedagang_umum = (
+                    area_pedagang_umum
+                    + line_pedagang_umum
+                    + point_pedagang_umum
+                ).properties(
+                    title=(
+                        "Perkembangan Jumlah Pedagang "
+                        "- Kabupaten Tangerang"
+                    ),
+                    height=300
+                )
+
+                st.altair_chart(
+                    chart_pedagang_umum,
+                    use_container_width=True
+                )
+
+            # =====================================================
+            # GRAFIK JUMLAH TIMBANGAN
+            # =====================================================
+            with c2:
+
+                base_uttp_umum = alt.Chart(
+                    agg
+                ).encode(
+                    x=alt.X(
+                        "Tahun:O",
+                        title="Tahun",
+                        axis=alt.Axis(
+                            labelAngle=0
+                        )
+                    ),
+                    y=alt.Y(
+                        "total_uttp:Q",
+                        title="Jumlah Timbangan"
+                    ),
+                    tooltip=[
+                        alt.Tooltip(
+                            "Tahun:O",
+                            title="Tahun"
+                        ),
+                        alt.Tooltip(
+                            "total_uttp:Q",
+                            title="Jumlah Timbangan",
+                            format=",.0f"
+                        )
+                    ]
+                )
+
+                area_uttp_umum = (
+                    base_uttp_umum.mark_area(
+                        opacity=0.15
+                    )
+                )
+
+                line_uttp_umum = (
+                    base_uttp_umum.mark_line(
+                        strokeWidth=3
+                    )
+                )
+
+                point_uttp_umum = (
+                    base_uttp_umum.mark_point(
+                        filled=True,
+                        size=90
+                    )
+                )
+
+                chart_uttp_umum = (
+                    area_uttp_umum
+                    + line_uttp_umum
+                    + point_uttp_umum
+                ).properties(
+                    title=(
+                        "Perkembangan Jumlah Timbangan "
+                        "- Kabupaten Tangerang"
+                    ),
+                    height=300
+                )
+
+                st.altair_chart(
+                    chart_uttp_umum,
+                    use_container_width=True
+                )
+
+            # =====================================================
+            # GRAFIK JUMLAH PASAR
+            # =====================================================
+            base_pasar_umum = alt.Chart(
+                agg
+            ).encode(
+                x=alt.X(
+                    "Tahun:O",
+                    title="Tahun",
+                    axis=alt.Axis(
+                        labelAngle=0
+                    )
+                ),
+                y=alt.Y(
+                    "jumlah_pasar:Q",
+                    title="Jumlah Pasar"
+                ),
+                tooltip=[
+                    alt.Tooltip(
+                        "Tahun:O",
+                        title="Tahun"
+                    ),
+                    alt.Tooltip(
+                        "jumlah_pasar:Q",
+                        title="Jumlah Pasar",
+                        format=",.0f"
+                    )
+                ]
+            )
+
+            area_pasar_umum = (
+                base_pasar_umum.mark_area(
+                    opacity=0.15
+                )
+            )
+
+            line_pasar_umum = (
+                base_pasar_umum.mark_line(
+                    strokeWidth=3
+                )
+            )
+
+            point_pasar_umum = (
+                base_pasar_umum.mark_point(
+                    filled=True,
+                    size=90
+                )
+            )
+
+            chart_pasar_umum = (
+                area_pasar_umum
+                + line_pasar_umum
+                + point_pasar_umum
+            ).properties(
+                title=(
+                    "Perkembangan Jumlah Pasar "
+                    "yang Melaksanakan Tera Ulang"
+                ),
+                height=260
+            )
+
+            st.altair_chart(
+                chart_pasar_umum,
+                use_container_width=True
+            )
         else:
             c1, c2 = st.columns(2)
         
