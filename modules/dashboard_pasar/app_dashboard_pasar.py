@@ -743,15 +743,29 @@ def render_dashboard_pasar():
                 with c1:
                     chart_pedagang = (
                         alt.Chart(agg)
-                        .mark_line(point=True)
+                        .mark_area(
+                            line={"strokeWidth": 3},
+                            point={"filled": True, "size": 90},
+                            opacity=0.18
+                        )
                         .encode(
                             x=alt.X(
                                 "Tahun:O",
-                                title="Tahun"
+                                title="Tahun",
+                                axis=alt.Axis(
+                                    labelAngle=0,
+                                    labelFontSize=12,
+                                    titleFontSize=13
+                                )
                             ),
                             y=alt.Y(
                                 "total_pedagang:Q",
-                                title="Jumlah Pedagang"
+                                title="Jumlah Pedagang",
+                                axis=alt.Axis(
+                                    labelFontSize=12,
+                                    titleFontSize=13,
+                                    format=",.0f"
+                                )
                             ),
                             tooltip=[
                                 alt.Tooltip("Tahun:O", title="Tahun"),
@@ -763,28 +777,49 @@ def render_dashboard_pasar():
                             ]
                         )
                         .properties(
-                            title="Jumlah Pedagang dari Tahun ke Tahun",
-                            height=250
+                            title={
+                                "text": "Perkembangan Jumlah Pedagang",
+                                "subtitle": f"{nama_pick}",
+                                "fontSize": 18,
+                                "subtitleFontSize": 12,
+                                "anchor": "start"
+                            },
+                            height=300
                         )
-                    )
-        
-                    st.altair_chart(
-                        chart_pedagang,
-                        use_container_width=True
+                        .configure_view(
+                            strokeWidth=0
+                        )
+                        .configure_axis(
+                            gridOpacity=0.15
+                        )
                     )
         
                 with c2:
                     chart_uttp = (
                         alt.Chart(agg)
-                        .mark_line(point=True)
+                        .mark_area(
+                            line={"strokeWidth": 3},
+                            point={"filled": True, "size": 90},
+                            opacity=0.18
+                        )
                         .encode(
                             x=alt.X(
                                 "Tahun:O",
-                                title="Tahun"
+                                title="Tahun",
+                                axis=alt.Axis(
+                                    labelAngle=0,
+                                    labelFontSize=12,
+                                    titleFontSize=13
+                                )
                             ),
                             y=alt.Y(
                                 "total_uttp:Q",
-                                title="Jumlah Timbangan"
+                                title="Jumlah Timbangan",
+                                axis=alt.Axis(
+                                    labelFontSize=12,
+                                    titleFontSize=13,
+                                    format=",.0f"
+                                )
                             ),
                             tooltip=[
                                 alt.Tooltip("Tahun:O", title="Tahun"),
@@ -796,14 +831,21 @@ def render_dashboard_pasar():
                             ]
                         )
                         .properties(
-                            title="Jumlah Timbangan dari Tahun ke Tahun",
-                            height=250
+                            title={
+                                "text": "Perkembangan Jumlah Timbangan",
+                                "subtitle": f"{nama_pick}",
+                                "fontSize": 18,
+                                "subtitleFontSize": 12,
+                                "anchor": "start"
+                            },
+                            height=300
                         )
-                    )
-        
-                    st.altair_chart(
-                        chart_uttp,
-                        use_container_width=True
+                        .configure_view(
+                            strokeWidth=0
+                        )
+                        .configure_axis(
+                            gridOpacity=0.15
+                        )
                     )
                 # =====================================================
                 # PERUBAHAN DIBANDING 1 TAHUN SEBELUMNYA
