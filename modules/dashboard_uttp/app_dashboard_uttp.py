@@ -2475,22 +2475,11 @@ def render_dashboard_uttp():
                     [
                         "pemilik_display",
                         "jenis_uttp",
-                        "merk",
-                        "nomor_seri",
                         "status_tera",
-                        "berlaku_sampai",
                         "sisa_hari",
                     ]
                 ]
                 .copy()
-            )
-
-            priority_view[
-                "berlaku_sampai"
-            ] = priority_view[
-                "berlaku_sampai"
-            ].apply(
-                format_tanggal
             )
 
             priority_view[
@@ -2502,12 +2491,9 @@ def render_dashboard_uttp():
             )
 
             priority_view.columns = [
-                "Pemilik / Lokasi",
+                "Pemilik",
                 "Jenis UTTP",
-                "Merek",
-                "Nomor Seri",
                 "Status",
-                "Berlaku Sampai",
                 "Sisa Waktu",
             ]
 
