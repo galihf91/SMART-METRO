@@ -24,50 +24,105 @@ st.set_page_config(
 FILE_EXCEL = "data/DATA_DASHBOARD_PASAR.xlsx"
 FILE_GEOJSON = "data/batas_kecamatan_tangerang.geojson"
 
-# =========================
-# FUNGSI BASE64 UNTUK HEADER
-# =========================
-
-def get_base64_of_image(image_path):
-    try:
-        with open(image_path, "rb") as f:
-            return base64.b64encode(f.read()).decode()
-    except:
-        return None
-
 def render_main_header(title, subtitle):
     st.markdown(
         f"""
         <div style="
-            background: linear-gradient(90deg, #4B0082, #8000FF);
-            padding: 28px 24px;
-            border-radius: 16px;
-            margin-bottom: 30px;
-            text-align: center;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+            background: linear-gradient(135deg, #4B0082 0%, #6A0DAD 45%, #8A2BE2 100%);
+            padding: 28px 30px;
+            border-radius: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 10px 24px rgba(75, 0, 130, 0.22);
+            color: white;
         ">
-            <h1 style="
-                color: white;
-                font-size: 32px;
-                margin-bottom: 8px;
+            <div style="
+                display: flex;
+                align-items: center;
+                gap: 16px;
+                flex-wrap: wrap;
             ">
-                {title}
-            </h1>
+                <div style="
+                    width: 62px;
+                    height: 62px;
+                    border-radius: 16px;
+                    background: rgba(255,255,255,0.14);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 32px;
+                    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12);
+                ">
+                    🏪
+                </div>
 
-            <p style="
-                color: rgba(255,255,255,0.9);
-                font-size: 17px;
-                margin: 0;
+                <div>
+                    <div style="
+                        font-size: 14px;
+                        font-weight: 600;
+                        opacity: 0.9;
+                        letter-spacing: 0.5px;
+                        margin-bottom: 4px;
+                    ">
+                        SMART METRO · DASHBOARD TERA ULANG
+                    </div>
+
+                    <div style="
+                        font-size: 34px;
+                        font-weight: 800;
+                        line-height: 1.2;
+                        margin-bottom: 6px;
+                    ">
+                        {title}
+                    </div>
+
+                    <div style="
+                        font-size: 15px;
+                        opacity: 0.92;
+                        line-height: 1.5;
+                    ">
+                        {subtitle}
+                    </div>
+                </div>
+            </div>
+
+            <div style="
+                margin-top: 18px;
+                display: flex;
+                gap: 10px;
+                flex-wrap: wrap;
             ">
-                {subtitle}
-            </p>
+                <span style="
+                    background: rgba(255,255,255,0.14);
+                    padding: 7px 14px;
+                    border-radius: 999px;
+                    font-size: 13px;
+                    font-weight: 600;
+                ">
+                    Monitoring Pasar
+                </span>
+
+                <span style="
+                    background: rgba(255,255,255,0.14);
+                    padding: 7px 14px;
+                    border-radius: 999px;
+                    font-size: 13px;
+                    font-weight: 600;
+                ">
+                    Status Tera Ulang
+                </span>
+
+                <span style="
+                    background: rgba(255,255,255,0.14);
+                    padding: 7px 14px;
+                    border-radius: 999px;
+                    font-size: 13px;
+                    font-weight: 600;
+                ">
+                    Kabupaten Tangerang
+                </span>
+            </div>
         </div>
         """,
-        unsafe_allow_html=True
-    )
-
-    st.markdown(
-        "<style>#MainMenu,footer{visibility:hidden;}</style>",
         unsafe_allow_html=True
     )
 # =========================
