@@ -3060,9 +3060,7 @@ def run():
             "Nomor Seri",
             "Kelas",
             "Kapasitas",
-            "Satuan Kapasitas",
             "Daya Baca",
-            "Satuan Daya Baca",
             "Telusuran",
         ]
     
@@ -3080,11 +3078,13 @@ def run():
                     "nomor_seri, "
                     "kelas, "
                     "kapasitas, "
-                    "satuan_kapasitas, "
                     "daya_baca, "
-                    "satuan_daya_baca, "
                     "telusuran, "
                     "status"
+                )
+                .eq(
+                    "status",
+                    "aktif"
                 )
                 .order(
                     "merk"
@@ -3118,9 +3118,7 @@ def run():
                     "nomor_seri": "Nomor Seri",
                     "kelas": "Kelas",
                     "kapasitas": "Kapasitas",
-                    "satuan_kapasitas": "Satuan Kapasitas",
                     "daya_baca": "Daya Baca",
-                    "satuan_daya_baca": "Satuan Daya Baca",
                     "telusuran": "Telusuran",
                 }
             )
@@ -3141,8 +3139,6 @@ def run():
                 "Tipe",
                 "Nomor Seri",
                 "Kelas",
-                "Satuan Kapasitas",
-                "Satuan Daya Baca",
                 "Telusuran",
             ]:
                 df[kolom] = (
