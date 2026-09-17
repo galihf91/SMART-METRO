@@ -2436,6 +2436,197 @@ def reset_form_uttp():
         if key.startswith("uttp_"):
             del st.session_state[key]
 def kembali_ke_input_uttp():
+
+    saved = st.session_state.get(
+        "uttp_saved_data",
+        {}
+    ) or {}
+
+    # =====================================================
+    # IDENTITAS PEMILIK
+    # =====================================================
+    st.session_state[
+        "uttp_nama_perusahaan"
+    ] = str(
+        saved.get(
+            "pemilik",
+            ""
+        )
+        or ""
+    ).strip()
+
+    st.session_state[
+        "uttp_alamat_input"
+    ] = str(
+        saved.get(
+            "alamat",
+            ""
+        )
+        or ""
+    ).strip()
+
+    # =====================================================
+    # DATA SERTIFIKAT
+    # =====================================================
+    st.session_state[
+        "uttp_jenis_pengujian"
+    ] = saved.get(
+        "jenis_pengujian",
+        "Tera Ulang"
+    )
+
+    st.session_state[
+        "uttp_lokasi_pengujian"
+    ] = saved.get(
+        "lokasi_pengujian",
+        "Perusahaan"
+    )
+
+    st.session_state[
+        "uttp_tanggal_pengujian"
+    ] = parse_tanggal_uttp(
+        saved.get(
+            "tanggal_pengujian"
+        )
+    )
+
+    st.session_state[
+        "uttp_tanggal_sertifikat"
+    ] = parse_tanggal_uttp(
+        saved.get(
+            "tanggal_sertifikat"
+        )
+    )
+
+    st.session_state[
+        "uttp_nomor_sertifikat"
+    ] = str(
+        saved.get(
+            "nomor_sertifikat",
+            ""
+        )
+        or ""
+    ).strip()
+
+    st.session_state[
+        "uttp_nomor_order"
+    ] = str(
+        saved.get(
+            "nomor_order",
+            ""
+        )
+        or ""
+    ).strip()
+
+    # =====================================================
+    # ALAT STANDAR
+    # =====================================================
+    st.session_state[
+        "uttp_alat_standar"
+    ] = (
+        saved.get(
+            "alat_standar",
+            []
+        )
+        or []
+    )
+
+    # =====================================================
+    # JUMLAH RINCIAN
+    # =====================================================
+    daftar_rincian = (
+        saved.get(
+            "daftar_rincian_uttp",
+            []
+        )
+        or []
+    )
+
+    st.session_state[
+        "uttp_jumlah_rincian_alat"
+    ] = max(
+        1,
+        len(
+            daftar_rincian
+        )
+    )
+
+    # =====================================================
+    # PENERA
+    # =====================================================
+    st.session_state[
+        "uttp_jumlah_penera"
+    ] = int(
+        saved.get(
+            "jumlah_penera",
+            1
+        )
+        or 1
+    )
+
+    st.session_state[
+        "uttp_penera_1"
+    ] = str(
+        saved.get(
+            "penera_1",
+            ""
+        )
+        or ""
+    ).strip()
+
+    st.session_state[
+        "uttp_nip_penera_1"
+    ] = str(
+        saved.get(
+            "nip_penera_1",
+            ""
+        )
+        or ""
+    ).strip()
+
+    st.session_state[
+        "uttp_golongan_penera_1"
+    ] = str(
+        saved.get(
+            "golongan_penera_1",
+            ""
+        )
+        or ""
+    ).strip()
+
+    st.session_state[
+        "uttp_penera_2"
+    ] = str(
+        saved.get(
+            "penera_2",
+            ""
+        )
+        or ""
+    ).strip()
+
+    st.session_state[
+        "uttp_nip_penera_2"
+    ] = str(
+        saved.get(
+            "nip_penera_2",
+            ""
+        )
+        or ""
+    ).strip()
+
+    st.session_state[
+        "uttp_golongan_penera_2"
+    ] = str(
+        saved.get(
+            "golongan_penera_2",
+            ""
+        )
+        or ""
+    ).strip()
+
+    # =====================================================
+    # MODE INPUT
+    # =====================================================
     st.session_state[
         "uttp_mode"
     ] = "📝 Input Data Pengujian"
