@@ -104,7 +104,18 @@ def load_data_dashboard_uttp():
             "alamat"
         ),
     )
-
+    spbu_rows = fetch_all_rows(
+        "spbu",
+        (
+            "id, "
+            "nama_spbu, "
+            "nomor_spbu, "
+            "alamat, "
+            "jenis_lokasi, "
+            "kecamatan, "
+            "status"
+        ),
+    )
     uttp_rows = fetch_all_rows(
         "uttp",
         (
@@ -160,6 +171,9 @@ def load_data_dashboard_uttp():
     return (
         pd.DataFrame(
             perusahaan_rows
+        ),
+        pd.DataFrame(
+            spbu_rows
         ),
         pd.DataFrame(
             uttp_rows
@@ -452,6 +466,7 @@ def render_kpi(
 # =========================================================
 def build_monitoring_data(
     df_perusahaan,
+    df_spbu,
     df_uttp,
     df_pengujian,
     df_relasi,
@@ -491,7 +506,43 @@ def build_monitoring_data(
                 "perusahaan_id"
             }
         )
+    # =====================================================
+    # MASTER SPBU
+    # =====================================================
+    spbu = (
+        df_spbu.copy()
+        if not df_spbu.empty
+        else pd.DataFrame()
+    )
 
+    if spbu.empty:
+
+        spbu = pd.DataFrame(
+            columns=[
+                "spbu_id",
+                "nama_spbu",
+                "nomor_spbu",
+                "alamat_spbu",
+                "jenis_lokasi",
+                "kecamatan",
+            ]
+        )
+
+    else:
+
+        spbu = spbu.rename(
+            columns={
+                "id": "spbu_id",
+                "alamat": "alamat_spbu",
+            }
+        )
+
+        spbu[
+            "spbu_id"
+        ] = pd.to_numeric(
+            spbu["spbu_id"],
+            errors="coerce",
+        )
     # =====================================================
     # MASTER UTTP
     # =====================================================
@@ -514,15 +565,21 @@ def build_monitoring_data(
         ] = None
 
     # =====================================================
-    # HANYA UTTP UMUM
+    # UTTP SMART METRO
     #
-    # PUBBM mempunyai spbu_id.
+    # Alat boleh dimiliki perusahaan ATAU terkait SPBU.
     # =====================================================
     master = master[
         (
-            master["perusahaan_id"].notna()
-            |
-            master["spbu_id"].notna()
+            master[
+                "perusahaan_id"
+            ].notna()
+        )
+        |
+        (
+            master[
+                "spbu_id"
+            ].notna()
         )
     ].copy()
 
@@ -565,7 +622,14 @@ def build_monitoring_data(
         ],
         errors="coerce",
     )
-
+    master[
+        "spbu_id"
+    ] = pd.to_numeric(
+        master[
+            "spbu_id"
+        ],
+        errors="coerce",
+    )
     perusahaan[
         "perusahaan_id"
     ] = pd.to_numeric(
@@ -575,6 +639,9 @@ def build_monitoring_data(
         errors="coerce",
     )
 
+    # =====================================================
+    # GABUNG MASTER PERUSAHAAN
+    # =====================================================
     monitor = master.merge(
         perusahaan[
             [
@@ -585,6 +652,114 @@ def build_monitoring_data(
         ],
         on="perusahaan_id",
         how="left",
+    )
+
+    # =====================================================
+    # GABUNG MASTER SPBU
+    # =====================================================
+    monitor = monitor.merge(
+        spbu[
+            [
+                "spbu_id",
+                "nama_spbu",
+                "nomor_spbu",
+                "alamat_spbu",
+                "jenis_lokasi",
+                "kecamatan",
+            ]
+        ],
+        on="spbu_id",
+        how="left",
+    )
+
+    # =====================================================
+    # IDENTITAS PEMILIK / LOKASI
+    #
+    # Jika alat PUBBM → gunakan master SPBU.
+    # Selain itu → gunakan master perusahaan.
+    # =====================================================
+    monitor[
+        "pemilik_display"
+    ] = monitor.apply(
+        lambda row: (
+            clean_text(
+                row.get(
+                    "nama_spbu"
+                )
+            )
+            if pd.notna(
+                row.get(
+                    "spbu_id"
+                )
+            )
+            else clean_text(
+                row.get(
+                    "nama_perusahaan"
+                )
+            )
+        ),
+        axis=1,
+    )
+
+    monitor[
+        "alamat_display"
+    ] = monitor.apply(
+        lambda row: (
+            clean_text(
+                row.get(
+                    "alamat_spbu"
+                )
+            )
+            if pd.notna(
+                row.get(
+                    "spbu_id"
+                )
+            )
+            else clean_text(
+                row.get(
+                    "alamat"
+                )
+            )
+        ),
+        axis=1,
+    )
+
+    # =====================================================
+    # KEY PEMILIK
+    #
+    # Prefix dibedakan agar:
+    # perusahaan ID 10 != SPBU ID 10
+    # =====================================================
+    def buat_pemilik_key(row):
+
+        if pd.notna(
+            row.get(
+                "spbu_id"
+            )
+        ):
+            return (
+                f"SPBU:{int(row['spbu_id'])}"
+            )
+
+        if pd.notna(
+            row.get(
+                "perusahaan_id"
+            )
+        ):
+            return (
+                f"PERUSAHAAN:"
+                f"{int(row['perusahaan_id'])}"
+            )
+
+        return (
+            f"UTTP:{int(row['uttp_id'])}"
+        )
+
+    monitor[
+        "pemilik_key"
+    ] = monitor.apply(
+        buat_pemilik_key,
+        axis=1,
     )
 
     # =====================================================
@@ -1064,16 +1239,16 @@ def render_detail_perusahaan(
     nama_perusahaan = (
         clean_text(
             first.get(
-                "nama_perusahaan"
+                "pemilik_display"
             )
         )
-        or "Perusahaan"
+        or "Pemilik / Lokasi"
     )
 
     alamat = (
         clean_text(
             first.get(
-                "alamat"
+                "alamat_display"
             )
         )
         or "-"
@@ -1781,6 +1956,7 @@ def render_dashboard_uttp():
         (
             df_perusahaan,
             df_uttp,
+            df_spbu,
             df_pengujian,
             df_relasi,
         ) = (
@@ -1803,6 +1979,7 @@ def render_dashboard_uttp():
     ) = build_monitoring_data(
         df_perusahaan,
         df_uttp,
+        df_spbu,
         df_pengujian,
         df_relasi,
     )
@@ -1830,55 +2007,113 @@ def render_dashboard_uttp():
     )
 
     # =====================================================
-    # DAFTAR PERUSAHAAN
+    # DAFTAR PEMILIK / LOKASI
     # =====================================================
-    perusahaan_master = (
+    pemilik_master = (
         monitor[
             [
-                "perusahaan_id",
-                "nama_perusahaan",
+                "pemilik_key",
+                "pemilik_display",
+                "spbu_id",
+                "nomor_spbu",
             ]
         ]
-        .drop_duplicates()
+        .drop_duplicates(
+            subset=[
+                "pemilik_key"
+            ]
+        )
+        .copy()
+    )
+
+    pemilik_master[
+        "label_filter"
+    ] = pemilik_master.apply(
+        lambda row: (
+            (
+                f"{clean_text(row['pemilik_display'])} "
+                f"| SPBU "
+                f"{clean_text(row.get('nomor_spbu'))}"
+            )
+            if pd.notna(
+                row.get(
+                    "spbu_id"
+                )
+            )
+            and clean_text(
+                row.get(
+                    "nomor_spbu"
+                )
+            )
+            else clean_text(
+                row.get(
+                    "pemilik_display"
+                )
+            )
+        ),
+        axis=1,
+    )
+
+    pemilik_master = (
+        pemilik_master
         .sort_values(
-            "nama_perusahaan"
+            "label_filter"
         )
     )
 
-    perusahaan_options = {}
-
-    for _, row in (
-        perusahaan_master.iterrows()
-    ):
-
-        nama = (
-            clean_text(
-                row.get(
-                    "nama_perusahaan"
-                )
-            )
-            or "Perusahaan Tanpa Nama"
+    pemilik_options = {
+        row[
+            "label_filter"
+        ]: row[
+            "pemilik_key"
+        ]
+        for _, row
+        in pemilik_master.iterrows()
+        if clean_text(
+            row[
+                "label_filter"
+            ]
         )
+    }
 
-        perusahaan_id = row.get(
-            "perusahaan_id"
-        )
-
-        perusahaan_options[
-            f"{nama} | ID {int(perusahaan_id)}"
-        ] = perusahaan_id
-
-    perusahaan_pick = (
+    pemilik_pick = (
         st.sidebar.selectbox(
-            "Nama Perusahaan",
+            "Pemilik / Lokasi",
             options=[
                 "(Semua)"
             ]
             + list(
-                perusahaan_options.keys()
+                pemilik_options.keys()
             ),
         )
     )
+
+    data_filter = (
+        monitor.copy()
+    )
+
+    pemilik_key_pick = None
+
+    if (
+        pemilik_pick
+        != "(Semua)"
+    ):
+
+        pemilik_key_pick = (
+            pemilik_options[
+                pemilik_pick
+            ]
+        )
+
+        data_filter = (
+            data_filter[
+                data_filter[
+                    "pemilik_key"
+                ]
+                == pemilik_key_pick
+            ]
+            .copy()
+        )
 
     data_filter = (
         monitor.copy()
@@ -2002,9 +2237,9 @@ def render_dashboard_uttp():
         == "(Semua)"
     ):
 
-        total_perusahaan = (
+        total_pemilik = (
             fdf[
-                "perusahaan_id"
+                "pemilik_key"
             ]
             .nunique()
         )
@@ -2059,9 +2294,9 @@ def render_dashboard_uttp():
         with c1:
 
             render_kpi(
-                "Pemilik",
-                total_perusahaan,
-                "Perusahaan",
+                "Pemilik / Lokasi",
+                total_pemilik,
+                "Perusahaan & SPBU",
                 "#1D4ED8",
             )
 
