@@ -4731,29 +4731,40 @@ def run():
         )
     
         # =====================================================
-        # PULIHKAN SNAPSHOT / DATA ACUAN
+        # PULIHKAN DATA FORM
+        #
+        # PRIORITAS:
+        # 1. Jika sudah pernah Simpan Data -> saved_data
+        # 2. Jika belum pernah simpan -> draft widget
         # =====================================================
-        if st.session_state.get(
-            "tb_saved_data"
-        ):
+        saved_data = st.session_state.get(
+            "tb_saved_data",
+            {}
+        )
+
+        draft = st.session_state.get(
+            "tb_draft_widget",
+            {}
+        )
+
+        if saved_data:
+
+            # Data yang sudah disimpan adalah sumber utama.
+            # Mengembalikan alamat, kapasitas, skala,
+            # penera, hasil pengujian, dll.
             pulihkan_data_timbangan()
-    
-        # =====================================================
-        # DRAFT HANYA BOLEH MENIMPA JIKA BUKAN
-        # BERASAL DARI RIWAYAT
-        # =====================================================
-        if not form_dari_riwayat:
-    
-            draft = st.session_state.get(
-                "tb_draft_widget",
-                {}
-            )
-    
-            if draft:
-                for key, value in draft.items():
-                    st.session_state[
-                        key
-                    ] = value
+
+        elif (
+            not form_dari_riwayat
+            and draft
+        ):
+
+            # Draft hanya digunakan jika data
+            # BELUM pernah disimpan.
+            for key, value in draft.items():
+                st.session_state[
+                    key
+                ] = value
     
     # Simpan mode saat ini untuk rerun berikutnya
     st.session_state[
