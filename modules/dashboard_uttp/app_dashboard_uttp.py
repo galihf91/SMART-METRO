@@ -1254,9 +1254,42 @@ def render_detail_perusahaan(
         or "-"
     )
 
+    tipe_pemilik = (
+        "SPBU"
+        if pd.notna(
+            first.get(
+                "spbu_id"
+            )
+        )
+        else "Perusahaan"
+    )
+
+    nomor_spbu = (
+        clean_text(
+            first.get(
+                "nomor_spbu"
+            )
+        )
+    )
+
+    info_spbu_html = ""
+
+    if nomor_spbu:
+        info_spbu_html = (
+            '<b>Nomor SPBU:</b> '
+            f'{html.escape(nomor_spbu)}'
+            '<br>'
+        )
     # =====================================================
     # CARD PERUSAHAAN
     # =====================================================
+    nomor_spbu = (
+        clean_text(
+            first.get(
+                "nomor_spbu"
+            )
+        )
+    )
     company_html = (
         '<div class="company-card">'
         '<div style="'
@@ -1271,6 +1304,10 @@ def render_detail_perusahaan(
         'color:#475569;'
         'margin-top:6px;'
         '">'
+        '<b>Tipe:</b> '
+        f'{html.escape(tipe_pemilik)}'
+        '<br>'
+        f'{info_spbu_html}'
         '<b>Alamat:</b> '
         f'{html.escape(alamat)}'
         '</div>'
@@ -1382,7 +1419,7 @@ def render_detail_perusahaan(
     st.markdown("---")
 
     st.subheader(
-        "📊 Komposisi UTTP Milik Perusahaan"
+        "📊 Komposisi UTTP Pemilik / Lokasi"
     )
 
     jenis_count = (
@@ -1449,7 +1486,7 @@ def render_detail_perusahaan(
     st.markdown("---")
 
     st.subheader(
-        "⚖️ Daftar UTTP Perusahaan"
+        "⚖️ Daftar UTTP Pemilik / Lokasi"
     )
 
     daftar = company_df.copy()
