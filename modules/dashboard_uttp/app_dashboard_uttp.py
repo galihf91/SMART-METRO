@@ -453,7 +453,7 @@ def render_header():
         <div class="dashboard-header">
 
             <h1>
-                ⚖️ Dashboard Pengawasan UTTP Umum
+                ⚖️ Dashboard Pengawasan UTTP
             </h1>
 
             <p>
@@ -809,31 +809,54 @@ def build_monitoring_data(
     # =====================================================
     # HISTORY PER UTTP
     # =====================================================
-    history = relasi[
-        [
-            "pengujian_id",
-            "uttp_id",
-        ]
-    ].merge(
-        pengujian_umum,
-        on="pengujian_id",
-        how="left",
+    
+    # Pastikan kolom uttp_id hanya berasal dari
+    # tabel pengujian_uttp.
+    pengujian_umum = pengujian_umum.drop(
+        columns=["uttp_id"],
+        errors="ignore",
     )
-    if "uttp_id" not in history.columns:
-        raise RuntimeError(
-            "Kolom uttp_id tidak ditemukan pada relasi pengujian_uttp."
+    
+    history = (
+        relasi[
+            [
+                "pengujian_id",
+                "uttp_id",
+            ]
+        ]
+        .merge(
+            pengujian_umum,
+            on="pengujian_id",
+            how="left",
+            validate="many_to_one",
         )
+    )
 
     if history.empty:
 
         monitor[
             "status_tera"
         ] = STATUS_BELUM_UJI
-
+    
         monitor[
             "jumlah_pengujian"
         ] = 0
-
+    
+        for col in [
+            "pengujian_id_terakhir",
+            "tanggal_pengujian",
+            "tanggal_sertifikat",
+            "jenis_pengujian",
+            "hasil_pengujian",
+            "nomor_order",
+            "nomor_sertifikat",
+            "penera_1",
+            "penera_2",
+            "berlaku_sampai",
+            "sisa_hari",
+        ]:
+            monitor[col] = None
+    
         return (
             monitor,
             history,
