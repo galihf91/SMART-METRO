@@ -75,6 +75,18 @@ def render_main_header(title, subtitle, image_path="assets/background_header.jpe
 # =========================
 # FUNGSI UTILITAS UMUM
 # =========================
+def hitung_perubahan_persen(nilai_sekarang, nilai_sebelumnya):
+    if nilai_sebelumnya is None or pd.isna(nilai_sebelumnya):
+        return None
+
+    if nilai_sebelumnya == 0:
+        return None
+
+    return (
+        (nilai_sekarang - nilai_sebelumnya)
+        / nilai_sebelumnya
+        * 100
+    )
 def _norm(s): return re.sub(r"[^a-z0-9]+", "", str(s).strip().lower())
 
 def parse_coord(val):
@@ -793,7 +805,117 @@ def render_dashboard_pasar():
                         chart_uttp,
                         use_container_width=True
                     )
-        
+                # =====================================================
+                # PERUBAHAN DIBANDING 1 TAHUN SEBELUMNYA
+                # =====================================================
+                
+                tahun_sekarang = int(year_pick)
+                tahun_sebelumnya = tahun_sekarang - 1
+                
+                data_sekarang = agg[
+                    agg["tera_ulang_tahun"] == tahun_sekarang
+                ]
+                
+                data_sebelumnya = agg[
+                    agg["tera_ulang_tahun"] == tahun_sebelumnya
+                ]
+                
+                if not data_sekarang.empty:
+                
+                    pedagang_sekarang = float(
+                        data_sekarang.iloc[0]["total_pedagang"]
+                    )
+                
+                    uttp_sekarang = float(
+                        data_sekarang.iloc[0]["total_uttp"]
+                    )
+                
+                    if not data_sebelumnya.empty:
+                
+                        pedagang_sebelumnya = float(
+                            data_sebelumnya.iloc[0]["total_pedagang"]
+                        )
+                
+                        uttp_sebelumnya = float(
+                            data_sebelumnya.iloc[0]["total_uttp"]
+                        )
+                
+                        persen_pedagang = hitung_perubahan_persen(
+                            pedagang_sekarang,
+                            pedagang_sebelumnya
+                        )
+                
+                        persen_uttp = hitung_perubahan_persen(
+                            uttp_sekarang,
+                            uttp_sebelumnya
+                        )
+                
+                    else:
+                        pedagang_sebelumnya = None
+                        uttp_sebelumnya = None
+                        persen_pedagang = None
+                        persen_uttp = None
+                st.markdown("#### 📊 Perubahan dari Tahun Sebelumnya")
+
+                c1, c2 = st.columns(2)
+            
+                with c1:
+                    if persen_pedagang is not None:
+            
+                        arah = "Naik" if persen_pedagang > 0 else (
+                            "Turun" if persen_pedagang < 0 else "Tetap"
+                        )
+            
+                        tanda = "+" if persen_pedagang > 0 else ""
+            
+                        st.metric(
+                            "Jumlah Pedagang",
+                            f"{int(pedagang_sekarang):,}".replace(",", "."),
+                            delta=f"{tanda}{persen_pedagang:.1f}%"
+                        )
+            
+                        st.caption(
+                            f"{arah} dibanding tahun {tahun_sebelumnya}"
+                        )
+            
+                    else:
+                        st.metric(
+                            "Jumlah Pedagang",
+                            f"{int(pedagang_sekarang):,}".replace(",", ".")
+                        )
+            
+                        st.caption(
+                            f"Data tahun {tahun_sebelumnya} belum tersedia."
+                        )
+            
+                with c2:
+                    if persen_uttp is not None:
+            
+                        arah = "Naik" if persen_uttp > 0 else (
+                            "Turun" if persen_uttp < 0 else "Tetap"
+                        )
+            
+                        tanda = "+" if persen_uttp > 0 else ""
+            
+                        st.metric(
+                            "Jumlah Timbangan",
+                            f"{int(uttp_sekarang):,}".replace(",", "."),
+                            delta=f"{tanda}{persen_uttp:.1f}%"
+                        )
+            
+                        st.caption(
+                            f"{arah} dibanding tahun {tahun_sebelumnya}"
+                        )
+            
+                    else:
+                        st.metric(
+                            "Jumlah Timbangan",
+                            f"{int(uttp_sekarang):,}".replace(",", ".")
+                        )
+            
+                        st.caption(
+                            f"Data tahun {tahun_sebelumnya} belum tersedia."
+                        )
             # =====================================================
             # JIKA HANYA KECAMATAN DIPILIH
             # =====================================================
@@ -820,7 +942,7 @@ def render_dashboard_pasar():
                         ),
                         use_container_width=True
                     )
-
+                
     # --- TABEL TIMBANGAN (diambil dari fungsi asli) ---
     # (kode tabel timbangan yang panjang tidak diubah, di sini hanya ringkasan)
     # ... (saya akan sisipkan versi singkat, namun di kode asli Anda ada banyak CSS)
