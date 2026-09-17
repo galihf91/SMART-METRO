@@ -3744,9 +3744,9 @@ def run():
         or st.session_state.data_media_spbu is None
         or st.session_state.data_media_spbu.empty
     ):
-    load_data_media_spbu.clear()
+        load_data_media_spbu.clear()
 
-    st.session_state.data_media_spbu = (
+        st.session_state.data_media_spbu = (
         load_data_media_spbu()
     )
     if "data_pubbm" not in st.session_state:
