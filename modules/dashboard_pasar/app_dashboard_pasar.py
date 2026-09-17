@@ -27,101 +27,63 @@ FILE_GEOJSON = "data/batas_kecamatan_tangerang.geojson"
 def render_main_header(title, subtitle):
     st.markdown(
         f"""
+<div style="
+    background: linear-gradient(135deg, #4B0082 0%, #6D28D9 55%, #7C3AED 100%);
+    padding: 22px 26px;
+    border-radius: 16px;
+    margin-bottom: 22px;
+    box-shadow: 0 8px 20px rgba(75, 0, 130, 0.18);
+    color: white;
+">
+    <div style="
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    ">
         <div style="
-            background: linear-gradient(135deg, #4B0082 0%, #6A0DAD 45%, #8A2BE2 100%);
-            padding: 28px 30px;
-            border-radius: 20px;
-            margin-bottom: 24px;
-            box-shadow: 0 10px 24px rgba(75, 0, 130, 0.22);
-            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 14px;
+            background: rgba(255,255,255,0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 27px;
+            flex-shrink: 0;
         ">
+            🏪
+        </div>
+
+        <div style="flex: 1;">
             <div style="
-                display: flex;
-                align-items: center;
-                gap: 16px;
-                flex-wrap: wrap;
+                font-size: 12px;
+                font-weight: 700;
+                letter-spacing: 0.8px;
+                opacity: 0.82;
+                margin-bottom: 3px;
             ">
-                <div style="
-                    width: 62px;
-                    height: 62px;
-                    border-radius: 16px;
-                    background: rgba(255,255,255,0.14);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 32px;
-                    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12);
-                ">
-                    🏪
-                </div>
-
-                <div>
-                    <div style="
-                        font-size: 14px;
-                        font-weight: 600;
-                        opacity: 0.9;
-                        letter-spacing: 0.5px;
-                        margin-bottom: 4px;
-                    ">
-                        SMART METRO · DASHBOARD TERA ULANG
-                    </div>
-
-                    <div style="
-                        font-size: 34px;
-                        font-weight: 800;
-                        line-height: 1.2;
-                        margin-bottom: 6px;
-                    ">
-                        {title}
-                    </div>
-
-                    <div style="
-                        font-size: 15px;
-                        opacity: 0.92;
-                        line-height: 1.5;
-                    ">
-                        {subtitle}
-                    </div>
-                </div>
+                SMART METRO · TERA ULANG PASAR
             </div>
 
             <div style="
-                margin-top: 18px;
-                display: flex;
-                gap: 10px;
-                flex-wrap: wrap;
+                font-size: 28px;
+                font-weight: 800;
+                line-height: 1.15;
+                margin-bottom: 5px;
             ">
-                <span style="
-                    background: rgba(255,255,255,0.14);
-                    padding: 7px 14px;
-                    border-radius: 999px;
-                    font-size: 13px;
-                    font-weight: 600;
-                ">
-                    Monitoring Pasar
-                </span>
+                {title}
+            </div>
 
-                <span style="
-                    background: rgba(255,255,255,0.14);
-                    padding: 7px 14px;
-                    border-radius: 999px;
-                    font-size: 13px;
-                    font-weight: 600;
-                ">
-                    Status Tera Ulang
-                </span>
-
-                <span style="
-                    background: rgba(255,255,255,0.14);
-                    padding: 7px 14px;
-                    border-radius: 999px;
-                    font-size: 13px;
-                    font-weight: 600;
-                ">
-                    Kabupaten Tangerang
-                </span>
+            <div style="
+                font-size: 14px;
+                opacity: 0.9;
+                line-height: 1.4;
+            ">
+                {subtitle}
             </div>
         </div>
+    </div>
+</div>
         """,
         unsafe_allow_html=True
     )
@@ -454,8 +416,10 @@ def render_dashboard_pasar():
             st.session_state.halaman = "home"
             st.session_state.halaman_dashboard = "home_dashboard"
             st.rerun()
-    render_main_header("🏪 Dashboard Pasar - Kabupaten Tangerang",
-                       "Dinas Perindustrian dan Perdagangan - Bidang Kemetrologian | Status Tera Ulang")
+    render_main_header(
+        "Dashboard Pasar Kabupaten Tangerang",
+        "Monitoring tera ulang pasar · Bidang Kemetrologian"
+    )
 
     # --- pending click ---
     pending = st.session_state.pop("pasar_pending_pick", None)
