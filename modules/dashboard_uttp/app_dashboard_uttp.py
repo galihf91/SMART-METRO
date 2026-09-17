@@ -1,5 +1,6 @@
 import html
 from datetime import date
+from textwrap import dedent
 
 import pandas as pd
 import streamlit as st
@@ -1009,41 +1010,34 @@ def render_detail_perusahaan(
     # CARD PERUSAHAAN
     # =====================================================
     st.markdown(
-        f"""
-        <div class="company-card">
-
-            <div
-                style="
-                    font-size:22px;
-                    font-weight:800;
-                    color:#0F172A;
-                "
-            >
-                🏢
-                {
-                    html.escape(
-                        nama_perusahaan
-                    )
-                }
+        dedent(
+            f"""
+            <div class="company-card">
+    
+                <div
+                    style="
+                        font-size:22px;
+                        font-weight:800;
+                        color:#0F172A;
+                    "
+                >
+                    🏢 {html.escape(nama_perusahaan)}
+                </div>
+    
+                <div
+                    style="
+                        font-size:13px;
+                        color:#475569;
+                        margin-top:6px;
+                    "
+                >
+                    <b>Alamat:</b>
+                    {html.escape(alamat)}
+                </div>
+    
             </div>
-
-            <div
-                style="
-                    font-size:13px;
-                    color:#475569;
-                    margin-top:6px;
-                "
-            >
-                <b>Alamat:</b>
-                {
-                    html.escape(
-                        alamat
-                    )
-                }
-            </div>
-
-        </div>
-        """,
+            """
+        ),
         unsafe_allow_html=True,
     )
 
@@ -1388,140 +1382,141 @@ def render_detail_perusahaan(
     # CARD ALAT
     # =====================================================
     st.markdown(
-        f"""
-        <div
-            style="
-                background:#F8FAFC;
-                padding:18px 20px;
-                border-radius:14px;
-                border-left:
-                    6px solid {color};
-            "
-        >
-
+        dedent(
+            f"""
             <div
                 style="
-                    font-size:21px;
-                    font-weight:800;
-                    color:#0F172A;
+                    background:#F8FAFC;
+                    padding:18px 20px;
+                    border-radius:14px;
+                    border-left:
+                        6px solid {color};
                 "
             >
-                ⚖️
-                {
-                    html.escape(
-                        clean_text(
-                            info.get(
-                                "jenis_uttp"
-                            )
-                        )
-                        or "UTTP"
-                    )
-                }
-            </div>
-
-            <div
-                style="
-                    font-size:13px;
-                    color:#475569;
-                    margin-top:6px;
-                "
-            >
-
-                <b>Merek:</b>
-                {
-                    html.escape(
-                        clean_text(
-                            info.get(
-                                "merk"
-                            )
-                        )
-                        or "-"
-                    )
-                }
-                <br>
-
-                <b>Model / Tipe:</b>
-                {
-                    html.escape(
-                        clean_text(
-                            info.get(
-                                "tipe"
-                            )
-                        )
-                        or "-"
-                    )
-                }
-                <br>
-
-                <b>Nomor Seri:</b>
-                {
-                    html.escape(
-                        clean_text(
-                            info.get(
-                                "nomor_seri"
-                            )
-                        )
-                        or "-"
-                    )
-                }
-                <br>
-
-                <b>Kapasitas:</b>
-                {
-                    html.escape(
-                        kapasitas_text(
-                            info
-                        )
-                    )
-                }
-                <br>
-
-                <b>Daya Baca:</b>
-                {
-                    html.escape(
-                        daya_baca_text(
-                            info
-                        )
-                    )
-                }
-                <br>
-
-                <b>Kelas:</b>
-                {
-                    html.escape(
-                        clean_text(
-                            info.get(
-                                "kelas"
-                            )
-                        )
-                        or "-"
-                    )
-                }
-
-                <br>
-
-                <b>Status Tera:</b>
-
-                <span
+    
+                <div
                     style="
-                        color:{color};
+                        font-size:21px;
                         font-weight:800;
+                        color:#0F172A;
                     "
                 >
+                    ⚖️
                     {
                         html.escape(
-                            str(status)
+                            clean_text(
+                                info.get(
+                                    "jenis_uttp"
+                                )
+                            )
+                            or "UTTP"
                         )
                     }
-                </span>
-
+                </div>
+    
+                <div
+                    style="
+                        font-size:13px;
+                        color:#475569;
+                        margin-top:6px;
+                    "
+                >
+    
+                    <b>Merek:</b>
+                    {
+                        html.escape(
+                            clean_text(
+                                info.get(
+                                    "merk"
+                                )
+                            )
+                            or "-"
+                        )
+                    }
+                    <br>
+    
+                    <b>Model / Tipe:</b>
+                    {
+                        html.escape(
+                            clean_text(
+                                info.get(
+                                    "tipe"
+                                )
+                            )
+                            or "-"
+                        )
+                    }
+                    <br>
+    
+                    <b>Nomor Seri:</b>
+                    {
+                        html.escape(
+                            clean_text(
+                                info.get(
+                                    "nomor_seri"
+                                )
+                            )
+                            or "-"
+                        )
+                    }
+                    <br>
+    
+                    <b>Kapasitas:</b>
+                    {
+                        html.escape(
+                            kapasitas_text(
+                                info
+                            )
+                        )
+                    }
+                    <br>
+    
+                    <b>Daya Baca:</b>
+                    {
+                        html.escape(
+                            daya_baca_text(
+                                info
+                            )
+                        )
+                    }
+                    <br>
+    
+                    <b>Kelas:</b>
+                    {
+                        html.escape(
+                            clean_text(
+                                info.get(
+                                    "kelas"
+                                )
+                            )
+                            or "-"
+                        )
+                    }
+    
+                    <br>
+    
+                    <b>Status Tera:</b>
+    
+                    <span
+                        style="
+                            color:{color};
+                            font-weight:800;
+                        "
+                    >
+                        {
+                            html.escape(
+                                str(status)
+                            )
+                        }
+                    </span>
+    
+                </div>
+    
             </div>
-
-        </div>
-        """,
+            """
+        ),
         unsafe_allow_html=True,
     )
-
     # =====================================================
     # INFO MASA TERA
     # =====================================================
