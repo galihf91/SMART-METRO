@@ -948,28 +948,241 @@ def render_dashboard_pasar():
             # JIKA HANYA KECAMATAN DIPILIH
             # =====================================================
             else:
-        
+            
+                # =================================================
+                # GRAFIK JUMLAH PEDAGANG
+                # =================================================
                 with c1:
-                    st.altair_chart(
-                        alt.Chart(agg)
-                        .mark_line(point=True)
-                        .encode(
-                            x="Tahun:O",
-                            y="jumlah_pasar:Q"
+                    base_pedagang_kec = alt.Chart(agg).encode(
+                        x=alt.X(
+                            "Tahun:O",
+                            title="Tahun",
+                            axis=alt.Axis(labelAngle=0)
                         ),
+                        y=alt.Y(
+                            "total_pedagang:Q",
+                            title="Jumlah Pedagang"
+                        ),
+                        tooltip=[
+                            alt.Tooltip(
+                                "Tahun:O",
+                                title="Tahun"
+                            ),
+                            alt.Tooltip(
+                                "total_pedagang:Q",
+                                title="Jumlah Pedagang",
+                                format=",.0f"
+                            )
+                        ]
+                    )
+            
+                    area_pedagang_kec = base_pedagang_kec.mark_area(
+                        opacity=0.15
+                    )
+            
+                    line_pedagang_kec = base_pedagang_kec.mark_line(
+                        strokeWidth=3
+                    )
+            
+                    point_pedagang_kec = base_pedagang_kec.mark_point(
+                        filled=True,
+                        size=90
+                    )
+            
+                    chart_pedagang_kec = (
+                        area_pedagang_kec
+                        + line_pedagang_kec
+                        + point_pedagang_kec
+                    ).properties(
+                        title=f"Perkembangan Jumlah Pedagang - Kecamatan {kec_pick}",
+                        height=300
+                    )
+            
+                    st.altair_chart(
+                        chart_pedagang_kec,
                         use_container_width=True
                     )
-        
+            
+                # =================================================
+                # GRAFIK JUMLAH TIMBANGAN
+                # =================================================
                 with c2:
-                    st.altair_chart(
-                        alt.Chart(agg)
-                        .mark_line(point=True)
-                        .encode(
-                            x="Tahun:O",
-                            y="total_uttp:Q"
+                    base_uttp_kec = alt.Chart(agg).encode(
+                        x=alt.X(
+                            "Tahun:O",
+                            title="Tahun",
+                            axis=alt.Axis(labelAngle=0)
                         ),
+                        y=alt.Y(
+                            "total_uttp:Q",
+                            title="Jumlah Timbangan"
+                        ),
+                        tooltip=[
+                            alt.Tooltip(
+                                "Tahun:O",
+                                title="Tahun"
+                            ),
+                            alt.Tooltip(
+                                "total_uttp:Q",
+                                title="Jumlah Timbangan",
+                                format=",.0f"
+                            )
+                        ]
+                    )
+            
+                    area_uttp_kec = base_uttp_kec.mark_area(
+                        opacity=0.15
+                    )
+            
+                    line_uttp_kec = base_uttp_kec.mark_line(
+                        strokeWidth=3
+                    )
+            
+                    point_uttp_kec = base_uttp_kec.mark_point(
+                        filled=True,
+                        size=90
+                    )
+            
+                    chart_uttp_kec = (
+                        area_uttp_kec
+                        + line_uttp_kec
+                        + point_uttp_kec
+                    ).properties(
+                        title=f"Perkembangan Jumlah Timbangan - Kecamatan {kec_pick}",
+                        height=300
+                    )
+            
+                    st.altair_chart(
+                        chart_uttp_kec,
                         use_container_width=True
                     )
+            
+                # =====================================================
+                # PERUBAHAN DIBANDING 1 TAHUN SEBELUMNYA
+                # =====================================================
+            
+                tahun_sekarang = int(year_pick)
+                tahun_sebelumnya = tahun_sekarang - 1
+            
+                data_sekarang = agg[
+                    agg["tera_ulang_tahun"] == tahun_sekarang
+                ]
+            
+                data_sebelumnya = agg[
+                    agg["tera_ulang_tahun"] == tahun_sebelumnya
+                ]
+            
+                if not data_sekarang.empty:
+            
+                    pedagang_sekarang = float(
+                        data_sekarang.iloc[0]["total_pedagang"]
+                    )
+            
+                    uttp_sekarang = float(
+                        data_sekarang.iloc[0]["total_uttp"]
+                    )
+            
+                    if not data_sebelumnya.empty:
+            
+                        pedagang_sebelumnya = float(
+                            data_sebelumnya.iloc[0]["total_pedagang"]
+                        )
+            
+                        uttp_sebelumnya = float(
+                            data_sebelumnya.iloc[0]["total_uttp"]
+                        )
+            
+                        persen_pedagang = hitung_perubahan_persen(
+                            pedagang_sekarang,
+                            pedagang_sebelumnya
+                        )
+            
+                        persen_uttp = hitung_perubahan_persen(
+                            uttp_sekarang,
+                            uttp_sebelumnya
+                        )
+            
+                    else:
+                        persen_pedagang = None
+                        persen_uttp = None
+            
+                    st.markdown(
+                        f"#### 📊 Perubahan Kecamatan {kec_pick} dari Tahun Sebelumnya"
+                    )
+            
+                    m1, m2 = st.columns(2)
+            
+                    # =================================================
+                    # CARD PEDAGANG
+                    # =================================================
+                    with m1:
+                        if persen_pedagang is not None:
+            
+                            arah = (
+                                "Naik"
+                                if persen_pedagang > 0
+                                else "Turun"
+                                if persen_pedagang < 0
+                                else "Tetap"
+                            )
+            
+                            tanda = "+" if persen_pedagang > 0 else ""
+            
+                            st.metric(
+                                "Jumlah Pedagang",
+                                f"{int(pedagang_sekarang):,}".replace(",", "."),
+                                delta=f"{tanda}{persen_pedagang:.1f}%"
+                            )
+            
+                            st.caption(
+                                f"{arah} dibanding tahun {tahun_sebelumnya}"
+                            )
+            
+                        else:
+                            st.metric(
+                                "Jumlah Pedagang",
+                                f"{int(pedagang_sekarang):,}".replace(",", ".")
+                            )
+            
+                            st.caption(
+                                f"Data tahun {tahun_sebelumnya} belum tersedia."
+                            )
+            
+                    # =================================================
+                    # CARD TIMBANGAN
+                    # =================================================
+                    with m2:
+                        if persen_uttp is not None:
+            
+                            arah = (
+                                "Naik"
+                                if persen_uttp > 0
+                                else "Turun"
+                                if persen_uttp < 0
+                                else "Tetap"
+                            )
+            
+                            tanda = "+" if persen_uttp > 0 else ""
+            
+                            st.metric(
+                                "Jumlah Timbangan",
+                                f"{int(uttp_sekarang):,}".replace(",", "."),
+                                delta=f"{tanda}{persen_uttp:.1f}%"
+                            )
+            
+                            st.caption(
+                                f"{arah} dibanding tahun {tahun_sebelumnya}"
+                            )
+            
+                        else:
+                            st.metric(
+                                "Jumlah Timbangan",
+                                f"{int(uttp_sekarang):,}".replace(",", ".")
+                            )
+            
+                            st.caption(
+                                f"Data tahun {tahun_sebelumnya} belum tersedia."
+                            )
                 
     # --- TABEL TIMBANGAN (diambil dari fungsi asli) ---
     # (kode tabel timbangan yang panjang tidak diubah, di sini hanya ringkasan)
