@@ -6662,67 +6662,46 @@ def run():
                 satuan_tampilan
             )
 
-            # --- Penunjukan ---
-            if row_lama:
-                penunjukan_lama_kg = (
-                    row_lama.get(
-                        "penunjukan",
-                        row_lama.get(
-                            "timbangan",
-                            muatan_uji
-                        )
-                    )
-                )
+            # =====================================================
+            # PENUNJUKAN
+            # Selalu mengikuti Muatan Uji
+            # =====================================================
+            default_penunjukan_tampil = float(
+                muatan_uji_tampil
+            )
             
-                try:
-                    penunjukan_lama_kg = float(
-                        penunjukan_lama_kg
-                    )
-                except (
-                    TypeError,
-                    ValueError
-                ):
-                    penunjukan_lama_kg = (
-                        muatan_uji
-                    )
+            key_penunjukan = (
+                f"tb_penunjukan_kebenaran_{i}"
+            )
             
-                default_penunjukan_tampil = (
-                    kg_to_satuan(
-                        penunjukan_lama_kg,
-                        satuan_tampilan
-                    )
-                )
+            # Penting:
+            # sinkronkan state SEBELUM widget Penunjukan dibuat
+            st.session_state[
+                key_penunjukan
+            ] = default_penunjukan_tampil
             
-            else:
-                default_penunjukan_tampil = (
-                    kg_to_satuan(
-                        muatan_uji,
-                        satuan_tampilan
-                    )
-                )
-
             with cols[2]:
                 sub_penunjukan1, sub_penunjukan2 = st.columns(
                     [4, 1]
                 )
-
+            
                 with sub_penunjukan1:
                     penunjukan_tampil = st.number_input(
                         f"Penunjukan {nomor_baris}",
-                        value=float(
-                            default_penunjukan_tampil
-                        ),
+                        min_value=0.0,
                         step=float(
                             step_penunjukan_tampil
                         ),
                         format=format_penunjukan,
                         disabled=True,
-                        key=(
-                            f"tb_penunjukan_kebenaran_{i}"
-                        ),
+                        key=key_penunjukan,
                         label_visibility="collapsed"
                     )
 
+    with sub_penunjukan2:
+        st.markdown(
+            f"**{satuan_tampilan}**"
+        )
                 with sub_penunjukan2:
                     st.markdown(f"**{satuan_tampilan}**")
 
@@ -7741,7 +7720,10 @@ def run():
 
             repet_data = []
             penunjukan_repet_list = []
-
+            
+            # Acuan seluruh baris repetability
+            penunjukan_baris_1_tampil = None
+            
             for i in range(1, 4):
                 # =====================================================
                 # DATA REPETABILITY LAMA BARIS INI
@@ -7766,54 +7748,120 @@ def run():
                 ])
 
                 # --------------------------------------------
-                # Penunjukan awal
+                # PENUNJUKAN AWAL
+                #
+                # Baris 1 : dapat diubah user
+                # Baris 2-3 : otomatis mengikuti baris 1
                 # --------------------------------------------
                 with cols_repet[0]:
+                
                     col_pen_nilai, col_pen_satuan = st.columns(
                         [4, 1]
                     )
-
+                
                     with col_pen_nilai:
-                        if row_repet_lama:
-                            try:
-                                penunjukan_awal_lama_kg = float(
-                                    row_repet_lama.get(
-                                        "penunjukan",
+                
+                        key_repet_awal = (
+                            f"tb_repet_penunjukan_awal_{i}_"
+                            f"{repet_signature}"
+                        )
+                
+                        # =================================================
+                        # BARIS 1
+                        # =================================================
+                        if i == 1:
+                
+                            if row_repet_lama:
+                                try:
+                                    penunjukan_awal_lama_kg = float(
+                                        row_repet_lama.get(
+                                            "penunjukan",
+                                            half_max_kg
+                                        )
+                                        or half_max_kg
+                                    )
+                                except (
+                                    TypeError,
+                                    ValueError
+                                ):
+                                    penunjukan_awal_lama_kg = (
                                         half_max_kg
                                     )
-                                    or half_max_kg
+                
+                                default_penunjukan_repet_tampil = (
+                                    kg_to_satuan(
+                                        penunjukan_awal_lama_kg,
+                                        satuan_tampilan
+                                    )
                                 )
-                            except (TypeError, ValueError):
-                                penunjukan_awal_lama_kg = half_max_kg
-                        
-                            default_penunjukan_repet_tampil = kg_to_satuan(
-                                penunjukan_awal_lama_kg,
-                                satuan_tampilan
+                
+                            else:
+                                default_penunjukan_repet_tampil = (
+                                    half_max_tampil
+                                )
+                
+                            # Isi hanya jika widget belum pernah dibuat
+                            if (
+                                key_repet_awal
+                                not in st.session_state
+                            ):
+                                st.session_state[
+                                    key_repet_awal
+                                ] = float(
+                                    default_penunjukan_repet_tampil
+                                )
+                
+                            penunjukan_tampil = st.number_input(
+                                f"Penunjukan Repetability {i}",
+                                min_value=0.0,
+                                step=float(
+                                    step_penunjukan_tampil
+                                ),
+                                format=format_penunjukan,
+                                key=key_repet_awal,
+                                label_visibility="collapsed"
                             )
-                        
+                
+                            # Jadikan baris 1 sebagai ACUAN
+                            penunjukan_baris_1_tampil = float(
+                                penunjukan_tampil
+                            )
+                
+                        # =================================================
+                        # BARIS 2 DAN 3
+                        # =================================================
                         else:
-                            default_penunjukan_repet_tampil = half_max_tampil
-                        penunjukan_tampil = st.number_input(
-                            f"Penunjukan Repetability {i}",
-                            min_value=0.0,
-                            value=float(
-                                default_penunjukan_repet_tampil
-                            ),
-                            step=float(step_penunjukan_tampil),
-                            format=format_penunjukan,
-                            key=(
-                                f"tb_repet_penunjukan_awal_{i}_"
-                                f"{repet_signature}"
-                            ),
-                            label_visibility="collapsed"
-                        )
-
+                
+                            # Selalu samakan dengan baris pertama
+                            st.session_state[
+                                key_repet_awal
+                            ] = float(
+                                penunjukan_baris_1_tampil
+                            )
+                
+                            penunjukan_tampil = st.number_input(
+                                f"Penunjukan Repetability {i}",
+                                min_value=0.0,
+                                step=float(
+                                    step_penunjukan_tampil
+                                ),
+                                format=format_penunjukan,
+                                disabled=True,
+                                key=key_repet_awal,
+                                label_visibility="collapsed"
+                            )
+                
                     with col_pen_satuan:
                         st.markdown(
                             f"<div style='padding-top:8px;'>"
                             f"{satuan_tampilan}</div>",
                             unsafe_allow_html=True
                         )
+                
+                I_kg = satuan_to_kg(
+                    penunjukan_tampil,
+                    satuan_tampilan
+                )
 
                 I_kg = satuan_to_kg(
                     penunjukan_tampil,
