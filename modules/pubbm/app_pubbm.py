@@ -2118,6 +2118,19 @@ def update_spbu_terpilih():
         media_bbm
         or ""
     ).strip()
+    # =====================================================
+    # RESET PILIHAN MEDIA NOZZLE SAAT SPBU BERUBAH
+    # =====================================================
+    pattern_media_nozzle = re.compile(
+        r"^(media|media_manual|media_restore)_\d+_\d+$"
+    )
+    
+    for key in list(st.session_state.keys()):
+        if pattern_media_nozzle.match(key):
+            st.session_state.pop(
+                key,
+                None
+            )
 def update_mode_manual_spbu():
     """
     Saat user memilih input SPBU manual,
