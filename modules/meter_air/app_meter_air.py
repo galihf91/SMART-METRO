@@ -2033,6 +2033,44 @@ def init_meter_air_state():
         if key not in st.session_state:
             st.session_state[key] = value
 
+    # =====================================================
+    # PENGAMAN NOMOR DOKUMEN
+    #
+    # Jika key sudah ada tetapi nilainya kosong,
+    # isi kembali dengan nomor default Meter Air.
+    # =====================================================
+    if not str(
+        st.session_state.get(
+            "ma_nomor_sertifikat",
+            ""
+        )
+        or ""
+    ).strip():
+        st.session_state[
+            "ma_nomor_sertifikat"
+        ] = generate_nomor_sertifikat(
+            st.session_state.get(
+                "ma_tanggal_pengujian",
+                date.today()
+            )
+        )
+
+    if not str(
+        st.session_state.get(
+            "ma_nomor_order",
+            ""
+        )
+        or ""
+    ).strip():
+        st.session_state[
+            "ma_nomor_order"
+        ] = generate_nomor_order(
+            st.session_state.get(
+                "ma_tanggal_pengujian",
+                date.today()
+            )
+        )
+
 
 def validasi_data_meter_air(data):
     wajib = {
