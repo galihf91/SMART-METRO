@@ -8653,9 +8653,13 @@ def run():
             # Dokumen lama tidak boleh tetap tersedia setelah data berubah.
             st.session_state.tb_generated_files = {}
             # =====================================================
-            # PERBARUI DRAFT SESUAI KONDISI FORM YANG BARU DISIMPAN
+            # DATA SUDAH MENJADI SNAPSHOT RESMI
+            # Draft lama tidak lagi digunakan sebagai sumber restore
             # =====================================================
-            simpan_draft_widget_timbangan()
+            st.session_state.pop(
+                "tb_draft_widget",
+                None
+            )
             if sedang_edit:
                 st.session_state[
                     "tb_nomor_sertifikat"
