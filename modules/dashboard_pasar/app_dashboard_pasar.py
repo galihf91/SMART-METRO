@@ -1116,7 +1116,7 @@ def render_dashboard_pasar():
                     persen_pasar = None
 
                 st.markdown(
-                    "#### 📊 Perubahan Kabupaten Tangerang "
+                    "#### 📊 Perubahan Kondisi Pasar Kabupaten Tangerang "
                     "dari Tahun Sebelumnya"
                 )
 
