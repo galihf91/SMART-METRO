@@ -6590,12 +6590,6 @@ def run():
                 "master SPBU maupun master media SPBU."
             )
 
-            media_options = [
-                "Pertalite",
-                "Pertamax",
-                "Bio Solar"
-            ]
-
         # =========================
         # STYLE TAMPILAN
         # =========================
