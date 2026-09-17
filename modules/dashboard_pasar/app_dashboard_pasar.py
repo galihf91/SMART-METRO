@@ -715,6 +715,10 @@ def render_dashboard_pasar():
     elif kec_pick != '(Semua)': gdf = gdf[gdf['kecamatan'] == kec_pick]
     gdf = gdf[pd.to_numeric(gdf['tera_ulang_tahun'], errors='coerce').notna()]
     gdf['tera_ulang_tahun'] = gdf['tera_ulang_tahun'].astype(int)
+    # Batasi grafik hanya sampai tahun yang dipilih
+    gdf = gdf[
+        gdf["tera_ulang_tahun"] <= int(year_pick)
+    ].copy()
 
     agg = gdf.groupby('tera_ulang_tahun').agg(
         jumlah_pasar=('nama_pasar','nunique'),
