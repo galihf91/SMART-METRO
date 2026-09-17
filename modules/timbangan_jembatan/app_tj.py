@@ -2116,6 +2116,339 @@ def run():
         bkd_kg     = koef_final * interval_skala
     
         return koef_final, bkd_kg
+    def pulihkan_widget_tj_dari_saved_data():
+        """
+        Pulihkan widget Input Timbangan Jembatan dari saved_data.
+    
+        Digunakan ketika user:
+        Input -> Simpan Data -> Generate -> kembali ke Input.
+    
+        Hanya mengisi key yang hilang agar perubahan user
+        yang sedang dilakukan tidak ditimpa setiap rerun.
+        """
+    
+        data = st.session_state.get(
+            "saved_data"
+        ) or {}
+    
+        if (
+            not isinstance(data, dict)
+            or not data
+        ):
+            return
+    
+        # =====================================================
+        # INTERVAL SKALA
+        # =====================================================
+        try:
+            e = int(
+                float(
+                    data.get(
+                        "interval_skala",
+                        st.session_state.get(
+                            "interval_skala_input",
+                            10
+                        )
+                    )
+                    or 10
+                )
+            )
+        except (TypeError, ValueError):
+            e = 10
+    
+        # =====================================================
+        # PENERA
+        # =====================================================
+        nama_penera = str(
+            data.get(
+                "nama_penera",
+                ""
+            )
+            or ""
+        ).strip()
+    
+        if nama_penera:
+    
+            df_penera = st.session_state.get(
+                "data_penera"
+            )
+    
+            if (
+                "penera_select"
+                not in st.session_state
+                and df_penera is not None
+                and not df_penera.empty
+                and nama_penera
+                in df_penera["Nama"].astype(str).tolist()
+            ):
+                st.session_state[
+                    "penera_select"
+                ] = nama_penera
+    
+            if "nama_penera" not in st.session_state:
+                st.session_state[
+                    "nama_penera"
+                ] = nama_penera
+    
+            if "nip_penera" not in st.session_state:
+                st.session_state[
+                    "nip_penera"
+                ] = str(
+                    data.get(
+                        "nip_penera",
+                        ""
+                    )
+                    or ""
+                ).strip()
+    
+            if "golongan_penera" not in st.session_state:
+                st.session_state[
+                    "golongan_penera"
+                ] = str(
+                    data.get(
+                        "golongan_penera",
+                        ""
+                    )
+                    or ""
+                ).strip()
+    
+        # =====================================================
+        # HELPER HASIL
+        # =====================================================
+        def hasil_label(nilai):
+    
+            if isinstance(nilai, str):
+    
+                nilai_teks = (
+                    nilai
+                    .strip()
+                    .upper()
+                )
+    
+                if nilai_teks == "TIDAK SAH":
+                    return "TIDAK SAH"
+    
+                return "SAH"
+    
+            return (
+                "SAH"
+                if nilai is not False
+                else "TIDAK SAH"
+            )
+    
+        # =====================================================
+        # PENGUJIAN KEBENARAN
+        # =====================================================
+        hasil_kebenaran = (
+            data.get(
+                "hasil_pengujian",
+                []
+            )
+            or []
+        )
+    
+        for i, row in enumerate(
+            hasil_kebenaran[:8]
+        ):
+            if not isinstance(row, dict):
+                continue
+    
+            nilai_widget = {
+                f"standar_{i}_{e}":
+                    int(row.get("standar", 0) or 0),
+    
+                f"balas_{i}":
+                    int(row.get("balas", 0) or 0),
+    
+                f"delta_l_{i}_{e}":
+                    float(
+                        row.get(
+                            "imbuh",
+                            e / 2
+                        )
+                        or 0
+                    ),
+    
+                f"kesalahan_{i}_{e}":
+                    int(
+                        row.get(
+                            "kesalahan",
+                            0
+                        )
+                        or 0
+                    ),
+    
+                f"hasil_{i}_{e}":
+                    hasil_label(
+                        row.get(
+                            "hasil",
+                            True
+                        )
+                    ),
+            }
+    
+            for key, value in nilai_widget.items():
+    
+                if key not in st.session_state:
+                    st.session_state[
+                        key
+                    ] = value
+    
+        # =====================================================
+        # REPETABILITY
+        # =====================================================
+        repet_lama = (
+            data.get(
+                "repetability",
+                []
+            )
+            or []
+        )
+    
+        if repet_lama:
+    
+            if "repet_I_1" not in st.session_state:
+                st.session_state[
+                    "repet_I_1"
+                ] = int(
+                    repet_lama[0].get(
+                        "penunjukan",
+                        0
+                    )
+                    or 0
+                )
+    
+            for i, row in enumerate(
+                repet_lama[:3],
+                start=1
+            ):
+    
+                key = f"repet_hasil_{i}"
+    
+                if key not in st.session_state:
+                    st.session_state[
+                        key
+                    ] = hasil_label(
+                        row.get(
+                            "hasil",
+                            True
+                        )
+                    )
+    
+        # =====================================================
+        # EKSENTRISITAS
+        # =====================================================
+        eksen_lama = (
+            data.get(
+                "eksentrisitas",
+                []
+            )
+            or []
+        )
+    
+        if eksen_lama:
+    
+            if "eksen_I_1" not in st.session_state:
+                st.session_state[
+                    "eksen_I_1"
+                ] = int(
+                    eksen_lama[0].get(
+                        "penunjukan",
+                        0
+                    )
+                    or 0
+                )
+    
+            for i, row in enumerate(
+                eksen_lama[:3],
+                start=1
+            ):
+    
+                key = f"eksen_hasil_{i}"
+    
+                if key not in st.session_state:
+                    st.session_state[
+                        key
+                    ] = hasil_label(
+                        row.get(
+                            "hasil",
+                            True
+                        )
+                    )
+    
+        # =====================================================
+        # PEMERIKSAAN VISUAL
+        # =====================================================
+        visual_lama = (
+            data.get(
+                "visual",
+                {}
+            )
+            or {}
+        )
+    
+        for item, nilai in visual_lama.items():
+    
+            key = f"vis_{item}"
+    
+            if key not in st.session_state:
+                st.session_state[
+                    key
+                ] = bool(nilai)
+    
+        # =====================================================
+        # PENYETELAN NOL
+        # =====================================================
+        nol_lama = (
+            data.get(
+                "penyetelan_nol",
+                {}
+            )
+            or {}
+        )
+    
+        if nol_lama:
+    
+            data_nol = {
+                f"nol_setel_{e}":
+                    nol_lama.get(
+                        "setel_nol",
+                        0
+                    ),
+    
+                f"nol_muatan_{e}":
+                    nol_lama.get(
+                        "muatan_10e",
+                        10 * e
+                    ),
+    
+                f"nol_awal_{e}":
+                    nol_lama.get(
+                        "awal",
+                        10 * e
+                    ),
+    
+                f"nol_plus025_{e}":
+                    nol_lama.get(
+                        "plus025e",
+                        10 * e
+                    ),
+    
+                f"nol_plus05_{e}":
+                    nol_lama.get(
+                        "plus05e",
+                        11 * e
+                    ),
+            }
+    
+            for key, value in data_nol.items():
+    
+                if key not in st.session_state:
+                    st.session_state[
+                        key
+                    ] = int(
+                        value or 0
+                    )
     def reset_form_timbangan_jembatan():
         # Key utama form
         keys_to_remove = [
@@ -2275,6 +2608,12 @@ def run():
         )
     
     if mode == "📝 Input Data Pengujian":
+
+        # =====================================================
+        # PULIHKAN FORM SETELAH KEMBALI DARI GENERATE
+        # =====================================================
+        pulihkan_widget_tj_dari_saved_data()
+    
         st.header("Masukkan Data Pengujian")
         # =====================================================
         # MODE EDIT PENGUJIAN
