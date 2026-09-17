@@ -721,9 +721,105 @@ def render_dashboard_pasar():
             with c2: st.altair_chart(alt.Chart(agg).mark_line(point=True).encode(x='Tahun:O', y='total_uttp:Q'), use_container_width=True)
             with c3: st.altair_chart(alt.Chart(agg).mark_line(point=True).encode(x='Tahun:O', y='total_pedagang:Q'), use_container_width=True)
         else:
-            c1,c2 = st.columns(2)
-            with c1: st.altair_chart(alt.Chart(agg).mark_line(point=True).encode(x='Tahun:O', y='jumlah_pasar:Q'), use_container_width=True)
-            with c2: st.altair_chart(alt.Chart(agg).mark_line(point=True).encode(x='Tahun:O', y='total_uttp:Q'), use_container_width=True)
+            c1, c2 = st.columns(2)
+        
+            # =====================================================
+            # JIKA SATU PASAR DIPILIH
+            # =====================================================
+            if nama_pick != "(Semua)":
+        
+                with c1:
+                    chart_pedagang = (
+                        alt.Chart(agg)
+                        .mark_line(point=True)
+                        .encode(
+                            x=alt.X(
+                                "Tahun:O",
+                                title="Tahun"
+                            ),
+                            y=alt.Y(
+                                "total_pedagang:Q",
+                                title="Jumlah Pedagang"
+                            ),
+                            tooltip=[
+                                alt.Tooltip("Tahun:O", title="Tahun"),
+                                alt.Tooltip(
+                                    "total_pedagang:Q",
+                                    title="Jumlah Pedagang",
+                                    format=",.0f"
+                                )
+                            ]
+                        )
+                        .properties(
+                            title="Jumlah Pedagang dari Tahun ke Tahun",
+                            height=250
+                        )
+                    )
+        
+                    st.altair_chart(
+                        chart_pedagang,
+                        use_container_width=True
+                    )
+        
+                with c2:
+                    chart_uttp = (
+                        alt.Chart(agg)
+                        .mark_line(point=True)
+                        .encode(
+                            x=alt.X(
+                                "Tahun:O",
+                                title="Tahun"
+                            ),
+                            y=alt.Y(
+                                "total_uttp:Q",
+                                title="Jumlah Timbangan"
+                            ),
+                            tooltip=[
+                                alt.Tooltip("Tahun:O", title="Tahun"),
+                                alt.Tooltip(
+                                    "total_uttp:Q",
+                                    title="Jumlah Timbangan",
+                                    format=",.0f"
+                                )
+                            ]
+                        )
+                        .properties(
+                            title="Jumlah Timbangan dari Tahun ke Tahun",
+                            height=250
+                        )
+                    )
+        
+                    st.altair_chart(
+                        chart_uttp,
+                        use_container_width=True
+                    )
+        
+            # =====================================================
+            # JIKA HANYA KECAMATAN DIPILIH
+            # =====================================================
+            else:
+        
+                with c1:
+                    st.altair_chart(
+                        alt.Chart(agg)
+                        .mark_line(point=True)
+                        .encode(
+                            x="Tahun:O",
+                            y="jumlah_pasar:Q"
+                        ),
+                        use_container_width=True
+                    )
+        
+                with c2:
+                    st.altair_chart(
+                        alt.Chart(agg)
+                        .mark_line(point=True)
+                        .encode(
+                            x="Tahun:O",
+                            y="total_uttp:Q"
+                        ),
+                        use_container_width=True
+                    )
 
     # --- TABEL TIMBANGAN (diambil dari fungsi asli) ---
     # (kode tabel timbangan yang panjang tidak diubah, di sini hanya ringkasan)
