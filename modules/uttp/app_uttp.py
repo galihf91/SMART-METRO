@@ -2347,19 +2347,19 @@ def init_uttp_state():
 
         "uttp_nomor_sertifikat": (
             saved.get(
-                "nomor_sertifikat",
-                generate_nomor_sertifikat(
-                    tanggal_pengujian_saved
-                )
+                "nomor_sertifikat"
+            )
+            or generate_nomor_sertifikat(
+                tanggal_pengujian_saved
             )
         ),
-
+        
         "uttp_nomor_order": (
             saved.get(
-                "nomor_order",
-                generate_nomor_order(
-                    tanggal_pengujian_saved
-                )
+                "nomor_order"
+            )
+            or generate_nomor_order(
+                tanggal_pengujian_saved
             )
         ),
 
@@ -2498,24 +2498,34 @@ def kembali_ke_input_uttp():
         )
     )
 
+    tanggal_pengujian_restore = (
+        parse_tanggal_uttp(
+            saved.get(
+                "tanggal_pengujian"
+            )
+        )
+    )
+    
     st.session_state[
         "uttp_nomor_sertifikat"
     ] = str(
         saved.get(
-            "nomor_sertifikat",
-            ""
+            "nomor_sertifikat"
         )
-        or ""
+        or generate_nomor_sertifikat(
+            tanggal_pengujian_restore
+        )
     ).strip()
-
+    
     st.session_state[
         "uttp_nomor_order"
     ] = str(
         saved.get(
-            "nomor_order",
-            ""
+            "nomor_order"
         )
-        or ""
+        or generate_nomor_order(
+            tanggal_pengujian_restore
+        )
     ).strip()
 
     # =====================================================
