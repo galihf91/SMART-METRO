@@ -1,6 +1,5 @@
 import html
 from datetime import date
-from textwrap import dedent
 
 import pandas as pd
 import streamlit as st
@@ -1374,140 +1373,113 @@ def render_detail_perusahaan(
     # =====================================================
     # CARD ALAT
     # =====================================================
+    jenis_uttp_tampil = (
+        clean_text(
+            info.get("jenis_uttp")
+        )
+        or "UTTP"
+    )
+    
+    merk_tampil = (
+        clean_text(
+            info.get("merk")
+        )
+        or "-"
+    )
+    
+    tipe_tampil = (
+        clean_text(
+            info.get("tipe")
+        )
+        or "-"
+    )
+    
+    nomor_seri_tampil = (
+        clean_text(
+            info.get("nomor_seri")
+        )
+        or "-"
+    )
+    
+    kelas_tampil = (
+        clean_text(
+            info.get("kelas")
+        )
+        or "-"
+    )
+    
+    kapasitas_tampil = (
+        kapasitas_text(
+            info
+        )
+    )
+    
+    daya_baca_tampil = (
+        daya_baca_text(
+            info
+        )
+    )
+    
+    alat_html = (
+        '<div style="'
+        'background:#F8FAFC;'
+        'padding:18px 20px;'
+        'border-radius:14px;'
+        f'border-left:6px solid {color};'
+        '">'
+    
+        '<div style="'
+        'font-size:21px;'
+        'font-weight:800;'
+        'color:#0F172A;'
+        '">'
+        f'⚖️ {html.escape(jenis_uttp_tampil)}'
+        '</div>'
+    
+        '<div style="'
+        'font-size:13px;'
+        'color:#475569;'
+        'margin-top:6px;'
+        '">'
+    
+        '<b>Merek:</b> '
+        f'{html.escape(merk_tampil)}'
+        '<br>'
+    
+        '<b>Model / Tipe:</b> '
+        f'{html.escape(tipe_tampil)}'
+        '<br>'
+    
+        '<b>Nomor Seri:</b> '
+        f'{html.escape(nomor_seri_tampil)}'
+        '<br>'
+    
+        '<b>Kapasitas:</b> '
+        f'{html.escape(kapasitas_tampil)}'
+        '<br>'
+    
+        '<b>Daya Baca:</b> '
+        f'{html.escape(daya_baca_tampil)}'
+        '<br>'
+    
+        '<b>Kelas:</b> '
+        f'{html.escape(kelas_tampil)}'
+        '<br>'
+    
+        '<b>Status Tera:</b> '
+        '<span style="'
+        f'color:{color};'
+        'font-weight:800;'
+        '">'
+        f'{html.escape(str(status))}'
+        '</span>'
+    
+        '</div>'
+        '</div>'
+    )
+    
     st.markdown(
-        dedent(
-            f"""
-            <div
-                style="
-                    background:#F8FAFC;
-                    padding:18px 20px;
-                    border-radius:14px;
-                    border-left:
-                        6px solid {color};
-                "
-            >
-    
-                <div
-                    style="
-                        font-size:21px;
-                        font-weight:800;
-                        color:#0F172A;
-                    "
-                >
-                    ⚖️
-                    {
-                        html.escape(
-                            clean_text(
-                                info.get(
-                                    "jenis_uttp"
-                                )
-                            )
-                            or "UTTP"
-                        )
-                    }
-                </div>
-    
-                <div
-                    style="
-                        font-size:13px;
-                        color:#475569;
-                        margin-top:6px;
-                    "
-                >
-    
-                    <b>Merek:</b>
-                    {
-                        html.escape(
-                            clean_text(
-                                info.get(
-                                    "merk"
-                                )
-                            )
-                            or "-"
-                        )
-                    }
-                    <br>
-    
-                    <b>Model / Tipe:</b>
-                    {
-                        html.escape(
-                            clean_text(
-                                info.get(
-                                    "tipe"
-                                )
-                            )
-                            or "-"
-                        )
-                    }
-                    <br>
-    
-                    <b>Nomor Seri:</b>
-                    {
-                        html.escape(
-                            clean_text(
-                                info.get(
-                                    "nomor_seri"
-                                )
-                            )
-                            or "-"
-                        )
-                    }
-                    <br>
-    
-                    <b>Kapasitas:</b>
-                    {
-                        html.escape(
-                            kapasitas_text(
-                                info
-                            )
-                        )
-                    }
-                    <br>
-    
-                    <b>Daya Baca:</b>
-                    {
-                        html.escape(
-                            daya_baca_text(
-                                info
-                            )
-                        )
-                    }
-                    <br>
-    
-                    <b>Kelas:</b>
-                    {
-                        html.escape(
-                            clean_text(
-                                info.get(
-                                    "kelas"
-                                )
-                            )
-                            or "-"
-                        )
-                    }
-    
-                    <br>
-    
-                    <b>Status Tera:</b>
-    
-                    <span
-                        style="
-                            color:{color};
-                            font-weight:800;
-                        "
-                    >
-                        {
-                            html.escape(
-                                str(status)
-                            )
-                        }
-                    </span>
-    
-                </div>
-    
-            </div>
-            """
-        ),
+        alat_html,
         unsafe_allow_html=True,
     )
     # =====================================================
