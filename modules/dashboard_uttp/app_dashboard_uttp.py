@@ -1675,6 +1675,36 @@ def render_detail_perusahaan(
 # DASHBOARD
 # =========================================================
 def render_dashboard_uttp():
+    # =====================================================
+    # NAVIGASI
+    # =====================================================
+    col_back1, col_back2, _ = st.columns(
+        [1.4, 1.4, 5]
+    )
+
+    with col_back1:
+        if st.button(
+            "⬅️ Kembali ke SMART METRO",
+            key="btn_dashboard_uttp_back_home",
+            use_container_width=True,
+        ):
+            st.session_state[
+                "halaman_uttp"
+            ] = "home_uttp"
+
+            st.rerun()
+
+    with col_back2:
+        if st.button(
+            "📊 Kembali ke Dashboard",
+            key="btn_dashboard_uttp_back_dashboard",
+            use_container_width=True,
+        ):
+            st.session_state[
+                "halaman_uttp"
+            ] = "dashboard"
+
+            st.rerun()
 
     # =====================================================
     # LOAD DATA
