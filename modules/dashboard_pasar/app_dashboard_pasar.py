@@ -782,6 +782,10 @@ def render_dashboard_pasar():
                         title=f"Perkembangan Jumlah Pedagang - {nama_pick}",
                         height=300
                     )
+                    st.altair_chart(
+                        chart_pedagang,
+                        use_container_width=True
+                    )
         
                 with c2:
                     base_uttp = alt.Chart(agg).encode(
@@ -824,7 +828,11 @@ def render_dashboard_pasar():
                     ).properties(
                         title=f"Perkembangan Jumlah Timbangan - {nama_pick}",
                         height=300
-)
+                    )
+                    st.altair_chart(
+                        chart_uttp,
+                        use_container_width=True
+                    )
                 # =====================================================
                 # PERUBAHAN DIBANDING 1 TAHUN SEBELUMNYA
                 # =====================================================
