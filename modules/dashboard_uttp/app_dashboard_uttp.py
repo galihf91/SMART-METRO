@@ -2398,11 +2398,10 @@ def render_dashboard_uttp():
             ] = priority[
                 "status_tera"
             ].map({
-                STATUS_KEDALUWARSA:
-                0,
-
-                STATUS_JATUH_TEMPO:
-                1,
+                STATUS_KEDALUWARSA: 0,
+                STATUS_JATUH_TEMPO: 1,
+                STATUS_BELUM_UJI: 2,
+                STATUS_DATA_KURANG: 3,
             })
 
             priority[
