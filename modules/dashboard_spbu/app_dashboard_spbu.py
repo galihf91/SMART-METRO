@@ -735,7 +735,7 @@ def render_dashboard_spbu():
             st.rerun()
 
     render_main_header(
-        "⛽ Dashboard Pengawasan SPBU - Kabupaten Tangerang",
+        "⛽ Dashboard SPBU - Kabupaten Tangerang",
         "Monitoring masa berlaku tera, riwayat pengujian, nozzle, dan K-Faktor PUBBM",
     )
 
