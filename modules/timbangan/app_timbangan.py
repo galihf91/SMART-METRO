@@ -3095,7 +3095,71 @@ def update_minimum_dari_kelas_manual():
         "tb_kapasitas_min_tampil",
         None
     )
+    # =====================================================
+    # BENTUK ULANG MUATAN UJI SESUAI KELAS BARU
+    # =====================================================
+    max_raw = st.session_state.get(
+        "tb_kapasitas_max_input",
+        ""
+    )
 
+    kapasitas_max_kg = convert_to_kg(
+        max_raw,
+        satuan
+    )
+
+    jumlah_titik = st.session_state.get(
+        "tb_jumlah_titik_kebenaran",
+        5
+    )
+
+    if (
+        e_kg > 0
+        and kapasitas_max_kg > 0
+    ):
+
+        kapasitas_min_kg = st.session_state.get(
+            "tb_kapasitas_min_kg",
+            0.0
+        )
+
+        if jumlah_titik == 3:
+            muatan_baru = [
+                kapasitas_min_kg,
+                kapasitas_max_kg * 0.5,
+                kapasitas_max_kg,
+            ]
+
+        else:
+            muatan_baru = get_default_muatan_uji(
+                kelas,
+                e_kg,
+                kapasitas_max_kg
+            )
+
+        # =================================================
+        # MUATAN + PENUNJUKAN HARUS SAMA
+        # =================================================
+        for i, nilai_kg in enumerate(
+            muatan_baru
+        ):
+
+            nilai_tampil = kg_to_satuan(
+                nilai_kg,
+                satuan
+            )
+
+            st.session_state[
+                f"tb_muatan_uji_{i}"
+            ] = float(
+                nilai_tampil
+            )
+
+            st.session_state[
+                f"tb_penunjukan_kebenaran_{i}"
+            ] = float(
+                nilai_tampil
+            )
 # ============================================================
 # RESET KEBENARAN JIKA JUMLAH TITIK UJI BERUBAH
 # ============================================================
