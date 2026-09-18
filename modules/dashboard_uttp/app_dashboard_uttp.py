@@ -685,6 +685,7 @@ def render_tabel_ringkasan_pemilik(
     tampil = tampil[
         [
             "No.",
+            "pemilik_key",
             "pemilik_display",
             "Jumlah UTTP",
         ]
@@ -692,6 +693,7 @@ def render_tabel_ringkasan_pemilik(
 
     tampil.columns = [
         "No.",
+        "pemilik_key",
         "Pemilik / Lokasi",
         "Jumlah UTTP",
     ]
@@ -903,7 +905,59 @@ def render_tabel_ringkasan_pemilik(
         table_html,
         unsafe_allow_html=True,
     )
+    # =====================================================
+    # BUKA DETAIL PEMILIK / LOKASI
+    # =====================================================
+    pilihan_detail = {
+        str(row["Pemilik / Lokasi"]):
+        row["pemilik_key"]
 
+        for _, row
+        in tampil.iterrows()
+    }
+
+    if pilihan_detail:
+
+        col_pilih, col_buka = st.columns(
+            [4, 1]
+        )
+
+        with col_pilih:
+
+            nama_detail = st.selectbox(
+                "Lihat detail Pemilik / Lokasi",
+                options=[
+                    ""
+                ]
+                + list(
+                    pilihan_detail.keys()
+                ),
+                key="pilih_detail_ringkasan_uttp",
+            )
+
+        with col_buka:
+
+            st.markdown(
+                "<div style='height:28px'></div>",
+                unsafe_allow_html=True,
+            )
+
+            if st.button(
+                "Buka Detail →",
+                key="btn_buka_detail_ringkasan",
+                use_container_width=True,
+                disabled=(
+                    not nama_detail
+                ),
+            ):
+
+                st.session_state[
+                    "dashboard_uttp_pemilik_detail"
+                ] = pilihan_detail[
+                    nama_detail
+                ]
+
+                st.rerun()
     # =====================================================
     # NAVIGASI HALAMAN
     # =====================================================
@@ -2753,7 +2807,44 @@ def render_dashboard_uttp():
             ]
             == status_pick
         ]
+    # =====================================================
+    # DRILL-DOWN DARI TABEL RINGKASAN
+    # =====================================================
+    pemilik_detail_key = (
+        st.session_state.get(
+            "dashboard_uttp_pemilik_detail"
+        )
+    )
 
+    if pemilik_detail_key:
+
+        detail_df = monitor[
+            monitor[
+                "pemilik_key"
+            ]
+            == pemilik_detail_key
+        ].copy()
+
+        if not detail_df.empty:
+
+            if st.button(
+                "← Kembali ke Dashboard Umum",
+                key="btn_kembali_dari_detail_ringkasan",
+            ):
+
+                st.session_state.pop(
+                    "dashboard_uttp_pemilik_detail",
+                    None,
+                )
+
+                st.rerun()
+
+            render_detail_perusahaan(
+                detail_df,
+                history,
+            )
+
+            return
     # =====================================================
     # MODE SEMUA PERUSAHAAN
     # =====================================================
