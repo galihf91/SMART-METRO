@@ -2172,40 +2172,69 @@ def render_detail_perusahaan(
         format_tanggal
     )
 
+    daftar[
+        "merk_model"
+    ] = daftar.apply(
+        lambda row: (
+            f"{clean_text(row.get('merk'))}"
+            f" / "
+            f"{clean_text(row.get('tipe'))}"
+        ).strip(" /"),
+        axis=1,
+    )
+
     view = daftar[
         [
-            "uttp_id",
             "jenis_uttp",
-            "merk",
-            "tipe",
+            "merk_model",
             "nomor_seri",
-            "kapasitas_tampil",
-            "kelas",
             "status_tera",
-            "tanggal_tampil",
             "berlaku_tampil",
-            "nomor_sertifikat",
         ]
     ].copy()
-
     view.columns = [
-        "ID",
         "Jenis UTTP",
-        "Merek",
-        "Model / Tipe",
+        "Merek / Model",
         "Nomor Seri",
-        "Kapasitas",
-        "Kelas",
-        "Status Tera",
-        "Tera Terakhir",
+        "Status",
         "Berlaku Sampai",
-        "Nomor Sertifikat",
     ]
 
     st.dataframe(
         view,
         use_container_width=True,
         hide_index=True,
+        column_config={
+            "Jenis UTTP":
+                st.column_config.TextColumn(
+                    "Jenis UTTP",
+                    width="medium",
+                ),
+
+            "Merek / Model":
+                st.column_config.TextColumn(
+                    "Merek / Model",
+                    width="medium",
+                ),
+
+            "Nomor Seri":
+                st.column_config.TextColumn(
+                    "Nomor Seri",
+                    width="medium",
+                ),
+
+            "Status":
+                st.column_config.TextColumn(
+                    "Status",
+                    width="medium",
+                ),
+
+            "Berlaku Sampai":
+                st.column_config.TextColumn(
+                    "Berlaku Sampai",
+                    width="small",
+                ),
+        },
     )
 
     # =====================================================
