@@ -3337,6 +3337,60 @@ def build_data_laporan_bulanan(
     if laporan.empty:
         return laporan
 
+    # =====================================================
+    # GABUNGKAN 1 NOMOR ORDER = 1 BARIS
+    # =====================================================
+    kolom_jumlah = [
+        col
+        for col in laporan.columns
+        if (
+            col.startswith("MT_")
+            or col.startswith("UAPV_")
+        )
+    ]
+
+    # Pastikan kolom jumlah berupa angka
+    for col in kolom_jumlah:
+
+        laporan[col] = pd.to_numeric(
+            laporan[col],
+            errors="coerce",
+        ).fillna(0)
+
+    # =====================================================
+    # ATUR CARA AGREGASI
+    # =====================================================
+    agregasi = {
+        "Tanggal": "first",
+        "Nama Perusahaan": "first",
+        "Alamat": "first",
+        "Lokasi": "first",
+        "KET": "first",
+        "Penera": "first",
+        "Jenis Pengujian": "first",
+    }
+
+    for col in kolom_jumlah:
+        agregasi[col] = "sum"
+
+    # =====================================================
+    # GROUP BY NOMOR ORDER
+    # =====================================================
+    laporan = (
+        laporan
+        .groupby(
+            "No. Order",
+            as_index=False,
+            dropna=False,
+        )
+        .agg(
+            agregasi
+        )
+    )
+
+    # =====================================================
+    # URUTKAN
+    # =====================================================
     laporan = laporan.sort_values(
         [
             "Tanggal",
