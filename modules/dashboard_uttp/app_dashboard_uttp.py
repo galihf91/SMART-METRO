@@ -128,7 +128,10 @@ def load_data_dashboard_uttp():
         "penera",
         (
             "id, "
-            "nama_penera, "
+            "nama, "
+            "nip, "
+            "golongan, "
+            "status, "
             "kode_penera"
         ),
     )
