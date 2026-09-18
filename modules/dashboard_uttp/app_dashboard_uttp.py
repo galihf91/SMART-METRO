@@ -411,7 +411,26 @@ def render_header():
     color: #94A3B8;
     margin-top: 6px;
 }
+/* =====================================================
+   KPI CLICKABLE
+   ===================================================== */
 
+div[data-testid="stButton"] > button {
+    transition:
+        transform 0.18s ease,
+        box-shadow 0.18s ease,
+        border-color 0.18s ease;
+}
+
+div[data-testid="stButton"] > button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.10);
+}
+
+div[data-testid="stButton"] > button p {
+    white-space: pre-line;
+    line-height: 1.35;
+}
 .company-card {
     background: #F8FAFC;
     padding: 18px 20px;
@@ -469,33 +488,38 @@ def render_kpi_button(
     mode,
 ):
     """
-    KPI card sederhana yang bisa diklik.
+    KPI card interaktif.
     """
 
     aktif = (
         st.session_state.get(
-            "dashboard_uttp_mode"
+            "dashboard_uttp_mode",
+            "total_uttp",
         )
         == mode
     )
 
-    label = (
-        f"{title}\n"
-        f"{value}\n"
-        f"{subtitle}"
+    icon_aktif = (
+        "● "
+        if aktif
+        else ""
     )
 
-    if aktif:
-        label = (
-            f"● {title}\n"
-            f"{value}\n"
-            f"{subtitle}"
-        )
+    label = (
+        f"{icon_aktif}{title}\n\n"
+        f"{value}\n\n"
+        f"{subtitle}"
+    )
 
     if st.button(
         label,
         key=key,
         use_container_width=True,
+        type=(
+            "primary"
+            if aktif
+            else "secondary"
+        ),
     ):
         st.session_state[
             "dashboard_uttp_mode"
