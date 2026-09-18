@@ -2904,7 +2904,14 @@ def build_data_laporan_bulanan(
 
     if df_pengujian.empty:
         return pd.DataFrame()
-
+    # =====================================================
+    # LOOKUP KODE PENERA
+    # =====================================================
+    lookup_kode_penera = (
+        buat_lookup_kode_penera(
+            df_penera
+        )
+    )
     pengujian = df_pengujian.copy()
 
     pengujian[
