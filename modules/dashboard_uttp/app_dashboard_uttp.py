@@ -416,9 +416,8 @@ def render_header():
    ===================================================== */
 
 div[data-testid="stButton"] > button {
-    min-height: 86px;
-    border-radius: 11px;
-    font-weight: 700;
+    border-radius: 10px;
+    font-weight: 650;
     transition:
         transform 0.18s ease,
         box-shadow 0.18s ease,
@@ -426,15 +425,15 @@ div[data-testid="stButton"] > button {
 }
 
 div[data-testid="stButton"] > button:hover {
-    transform: translateY(-2px);
+    transform: translateY(-1px);
     box-shadow:
-        0 8px 18px
-        rgba(15, 23, 42, 0.10);
+        0 5px 14px
+        rgba(15, 23, 42, 0.08);
 }
 
 div[data-testid="stButton"] > button p {
     white-space: pre-line;
-    line-height: 1.40;
+    line-height: 1.35;
 }
 .company-card {
     background: #F8FAFC;
