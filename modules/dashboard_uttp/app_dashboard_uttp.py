@@ -460,7 +460,52 @@ def render_kpi(
         unsafe_allow_html=True,
     )
 
+def render_kpi_button(
+    title,
+    value,
+    subtitle,
+    color,
+    key,
+    mode,
+):
+    """
+    KPI card sederhana yang bisa diklik.
+    """
 
+    aktif = (
+        st.session_state.get(
+            "dashboard_uttp_mode"
+        )
+        == mode
+    )
+
+    label = (
+        f"{title}\n"
+        f"{value}\n"
+        f"{subtitle}"
+    )
+
+    if aktif:
+        label = (
+            f"● {title}\n"
+            f"{value}\n"
+            f"{subtitle}"
+        )
+
+    if st.button(
+        label,
+        key=key,
+        use_container_width=True,
+    ):
+        st.session_state[
+            "dashboard_uttp_mode"
+        ] = mode
+
+        st.session_state[
+            "dashboard_uttp_page"
+        ] = 1
+
+        st.rerun()
 # =========================================================
 # BUILD MONITORING
 # =========================================================
@@ -2349,13 +2394,14 @@ def render_dashboard_uttp():
         k1, k2 = st.columns(2)
 
         with k1:
-            render_kpi(
-                "Pemilik / Lokasi",
-                total_pemilik,
-                "Perusahaan & SPBU",
-                "#1D4ED8",
+            render_kpi_button(
+                title="Pemilik / Lokasi",
+                value=total_pemilik,
+                subtitle="Perusahaan & SPBU",
+                color="#1D4ED8",
+                key="btn_kpi_pemilik",
+                mode="pemilik",
             )
-
         with k2:
             render_kpi(
                 "Total UTTP",
