@@ -4301,7 +4301,41 @@ def render_dashboard_uttp():
                 use_container_width=True,
                 hide_index=True,
             )
+            # =================================================
+            # GENERATE FILE EXCEL
+            # =================================================
+            excel_bytes = (
+                generate_excel_laporan_bulanan(
+                    laporan=laporan_bulanan,
+                    bulan_nama=(
+                        nama_bulan[
+                            bulan_laporan
+                        ]
+                    ),
+                    tahun=(
+                        tahun_laporan
+                    ),
+                )
+            )
 
+            nama_file_excel = (
+                f"Rekap_Pelayanan_"
+                f"{nama_bulan[bulan_laporan]}_"
+                f"{tahun_laporan}.xlsx"
+            )
+
+            st.download_button(
+                label="⬇️ Download Excel",
+                data=excel_bytes,
+                file_name=nama_file_excel,
+                mime=(
+                    "application/"
+                    "vnd.openxmlformats-officedocument."
+                    "spreadsheetml.sheet"
+                ),
+                use_container_width=True,
+                key="download_laporan_bulanan_uttp",
+            )
     if monitor.empty:
 
         st.warning(
