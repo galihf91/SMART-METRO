@@ -1962,6 +1962,24 @@ def render_detail_perusahaan(
 # =========================================================
 def render_dashboard_uttp():
     # =====================================================
+    # MODE INTERAKSI CARD DASHBOARD
+    # =====================================================
+    if (
+        "dashboard_uttp_mode"
+        not in st.session_state
+    ):
+        st.session_state[
+            "dashboard_uttp_mode"
+        ] = "total_uttp"
+
+    if (
+        "dashboard_uttp_page"
+        not in st.session_state
+    ):
+        st.session_state[
+            "dashboard_uttp_page"
+        ] = 1
+    # =====================================================
     # NAVIGASI
     # =====================================================
     col_back, col_home, col_space = st.columns([1.4, 1.4, 5])
