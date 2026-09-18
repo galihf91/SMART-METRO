@@ -3529,12 +3529,12 @@ def generate_excel_laporan_bulanan(
     # =====================================================
     fill_mt = PatternFill(
         "solid",
-        fgColor="19DDE3",
+        fgColor="B7DEE8",
     )
 
     fill_uapv = PatternFill(
         "solid",
-        fgColor="20E300",
+        fgColor="C6E0B4",
     )
 
     fill_header = PatternFill(
@@ -3638,7 +3638,22 @@ def generate_excel_laporan_bulanan(
     ws["A2"].alignment = (
         align_center
     )
+    # =====================================================
+    # GARIS BAWAH JUDUL
+    # =====================================================
+    ws["A1"].border = Border(
+        bottom=Side(
+            style="medium",
+            color="000000",
+        )
+    )
 
+    ws["A2"].border = Border(
+        bottom=Side(
+            style="thin",
+            color="000000",
+        )
+    )
     # =====================================================
     # HEADER UTAMA
     # =====================================================
