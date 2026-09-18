@@ -3812,7 +3812,30 @@ def generate_excel_laporan_bulanan(
         cell.value = judul
         cell.font = font_header
         cell.alignment = align_center
+    # =====================================================
+    # WARNA SUBHEADER KELOMPOK
+    # =====================================================
+    for col in range(9, 23):  # I sampai V
+        ws.cell(
+            row=6,
+            column=col,
+        ).fill = fill_mt
 
+        ws.cell(
+            row=7,
+            column=col,
+        ).fill = fill_mt
+
+    for col in range(23, 30):  # W sampai AC
+        ws.cell(
+            row=6,
+            column=col,
+        ).fill = fill_uapv
+
+        ws.cell(
+            row=7,
+            column=col,
+        ).fill = fill_uapv
     # =====================================================
     # BORDER HEADER
     # =====================================================
@@ -4004,7 +4027,9 @@ def generate_excel_laporan_bulanan(
         ws[
             f"F{excel_row}"
         ].alignment = align_left
-
+        ws.row_dimensions[
+            excel_row
+        ].height = 28
     # =====================================================
     # TOTAL PER JENIS UTTP
     # =====================================================
@@ -4093,6 +4118,33 @@ def generate_excel_laporan_bulanan(
     ws.row_dimensions[
         total_row
     ].height = 22
+    # =====================================================
+    # WARNA BARIS JUMLAH
+    # =====================================================
+    for col_num in range(
+        1,
+        30,
+    ):
+
+        cell = ws.cell(
+            row=total_row,
+            column=col_num,
+        )
+
+        cell.fill = PatternFill(
+            "solid",
+            fgColor="D9EAF7",
+        )
+
+        cell.font = Font(
+            name="Arial",
+            size=8,
+            bold=True,
+        )
+
+        cell.alignment = (
+            align_center
+        )
     # =====================================================
     # TOTAL KELOMPOK
     # =====================================================
