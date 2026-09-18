@@ -2024,26 +2024,118 @@ def render_detail_perusahaan(
         "Jumlah UTTP",
     ]
 
-    col_chart, col_table = (
-        st.columns(
-            [1.5, 1]
+    if not jenis_count.empty:
+
+        jumlah_jenis = len(
+            jenis_count
         )
-    )
 
-    with col_chart:
+        total_dalam_grafik = int(
+            jenis_count[
+                "Jumlah UTTP"
+            ].sum()
+        )
 
-        st.bar_chart(
-            jenis_count.set_index(
-                "Jenis UTTP"
+        tinggi_chart = min(
+            max(
+                220,
+                jumlah_jenis * 34
+            ),
+            420
+        )
+
+        nilai_maks = max(
+            1,
+            int(
+                jenis_count[
+                    "Jumlah UTTP"
+                ].max()
             )
         )
 
-    with col_table:
+        st.caption(
+            f"{total_dalam_grafik:,} UTTP "
+            f"• {jumlah_jenis} jenis alat"
+        )
 
-        st.dataframe(
-            jenis_count,
+        base = (
+            alt.Chart(
+                jenis_count
+            )
+            .encode(
+                y=alt.Y(
+                    "Jenis UTTP:N",
+                    sort="-x",
+                    title=None,
+                    axis=alt.Axis(
+                        labelLimit=220,
+                        labelFontSize=12,
+                    ),
+                ),
+
+                x=alt.X(
+                    "Jumlah UTTP:Q",
+                    title="Jumlah UTTP",
+                    scale=alt.Scale(
+                        domain=[
+                            0,
+                            nilai_maks * 1.18,
+                        ]
+                    ),
+                    axis=alt.Axis(
+                        tickMinStep=1,
+                        grid=True,
+                    ),
+                ),
+
+                tooltip=[
+                    alt.Tooltip(
+                        "Jenis UTTP:N",
+                        title="Jenis UTTP",
+                    ),
+                    alt.Tooltip(
+                        "Jumlah UTTP:Q",
+                        title="Jumlah",
+                        format=",.0f",
+                    ),
+                ],
+            )
+        )
+
+        bar = base.mark_bar(
+            size=22,
+            cornerRadiusEnd=7,
+            color="#2563EB",
+        )
+
+        label = (
+            base
+            .mark_text(
+                align="left",
+                baseline="middle",
+                dx=7,
+                fontSize=12,
+                fontWeight="bold",
+                color="#334155",
+            )
+            .encode(
+                text=alt.Text(
+                    "Jumlah UTTP:Q",
+                    format=".0f",
+                )
+            )
+        )
+
+        chart = (
+            bar
+            + label
+        ).properties(
+            height=tinggi_chart
+        )
+
+        st.altair_chart(
+            chart,
             use_container_width=True,
-            hide_index=True,
         )
 
     # =====================================================
