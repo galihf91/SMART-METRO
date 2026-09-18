@@ -3433,7 +3433,64 @@ def render_dashboard_uttp():
                     )
                 )
             )
+            .groupby(
+                "jenis_display"
+            )[
+                "uttp_id"
+            ]
+            .nunique()
+            .rename(
+                "Jumlah UTTP"
+            )
+            .reset_index()
+            .rename(
+                columns={
+                    "jenis_display":
+                    "Jenis UTTP"
+                }
+            )
+            .sort_values(
+                "Jumlah UTTP",
+                ascending=False
+            )
+            .reset_index(
+                drop=True
+            )
+        )
 
+        if not jenis_global.empty:
+
+            jumlah_jenis = len(
+                jenis_global
+            )
+
+            total_dalam_grafik = int(
+                jenis_global[
+                    "Jumlah UTTP"
+                ].sum()
+            )
+
+            tinggi_chart = min(
+                max(
+                    220,
+                    jumlah_jenis * 34
+                ),
+                480
+            )
+
+            nilai_maks = max(
+                1,
+                int(
+                    jenis_global[
+                        "Jumlah UTTP"
+                    ].max()
+                )
+            )
+
+            st.caption(
+                f"{total_dalam_grafik:,} UTTP "
+                f"• {jumlah_jenis} jenis alat"
+            )
             # =================================================
             # BASE CHART
             # =================================================
