@@ -763,7 +763,7 @@ def generate_excel_rekap_pasar(
     # =====================================================
     # FREEZE & PRINT
     # =====================================================
-    ws.freeze_panes = "E4"
+    #ws.freeze_panes = "E4"
 
     ws.sheet_view.showGridLines = False
 
