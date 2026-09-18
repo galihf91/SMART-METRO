@@ -2711,11 +2711,13 @@ def render_dashboard_uttp():
             )
 
         with s2:
-            render_kpi(
-                f"≤ {BATAS_JATUH_TEMPO_HARI} Hari",
-                total_jatuh_tempo,
-                "Akan jatuh tempo",
-                "#F59E0B",
+            render_kpi_button(
+                title=f"≤ {BATAS_JATUH_TEMPO_HARI} Hari",
+                value=total_jatuh_tempo,
+                subtitle="Akan jatuh tempo",
+                color="#F59E0B",
+                key="btn_kpi_jatuh_tempo",
+                mode="jatuh_tempo",
             )
 
         with s3:
@@ -2788,7 +2790,26 @@ def render_dashboard_uttp():
                 ]
                 == STATUS_AKTIF
             ].copy()
+        elif (
+            mode_dashboard
+            == "jatuh_tempo"
+        ):
+        
+            data_jatuh_tempo = fdf[
+                fdf[
+                    "status_tera"
+                ]
+                == STATUS_JATUH_TEMPO
+            ].copy()
 
+    render_tabel_ringkasan_pemilik(
+        data=data_jatuh_tempo,
+        title=(
+            f"⏳ Pemilik dengan UTTP "
+            f"≤ {BATAS_JATUH_TEMPO_HARI} Hari"
+        ),
+        color="#F59E0B",
+    )
     render_tabel_ringkasan_pemilik(
         data=data_aktif,
         title="✅ Pemilik dengan UTTP Tera Aktif",
@@ -2803,6 +2824,7 @@ def render_dashboard_uttp():
                 "pemilik",
                 "total_uttp",
                 "aktif",
+                "jatuh_tempo",
             ]
         ):
         
