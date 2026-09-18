@@ -709,7 +709,7 @@ def render_tabel_ringkasan_pemilik(
     )
 
     # =====================================================
-    # TABEL
+    # TABEL RINGKASAN - DASHBOARD STYLE
     # =====================================================
     nilai_maks = max(
         1,
@@ -720,30 +720,164 @@ def render_tabel_ringkasan_pemilik(
         )
     )
 
-    st.dataframe(
-        tampil,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "No.": st.column_config.NumberColumn(
-                "No.",
-                width="small",
+    rows_html = ""
+
+    for _, row in tampil.iterrows():
+
+        nomor = int(
+            row["No."]
+        )
+
+        nama = (
+            clean_text(
+                row[
+                    "Pemilik / Lokasi"
+                ]
+            )
+            or "Pemilik Belum Diketahui"
+        )
+
+        jumlah = int(
+            row[
+                "Jumlah UTTP"
+            ]
+        )
+
+        persen = min(
+            100,
+            (
+                jumlah
+                / nilai_maks
+                * 100
             ),
+        )
 
-            "Pemilik / Lokasi":
-                st.column_config.TextColumn(
-                    "Pemilik / Lokasi",
-                    width="large",
-                ),
+        rows_html += f"""
+        <div style="
+            display:grid;
+            grid-template-columns:60px 1fr 180px;
+            align-items:center;
+            gap:14px;
+            padding:13px 16px;
+            border-bottom:1px solid #F1F5F9;
+        ">
 
-            "Jumlah UTTP":
-                st.column_config.ProgressColumn(
-                    "Jumlah UTTP",
-                    min_value=0,
-                    max_value=nilai_maks,
-                    format="%d",
-                ),
-        },
+            <div style="
+                display:flex;
+                align-items:center;
+                justify-content:center;
+            ">
+                <div style="
+                    width:30px;
+                    height:30px;
+                    border-radius:50%;
+                    background:#F1F5F9;
+                    color:#475569;
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                    font-size:12px;
+                    font-weight:800;
+                ">
+                    {nomor}
+                </div>
+            </div>
+
+            <div style="
+                font-size:14px;
+                font-weight:650;
+                color:#0F172A;
+            ">
+                {html.escape(nama)}
+            </div>
+
+            <div>
+                <div style="
+                    display:flex;
+                    align-items:center;
+                    justify-content:space-between;
+                    margin-bottom:5px;
+                ">
+                    <span style="
+                        font-size:12px;
+                        color:#64748B;
+                    ">
+                        Jumlah UTTP
+                    </span>
+
+                    <span style="
+                        font-size:13px;
+                        font-weight:800;
+                        color:{color};
+                    ">
+                        {jumlah}
+                    </span>
+                </div>
+
+                <div style="
+                    width:100%;
+                    height:7px;
+                    border-radius:999px;
+                    background:#E2E8F0;
+                    overflow:hidden;
+                ">
+                    <div style="
+                        width:{persen:.1f}%;
+                        height:100%;
+                        background:{color};
+                        border-radius:999px;
+                    ">
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        """
+
+    table_html = f"""
+    <div style="
+        background:#FFFFFF;
+        border:1px solid #E2E8F0;
+        border-radius:14px;
+        overflow:hidden;
+        box-shadow:0 4px 14px rgba(15,23,42,0.05);
+        margin-bottom:12px;
+    ">
+
+        <div style="
+            display:grid;
+            grid-template-columns:60px 1fr 180px;
+            gap:14px;
+            padding:11px 16px;
+            background:#F8FAFC;
+            border-bottom:1px solid #E2E8F0;
+            font-size:12px;
+            font-weight:800;
+            color:#64748B;
+            text-transform:uppercase;
+            letter-spacing:0.4px;
+        ">
+            <div style="text-align:center;">
+                No.
+            </div>
+
+            <div>
+                Pemilik / Lokasi
+            </div>
+
+            <div>
+                Jumlah UTTP
+            </div>
+        </div>
+
+        {rows_html}
+
+    </div>
+    """
+
+    st.markdown(
+        table_html,
+        unsafe_allow_html=True,
     )
 
     # =====================================================
