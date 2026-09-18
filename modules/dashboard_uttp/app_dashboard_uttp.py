@@ -4304,6 +4304,26 @@ def generate_excel_laporan_bulanan(
                 row=row_summary,
                 column=col_num,
             ).border = border
+        # =============================================
+        # WARNA KHUSUS GRAND TOTAL
+        # =============================================
+        if (
+            label_total
+            == "GRAND TOTAL UTTP"
+        ):
+
+            for col_num in range(
+                1,
+                7,
+            ):
+
+                ws.cell(
+                    row=row_summary,
+                    column=col_num,
+                ).fill = PatternFill(
+                    "solid",
+                    fgColor="FFF2CC",
+                )
     # =====================================================
     # UKURAN KOLOM
     # =====================================================
@@ -4348,7 +4368,7 @@ def generate_excel_laporan_bulanan(
     # =====================================================
     # FREEZE
     # =====================================================
-    ws.freeze_panes = "A8"
+    ws.freeze_panes = "I8"
 
     # =====================================================
     # PRINT SETUP
@@ -4365,7 +4385,14 @@ def generate_excel_laporan_bulanan(
     ws.print_title_rows = (
         "1:7"
     )
+    ws.sheet_view.showGridLines = False
 
+    ws.page_margins.left = 0.25
+    ws.page_margins.right = 0.25
+    ws.page_margins.top = 0.5
+    ws.page_margins.bottom = 0.5
+
+    ws.print_options.horizontalCentered = True
     # =====================================================
     # SIMPAN KE MEMORY
     # =====================================================
