@@ -2734,11 +2734,13 @@ def render_dashboard_uttp():
             )
 
         with s5:
-            render_kpi(
-                "Data Belum Lengkap",
-                total_data_kurang,
-                "Perlu verifikasi",
-                "#475569",
+            render_kpi_button(
+                title="Data Belum Lengkap",
+                value=total_data_kurang,
+                subtitle="Perlu verifikasi",
+                color="#475569",
+                key="btn_kpi_data_kurang",
+                mode="data_kurang",
             )
 
         # =================================================
@@ -2862,6 +2864,26 @@ def render_dashboard_uttp():
                 data=data_belum_uji,
                 title="🕒 Pemilik dengan UTTP Belum Pernah Diuji",
                 color="#64748B",
+            )
+        # =================================================
+        # DATA BELUM LENGKAP
+        # =================================================
+        elif (
+            mode_dashboard
+            == "data_kurang"
+        ):
+
+            data_kurang = fdf[
+                fdf[
+                    "status_tera"
+                ]
+                == STATUS_DATA_KURANG
+            ].copy()
+
+            render_tabel_ringkasan_pemilik(
+                data=data_kurang,
+                title="⚠️ Pemilik dengan Data UTTP Belum Lengkap",
+                color="#475569",
             )
         # =================================================
         # KOMPOSISI JENIS UTTP GLOBAL
