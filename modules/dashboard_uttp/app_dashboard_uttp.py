@@ -1914,9 +1914,16 @@ def render_detail_perusahaan(
             == STATUS_BELUM_UJI
         ).sum()
     )
-
-    c1, c2, c3, c4, c5 = (
-        st.columns(5)
+    data_kurang = int(
+        (
+            company_df[
+                "status_tera"
+            ]
+            == STATUS_DATA_KURANG
+        ).sum()
+    )
+    c1, c2, c3, c4, c5, c6 = (
+        st.columns(6)
     )
 
     with c1:
@@ -1962,6 +1969,14 @@ def render_detail_perusahaan(
             belum_uji,
             "Belum ada riwayat",
             "#64748B",
+        )
+    with c6:
+
+        render_kpi(
+            "Data Belum Lengkap",
+            data_kurang,
+            "Perlu verifikasi",
+            "#475569",
         )
 
     # =====================================================
