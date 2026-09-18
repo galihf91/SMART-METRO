@@ -223,6 +223,28 @@ def load_data_dashboard_uttp():
 # =========================================================
 # UTILITAS
 # =========================================================
+def normalisasi_nama_penera(
+    value,
+):
+
+    text = clean_text(
+        value
+    ).lower()
+
+    if not text:
+        return ""
+
+    # Ambil nama utama sebelum gelar
+    text = text.split(",")[0]
+
+    # Rapikan spasi
+    text = " ".join(
+        text.split()
+    )
+
+    return text
+
+
 def buat_lookup_kode_penera(
     df_penera,
 ):
@@ -234,9 +256,9 @@ def buat_lookup_kode_penera(
 
     for _, row in df_penera.iterrows():
 
-        nama = clean_text(
+        nama = normalisasi_nama_penera(
             row.get(
-                "nama_penera"
+                "nama"
             )
         )
 
@@ -249,7 +271,7 @@ def buat_lookup_kode_penera(
         if nama and kode:
 
             lookup[
-                nama.lower()
+                nama
             ] = kode
 
     return lookup
@@ -259,17 +281,17 @@ def format_kode_penera_laporan(
     lookup_kode,
 ):
 
-    nama_1 = clean_text(
+    nama_1 = normalisasi_nama_penera(
         penera_1
     )
 
-    nama_2 = clean_text(
+    nama_2 = normalisasi_nama_penera(
         penera_2
     )
 
     kode_1 = (
         lookup_kode.get(
-            nama_1.lower(),
+            nama_1,
             ""
         )
         if nama_1
@@ -278,22 +300,27 @@ def format_kode_penera_laporan(
 
     kode_2 = (
         lookup_kode.get(
-            nama_2.lower(),
+            nama_2,
             ""
         )
         if nama_2
         else ""
     )
 
-    kode_list = [
-        kode
-        for kode
-        in [
-            kode_1,
-            kode_2,
-        ]
-        if kode
-    ]
+    kode_list = []
+
+    for kode in [
+        kode_1,
+        kode_2,
+    ]:
+
+        if (
+            kode
+            and kode not in kode_list
+        ):
+            kode_list.append(
+                kode
+            )
 
     return " & ".join(
         kode_list
