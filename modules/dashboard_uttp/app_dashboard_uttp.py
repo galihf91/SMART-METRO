@@ -731,7 +731,6 @@ def render_tabel_ringkasan_pemilik(
             </div>
         </div>
         """,
-        unsafe_allow_html=True,
     )
 
     # =====================================================
@@ -903,7 +902,6 @@ def render_tabel_ringkasan_pemilik(
 
     st.html(
         table_html,
-        unsafe_allow_html=True,
     )
     # =====================================================
     # BUKA DETAIL PEMILIK / LOKASI
