@@ -506,6 +506,283 @@ def render_kpi_button(
         ] = 1
 
         st.rerun()
+def render_tabel_ringkasan_pemilik(
+    data,
+    title,
+    color="#2563EB",
+):
+    """
+    Ringkasan UTTP per pemilik / lokasi.
+    1 pemilik = 1 baris.
+    """
+
+    if data.empty:
+        st.info(
+            "Tidak ada data yang dapat ditampilkan."
+        )
+        return
+
+    # =====================================================
+    # AGREGASI PER PEMILIK
+    # =====================================================
+    ringkasan = (
+        data
+        .groupby(
+            [
+                "pemilik_key",
+                "pemilik_display",
+            ],
+            dropna=False,
+        )[
+            "uttp_id"
+        ]
+        .nunique()
+        .rename(
+            "Jumlah UTTP"
+        )
+        .reset_index()
+        .sort_values(
+            [
+                "Jumlah UTTP",
+                "pemilik_display",
+            ],
+            ascending=[
+                False,
+                True,
+            ],
+        )
+        .reset_index(
+            drop=True
+        )
+    )
+
+    ringkasan[
+        "pemilik_display"
+    ] = ringkasan[
+        "pemilik_display"
+    ].fillna(
+        "Pemilik Belum Diketahui"
+    )
+
+    total_pemilik = len(
+        ringkasan
+    )
+
+    total_uttp = int(
+        ringkasan[
+            "Jumlah UTTP"
+        ].sum()
+    )
+
+    # =====================================================
+    # PAGINATION
+    # =====================================================
+    per_page = 10
+
+    total_page = max(
+        1,
+        (
+            total_pemilik
+            + per_page
+            - 1
+        )
+        // per_page
+    )
+
+    halaman = int(
+        st.session_state.get(
+            "dashboard_uttp_page",
+            1,
+        )
+    )
+
+    halaman = max(
+        1,
+        min(
+            halaman,
+            total_page,
+        )
+    )
+
+    st.session_state[
+        "dashboard_uttp_page"
+    ] = halaman
+
+    start = (
+        halaman - 1
+    ) * per_page
+
+    end = (
+        start
+        + per_page
+    )
+
+    tampil = (
+        ringkasan
+        .iloc[
+            start:end
+        ]
+        .copy()
+    )
+
+    tampil.insert(
+        0,
+        "No.",
+        range(
+            start + 1,
+            start + 1 + len(tampil),
+        ),
+    )
+
+    tampil = tampil[
+        [
+            "No.",
+            "pemilik_display",
+            "Jumlah UTTP",
+        ]
+    ]
+
+    tampil.columns = [
+        "No.",
+        "Pemilik / Lokasi",
+        "Jumlah UTTP",
+    ]
+
+    # =====================================================
+    # HEADER TABEL
+    # =====================================================
+    st.markdown(
+        f"""
+        <div style="
+            background:white;
+            border:1px solid #E2E8F0;
+            border-left:6px solid {color};
+            border-radius:14px;
+            padding:16px 18px;
+            margin-top:18px;
+            margin-bottom:10px;
+        ">
+            <div style="
+                font-size:18px;
+                font-weight:800;
+                color:#0F172A;
+            ">
+                {html.escape(title)}
+            </div>
+
+            <div style="
+                font-size:13px;
+                color:#64748B;
+                margin-top:4px;
+            ">
+                {total_pemilik:,} pemilik / lokasi
+                •
+                {total_uttp:,} UTTP
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # =====================================================
+    # TABEL
+    # =====================================================
+    nilai_maks = max(
+        1,
+        int(
+            ringkasan[
+                "Jumlah UTTP"
+            ].max()
+        )
+    )
+
+    st.dataframe(
+        tampil,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "No.": st.column_config.NumberColumn(
+                "No.",
+                width="small",
+            ),
+
+            "Pemilik / Lokasi":
+                st.column_config.TextColumn(
+                    "Pemilik / Lokasi",
+                    width="large",
+                ),
+
+            "Jumlah UTTP":
+                st.column_config.ProgressColumn(
+                    "Jumlah UTTP",
+                    min_value=0,
+                    max_value=nilai_maks,
+                    format="%d",
+                ),
+        },
+    )
+
+    # =====================================================
+    # NAVIGASI HALAMAN
+    # =====================================================
+    b1, b2, b3 = st.columns(
+        [
+            1,
+            2,
+            1,
+        ]
+    )
+
+    with b1:
+
+        if st.button(
+            "← Sebelumnya",
+            disabled=(
+                halaman <= 1
+            ),
+            use_container_width=True,
+            key="btn_ringkasan_prev",
+        ):
+
+            st.session_state[
+                "dashboard_uttp_page"
+            ] = halaman - 1
+
+            st.rerun()
+
+    with b2:
+
+        st.markdown(
+            f"""
+            <div style="
+                text-align:center;
+                padding-top:8px;
+                font-size:13px;
+                color:#64748B;
+            ">
+                Halaman <b>{halaman}</b>
+                dari <b>{total_page}</b>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with b3:
+
+        if st.button(
+            "Selanjutnya →",
+            disabled=(
+                halaman >= total_page
+            ),
+            use_container_width=True,
+            key="btn_ringkasan_next",
+        ):
+
+            st.session_state[
+                "dashboard_uttp_page"
+            ] = halaman + 1
+
+            st.rerun()
 # =========================================================
 # BUILD MONITORING
 # =========================================================
@@ -2475,97 +2752,124 @@ def render_dashboard_uttp():
                 f"Ada {abs(selisih)} UTTP "
                 "yang statusnya belum terklasifikasi."
             )
+        # =================================================
+        # AREA INTERAKTIF CARD
+        # =================================================
+        mode_dashboard = (
+            st.session_state.get(
+                "dashboard_uttp_mode",
+                "total_uttp",
+            )
+        )
 
+        if (
+            mode_dashboard
+            == "pemilik"
+        ):
+
+            render_tabel_ringkasan_pemilik(
+                data=fdf,
+                title="🏢 Daftar Pemilik / Lokasi UTTP",
+                color="#1D4ED8",
+            )
         # =================================================
         # PRIORITAS PENGAWASAN
         # =================================================
-        priority = fdf[
-            fdf[
-                "status_tera"
-            ].isin(
-                [
-                    STATUS_KEDALUWARSA,
-                    STATUS_JATUH_TEMPO,
-                    STATUS_BELUM_UJI,
-                    STATUS_DATA_KURANG,
-                ]
-            )
-        ].copy()
-
-        if not priority.empty:
-
-            priority[
-                "prioritas"
-            ] = priority[
-                "status_tera"
-            ].map({
-                STATUS_KEDALUWARSA: 0,
-                STATUS_JATUH_TEMPO: 1,
-                STATUS_BELUM_UJI: 2,
-                STATUS_DATA_KURANG: 3,
-            })
-
-            priority[
-                "sisa_sort"
-            ] = pd.to_numeric(
-                priority[
-                    "sisa_hari"
-                ],
-                errors="coerce",
-            ).fillna(
-                999999
-            )
-
-            priority = (
-                priority
-                .sort_values(
+        if (
+            mode_dashboard
+            not in [
+                "pemilik",
+                "total_uttp",
+            ]
+        ):
+        
+            priority = fdf[
+                fdf[
+                    "status_tera"
+                ].isin(
                     [
-                        "prioritas",
-                        "sisa_sort",
-                        "pemilik_display",
+                        STATUS_KEDALUWARSA,
+                        STATUS_JATUH_TEMPO,
+                        STATUS_BELUM_UJI,
+                        STATUS_DATA_KURANG,
                     ]
                 )
-                .head(25)
-            )
-
-            st.markdown("---")
-
-            st.subheader(
-                "🚨 Prioritas Pengawasan"
-            )
-
-            priority_view = (
+            ].copy()
+    
+            if not priority.empty:
+    
                 priority[
-                    [
-                        "pemilik_display",
-                        "jenis_uttp",
-                        "status_tera",
-                        "sisa_hari",
+                    "prioritas"
+                ] = priority[
+                    "status_tera"
+                ].map({
+                    STATUS_KEDALUWARSA: 0,
+                    STATUS_JATUH_TEMPO: 1,
+                    STATUS_BELUM_UJI: 2,
+                    STATUS_DATA_KURANG: 3,
+                })
+    
+                priority[
+                    "sisa_sort"
+                ] = pd.to_numeric(
+                    priority[
+                        "sisa_hari"
+                    ],
+                    errors="coerce",
+                ).fillna(
+                    999999
+                )
+    
+                priority = (
+                    priority
+                    .sort_values(
+                        [
+                            "prioritas",
+                            "sisa_sort",
+                            "pemilik_display",
+                        ]
+                    )
+                    .head(25)
+                )
+    
+                st.markdown("---")
+    
+                st.subheader(
+                    "🚨 Prioritas Pengawasan"
+                )
+    
+                priority_view = (
+                    priority[
+                        [
+                            "pemilik_display",
+                            "jenis_uttp",
+                            "status_tera",
+                            "sisa_hari",
+                        ]
                     ]
+                    .copy()
+                )
+    
+                priority_view[
+                    "sisa_hari"
+                ] = priority_view[
+                    "sisa_hari"
+                ].apply(
+                    format_sisa_hari
+                )
+    
+                priority_view.columns = [
+                    "Pemilik",
+                    "Jenis UTTP",
+                    "Status",
+                    "Sisa Waktu",
                 ]
-                .copy()
-            )
-
-            priority_view[
-                "sisa_hari"
-            ] = priority_view[
-                "sisa_hari"
-            ].apply(
-                format_sisa_hari
-            )
-
-            priority_view.columns = [
-                "Pemilik",
-                "Jenis UTTP",
-                "Status",
-                "Sisa Waktu",
-            ]
-
-            st.dataframe(
-                priority_view,
-                use_container_width=True,
-                hide_index=True,
-            )
+    
+                st.dataframe(
+                    priority_view,
+                    use_container_width=True,
+                    hide_index=True,
+                )
 
         # =================================================
         # KOMPOSISI JENIS UTTP GLOBAL
