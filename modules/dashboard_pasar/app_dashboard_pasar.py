@@ -678,7 +678,7 @@ def generate_excel_rekap_pasar(
         start_row=total_row,
         start_column=1,
         end_row=total_row,
-        end_column=4,
+        end_column=3,
     )
 
     total_label = ws.cell(
@@ -705,7 +705,7 @@ def generate_excel_rekap_pasar(
 
     for offset, nama_col in enumerate(
         kolom_total,
-        start=5,
+        start=4,
     ):
 
         nilai = pd.to_numeric(
@@ -720,7 +720,7 @@ def generate_excel_rekap_pasar(
 
     for col_num in range(
         1,
-        14,
+        13,
     ):
 
         cell = ws.cell(
@@ -744,16 +744,15 @@ def generate_excel_rekap_pasar(
         "A": 6,
         "B": 24,
         "C": 23,
-        "D": 23,
+        "D": 9,
         "E": 9,
         "F": 9,
-        "G": 9,
-        "H": 13,
-        "I": 15,
-        "J": 10,
-        "K": 13,
-        "L": 16,
-        "M": 12,
+        "G": 13,
+        "H": 15,
+        "I": 10,
+        "J": 13,
+        "K": 16,
+        "L": 12,
     }
 
     for col, width in widths.items():
