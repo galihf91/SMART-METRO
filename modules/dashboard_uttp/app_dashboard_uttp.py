@@ -435,6 +435,32 @@ div[data-testid="stButton"] > button p {
     white-space: pre-line;
     line-height: 1.35;
 }
+/* =====================================================
+   KHUSUS KPI CLICKABLE
+   ===================================================== */
+
+div[data-testid="stVerticalBlockBorderWrapper"]
+div[data-testid="stButton"] > button {
+    min-height: 92px;
+    border-radius: 12px;
+    font-weight: 700;
+    padding: 12px 14px;
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"]
+div[data-testid="stButton"] > button p {
+    white-space: pre-line;
+    line-height: 1.45;
+    font-size: 14px;
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"]
+div[data-testid="stButton"] > button:hover {
+    transform: translateY(-2px);
+    box-shadow:
+        0 8px 18px
+        rgba(15, 23, 42, 0.10);
+}
 .company-card {
     background: #F8FAFC;
     padding: 18px 20px;
@@ -510,8 +536,8 @@ def render_kpi_button(
     )
 
     label = (
-        f"{status_aktif}{title}\n\n"
-        f"{value}\n"
+        f"{status_aktif}{title}\n"
+        f"**{value}**\n"
         f"{subtitle}"
     )
 
