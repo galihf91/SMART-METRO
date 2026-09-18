@@ -3991,6 +3991,223 @@ def generate_excel_laporan_bulanan(
         ].alignment = align_left
 
     # =====================================================
+    # TOTAL PER JENIS UTTP
+    # =====================================================
+    total_row = (
+        data_mulai
+        + len(laporan)
+    )
+
+    # Label JUMLAH
+    ws.merge_cells(
+        start_row=total_row,
+        start_column=1,
+        end_row=total_row,
+        end_column=8,
+    )
+
+    ws.cell(
+        row=total_row,
+        column=1,
+    ).value = "JUMLAH"
+
+    ws.cell(
+        row=total_row,
+        column=1,
+    ).font = Font(
+        name="Arial",
+        size=8,
+        bold=True,
+    )
+
+    ws.cell(
+        row=total_row,
+        column=1,
+    ).alignment = align_center
+
+    # =====================================================
+    # JUMLAH MASING-MASING KOLOM ALAT
+    # =====================================================
+    for (
+        kolom_data,
+        kolom_sheet,
+    ) in kolom_excel.items():
+
+        total_nilai = pd.to_numeric(
+            laporan[
+                kolom_data
+            ],
+            errors="coerce",
+        ).fillna(0).sum()
+
+        if total_nilai > 0:
+
+            ws[
+                f"{kolom_sheet}"
+                f"{total_row}"
+            ] = int(
+                total_nilai
+            )
+
+    # =====================================================
+    # FORMAT BARIS TOTAL
+    # =====================================================
+    for col_num in range(
+        1,
+        30,
+    ):
+
+        cell = ws.cell(
+            row=total_row,
+            column=col_num,
+        )
+
+        cell.border = border
+
+        if col_num >= 9:
+            cell.font = Font(
+                name="Arial",
+                size=8,
+                bold=True,
+            )
+
+            cell.alignment = (
+                align_center
+            )
+
+    ws.row_dimensions[
+        total_row
+    ].height = 22
+    # =====================================================
+    # TOTAL KELOMPOK
+    # =====================================================
+    total_mt = 0
+    total_uapv = 0
+
+    for col in KOLOM_ALAT_LAPORAN:
+
+        nilai = pd.to_numeric(
+            laporan[
+                col
+            ],
+            errors="coerce",
+        ).fillna(0).sum()
+
+        if col.startswith(
+            "MT_"
+        ):
+            total_mt += nilai
+
+        elif col.startswith(
+            "UAPV_"
+        ):
+            total_uapv += nilai
+
+    total_mt = int(
+        total_mt
+    )
+
+    total_uapv = int(
+        total_uapv
+    )
+
+    grand_total = (
+        total_mt
+        + total_uapv
+    )
+    # =====================================================
+    # RINGKASAN TOTAL
+    # =====================================================
+    summary_start = (
+        total_row + 2
+    )
+
+    ringkasan_total = [
+        (
+            "TOTAL MASSA TIMBANGAN",
+            total_mt,
+        ),
+        (
+            "TOTAL UAPV",
+            total_uapv,
+        ),
+        (
+            "GRAND TOTAL UTTP",
+            grand_total,
+        ),
+    ]
+
+    for offset, (
+        label_total,
+        nilai_total,
+    ) in enumerate(
+        ringkasan_total
+    ):
+
+        row_summary = (
+            summary_start
+            + offset
+        )
+
+        ws.merge_cells(
+            start_row=row_summary,
+            start_column=1,
+            end_row=row_summary,
+            end_column=5,
+        )
+
+        ws.cell(
+            row=row_summary,
+            column=1,
+        ).value = label_total
+
+        ws.cell(
+            row=row_summary,
+            column=1,
+        ).font = Font(
+            name="Arial",
+            size=9,
+            bold=True,
+        )
+
+        ws.cell(
+            row=row_summary,
+            column=1,
+        ).alignment = (
+            align_left
+        )
+
+        ws.cell(
+            row=row_summary,
+            column=6,
+        ).value = nilai_total
+
+        ws.cell(
+            row=row_summary,
+            column=6,
+        ).font = Font(
+            name="Arial",
+            size=9,
+            bold=True,
+        )
+
+        ws.cell(
+            row=row_summary,
+            column=6,
+        ).alignment = (
+            align_center
+        )
+
+        for col_num in range(
+            1,
+            7,
+        ):
+
+            ws.cell(
+                row=row_summary,
+                column=col_num,
+            ).border = border
+    # =====================================================
     # UKURAN KOLOM
     # =====================================================
     widths = {
