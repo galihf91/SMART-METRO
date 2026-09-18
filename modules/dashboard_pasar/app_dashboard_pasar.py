@@ -315,6 +315,204 @@ def load_pasar_supabase():
     df["kecamatan"] = df["kecamatan"].fillna("").astype(str).str.strip()
     df["alamat"] = df["alamat"].fillna("").astype(str).str.strip()
     return df
+def build_export_pasar(
+    df,
+    tahun,
+):
+
+    if df.empty:
+        return pd.DataFrame()
+
+    tahun = int(tahun)
+    tahun_sebelumnya = tahun - 1
+
+    data_tahun = df[
+        pd.to_numeric(
+            df["tera_ulang_tahun"],
+            errors="coerce",
+        ) == tahun
+    ].copy()
+
+    if data_tahun.empty:
+        return pd.DataFrame()
+
+    data_sebelumnya = df[
+        pd.to_numeric(
+            df["tera_ulang_tahun"],
+            errors="coerce",
+        ) == tahun_sebelumnya
+    ].copy()
+
+    # =====================================================
+    # LOOKUP TANGGAL TAHUN SEBELUMNYA
+    # =====================================================
+    lookup_tanggal_sebelumnya = {}
+
+    if not data_sebelumnya.empty:
+
+        for _, row in data_sebelumnya.iterrows():
+
+            pasar_id = row.get(
+                "pasar_id"
+            )
+
+            lookup_tanggal_sebelumnya[
+                pasar_id
+            ] = row.get(
+                "tanggal_pelaksanaan"
+            )
+
+    hasil = []
+
+    for _, row in data_tahun.iterrows():
+
+        pasar_id = row.get(
+            "pasar_id"
+        )
+
+        hasil.append(
+            {
+                "Nama Pasar": row.get(
+                    "nama_pasar",
+                    "",
+                ),
+
+                f"Pelaksanaan {tahun_sebelumnya}": (
+                    lookup_tanggal_sebelumnya.get(
+                        pasar_id,
+                        "",
+                    )
+                ),
+
+                f"Pelaksanaan {tahun}": row.get(
+                    "tanggal_pelaksanaan",
+                    "",
+                ),
+
+                "TP": int(
+                    pd.to_numeric(
+                        row.get(
+                            "timb_pegas",
+                            0,
+                        ),
+                        errors="coerce",
+                    )
+                    or 0
+                ),
+
+                "TM": int(
+                    pd.to_numeric(
+                        row.get(
+                            "timb_meja",
+                            0,
+                        ),
+                        errors="coerce",
+                    )
+                    or 0
+                ),
+
+                "TE": int(
+                    pd.to_numeric(
+                        row.get(
+                            "timb_elektronik",
+                            0,
+                        ),
+                        errors="coerce",
+                    )
+                    or 0
+                ),
+
+                "Sentisimal": int(
+                    pd.to_numeric(
+                        row.get(
+                            "timb_sentisimal",
+                            0,
+                        ),
+                        errors="coerce",
+                    )
+                    or 0
+                ),
+
+                "Bobot Ingsut": int(
+                    pd.to_numeric(
+                        row.get(
+                            "timb_bobot_ingsut",
+                            0,
+                        ),
+                        errors="coerce",
+                    )
+                    or 0
+                ),
+
+                "Neraca": int(
+                    pd.to_numeric(
+                        row.get(
+                            "neraca",
+                            0,
+                        ),
+                        errors="coerce",
+                    )
+                    or 0
+                ),
+
+                "Total UTTP": int(
+                    pd.to_numeric(
+                        row.get(
+                            "total_uttp",
+                            0,
+                        ),
+                        errors="coerce",
+                    )
+                    or 0
+                ),
+
+                "Total Pedagang": int(
+                    pd.to_numeric(
+                        row.get(
+                            "total_pedagang",
+                            0,
+                        ),
+                        errors="coerce",
+                    )
+                    or 0
+                ),
+
+                "Jumlah Hari": int(
+                    pd.to_numeric(
+                        row.get(
+                            "jumlah_hari",
+                            0,
+                        ),
+                        errors="coerce",
+                    )
+                    or 0
+                ),
+            }
+        )
+
+    laporan = pd.DataFrame(
+        hasil
+    )
+
+    if laporan.empty:
+        return laporan
+
+    laporan = laporan.sort_values(
+        "Nama Pasar"
+    ).reset_index(
+        drop=True
+    )
+
+    laporan.insert(
+        0,
+        "No",
+        range(
+            1,
+            len(laporan) + 1,
+        ),
+    )
+
+    return laporan
 @st.cache_data
 def load_excel(path_like):
     try:
@@ -422,7 +620,7 @@ def render_dashboard_pasar():
         "Dashboard Pasar Kabupaten Tangerang",
         "Monitoring tera ulang pasar · Bidang Kemetrologian"
     )
-
+    
     # --- pending click ---
     pending = st.session_state.pop("pasar_pending_pick", None)
 
@@ -435,6 +633,38 @@ def render_dashboard_pasar():
     st.sidebar.markdown("---"); st.sidebar.subheader("Filter Pasar")
     years = sorted(pd.to_numeric(df['tera_ulang_tahun'], errors='coerce').dropna().astype(int).unique())
     year_pick = st.sidebar.selectbox("Tahun Tera Ulang", years[::-1], key='pasar_year_pick')
+    with st.expander(
+        "📥 Export Rekap Pasar",
+        expanded=False,
+    ):
+
+        laporan_pasar = (
+            build_export_pasar(
+                df=df,
+                tahun=year_pick,
+            )
+        )
+
+        if laporan_pasar.empty:
+
+            st.info(
+                f"Belum ada data sidang tera ulang "
+                f"pasar tahun {year_pick}."
+            )
+
+        else:
+
+            st.success(
+                f"Ditemukan "
+                f"{len(laporan_pasar)} pasar "
+                f"pada tahun {year_pick}."
+            )
+
+            st.dataframe(
+                laporan_pasar,
+                use_container_width=True,
+                hide_index=True,
+            )
     status_pick = st.sidebar.selectbox(
         "Status",
         ["(Semua)", "Sudah Tera", "Belum Tera"],
