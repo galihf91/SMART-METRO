@@ -1351,14 +1351,6 @@ def build_monitoring_data(
             errors="coerce",
         )
     # =====================================================
-    # LOOKUP KODE PENERA
-    # =====================================================
-    lookup_kode_penera = (
-        buat_lookup_kode_penera(
-            df_penera
-        )
-    )
-    # =====================================================
     # MASTER UTTP
     # =====================================================
     master = df_uttp.copy()
