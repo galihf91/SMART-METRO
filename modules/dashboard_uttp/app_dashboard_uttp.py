@@ -2291,8 +2291,7 @@ def render_detail_perusahaan(
         label = (
             f"{jenis} | "
             f"{merk} | "
-            f"No. Seri {nomor_seri} | "
-            f"ID {int(uttp_id)}"
+            f"No. Seri {nomor_seri}"
         )
 
         pilihan_uttp[
@@ -2300,7 +2299,7 @@ def render_detail_perusahaan(
         ] = uttp_id
 
     pilih = st.selectbox(
-        "Pilih UTTP",
+        "Pilih UTTP untuk melihat detail",
         options=[
             ""
         ]
