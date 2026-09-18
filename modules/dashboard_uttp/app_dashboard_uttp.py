@@ -124,6 +124,14 @@ def load_data_dashboard_uttp():
             "alamat"
         ),
     )
+    penera_rows = fetch_all_rows(
+        "penera",
+        (
+            "id, "
+            "nama_penera, "
+            "kode_penera"
+        ),
+    )
     spbu_rows = fetch_all_rows(
         "spbu",
         (
@@ -193,6 +201,7 @@ def load_data_dashboard_uttp():
         pd.DataFrame(
             perusahaan_rows
         ),
+        pd.DataFrame(penera_rows),
         pd.DataFrame(
             spbu_rows
         ),
@@ -211,6 +220,81 @@ def load_data_dashboard_uttp():
 # =========================================================
 # UTILITAS
 # =========================================================
+def buat_lookup_kode_penera(
+    df_penera,
+):
+
+    if df_penera.empty:
+        return {}
+
+    lookup = {}
+
+    for _, row in df_penera.iterrows():
+
+        nama = clean_text(
+            row.get(
+                "nama_penera"
+            )
+        )
+
+        kode = clean_text(
+            row.get(
+                "kode_penera"
+            )
+        )
+
+        if nama and kode:
+
+            lookup[
+                nama.lower()
+            ] = kode
+
+    return lookup
+def format_kode_penera_laporan(
+    penera_1,
+    penera_2,
+    lookup_kode,
+):
+
+    nama_1 = clean_text(
+        penera_1
+    )
+
+    nama_2 = clean_text(
+        penera_2
+    )
+
+    kode_1 = (
+        lookup_kode.get(
+            nama_1.lower(),
+            ""
+        )
+        if nama_1
+        else ""
+    )
+
+    kode_2 = (
+        lookup_kode.get(
+            nama_2.lower(),
+            ""
+        )
+        if nama_2
+        else ""
+    )
+
+    kode_list = [
+        kode
+        for kode
+        in [
+            kode_1,
+            kode_2,
+        ]
+        if kode
+    ]
+
+    return " & ".join(
+        kode_list
+    )
 def clean_text(value):
 
     if value is None:
@@ -1263,6 +1347,14 @@ def build_monitoring_data(
             spbu["spbu_id"],
             errors="coerce",
         )
+    # =====================================================
+    # LOOKUP KODE PENERA
+    # =====================================================
+    lookup_kode_penera = (
+        buat_lookup_kode_penera(
+            df_penera
+        )
+    )
     # =====================================================
     # MASTER UTTP
     # =====================================================
@@ -2809,6 +2901,7 @@ def build_data_laporan_bulanan(
     df_relasi,
     df_uttp,
     df_perusahaan,
+    df_penera,
     df_spbu,
     bulan,
     tahun,
@@ -3203,6 +3296,19 @@ def build_data_laporan_bulanan(
         # =================================================
         # BASE ROW
         # =================================================
+        kode_penera = (
+            format_kode_penera_laporan(
+                penera_1=p.get(
+                    "penera_1"
+                ),
+                penera_2=p.get(
+                    "penera_2"
+                ),
+                lookup_kode=(
+                    lookup_kode_penera
+                ),
+            )
+        )
         row = {
             "Tanggal": tanggal,
             "No. Order": nomor_order,
@@ -3211,16 +3317,7 @@ def build_data_laporan_bulanan(
             "Lokasi": lokasi,
             "KET": ket,
             "Jenis Pengujian": jenis_pengujian,
-            "Penera 1": clean_text(
-                p.get(
-                    "penera_1"
-                )
-            ),
-            "Penera 2": clean_text(
-                p.get(
-                    "penera_2"
-                )
-            ),
+            "Penera": kode_penera,
         }
 
         row.update(
@@ -3310,6 +3407,7 @@ def render_dashboard_uttp():
 
         (
             df_perusahaan,
+            df_penera,
             df_spbu,
             df_uttp,
             df_pengujian,
