@@ -3439,6 +3439,161 @@ def render_dashboard_uttp():
 
     render_header()
 
+    # =====================================================
+    # EXPORT LAPORAN BULANAN
+    # =====================================================
+    with st.expander(
+        "📥 Export Laporan Bulanan",
+        expanded=False,
+    ):
+
+        st.caption(
+            "Rekap pelayanan tera / tera ulang berdasarkan "
+            "tanggal pengujian."
+        )
+
+        nama_bulan = {
+            1: "Januari",
+            2: "Februari",
+            3: "Maret",
+            4: "April",
+            5: "Mei",
+            6: "Juni",
+            7: "Juli",
+            8: "Agustus",
+            9: "September",
+            10: "Oktober",
+            11: "November",
+            12: "Desember",
+        }
+
+        # =================================================
+        # DAFTAR TAHUN DARI DATA PENGUJIAN
+        # =================================================
+        tanggal_laporan = pd.to_datetime(
+            df_pengujian[
+                "tanggal_pengujian"
+            ],
+            errors="coerce",
+        )
+
+        tahun_tersedia = sorted(
+            tanggal_laporan
+            .dropna()
+            .dt.year
+            .unique()
+            .tolist(),
+            reverse=True,
+        )
+
+        if not tahun_tersedia:
+            tahun_tersedia = [
+                date.today().year
+            ]
+
+        col_bulan, col_tahun = (
+            st.columns(2)
+        )
+
+        with col_bulan:
+
+            bulan_laporan = (
+                st.selectbox(
+                    "Bulan",
+                    options=list(
+                        nama_bulan.keys()
+                    ),
+                    format_func=lambda x: (
+                        nama_bulan[x]
+                    ),
+                    index=(
+                        date.today().month
+                        - 1
+                    ),
+                    key=(
+                        "dashboard_laporan_bulan"
+                    ),
+                )
+            )
+
+        with col_tahun:
+
+            tahun_laporan = (
+                st.selectbox(
+                    "Tahun",
+                    options=tahun_tersedia,
+                    key=(
+                        "dashboard_laporan_tahun"
+                    ),
+                )
+            )
+
+        # =================================================
+        # BANGUN DATA LAPORAN
+        # =================================================
+        laporan_bulanan = (
+            build_data_laporan_bulanan(
+                df_pengujian=(
+                    df_pengujian
+                ),
+                df_relasi=(
+                    df_relasi
+                ),
+                df_uttp=(
+                    df_uttp
+                ),
+                df_perusahaan=(
+                    df_perusahaan
+                ),
+                df_penera=(
+                    df_penera
+                ),
+                df_spbu=(
+                    df_spbu
+                ),
+                bulan=(
+                    bulan_laporan
+                ),
+                tahun=(
+                    tahun_laporan
+                ),
+            )
+        )
+
+        # =================================================
+        # PREVIEW
+        # =================================================
+        if laporan_bulanan.empty:
+
+            st.info(
+                f"Belum ada data pelayanan "
+                f"{nama_bulan[bulan_laporan]} "
+                f"{tahun_laporan}."
+            )
+
+        else:
+
+            total_order = len(
+                laporan_bulanan
+            )
+
+            st.success(
+                f"Ditemukan {total_order:,} "
+                f"nomor order pada "
+                f"{nama_bulan[bulan_laporan]} "
+                f"{tahun_laporan}."
+            )
+
+            st.markdown(
+                "##### Preview Data"
+            )
+
+            st.dataframe(
+                laporan_bulanan,
+                use_container_width=True,
+                hide_index=True,
+            )
+
     if monitor.empty:
 
         st.warning(
