@@ -2714,19 +2714,23 @@ def render_dashboard_uttp():
             )
 
         with s3:
-            render_kpi(
-                "Kedaluwarsa",
-                total_kedaluwarsa,
-                "Perlu tindak lanjut",
-                "#DC2626",
+            render_kpi_button(
+                title="Kedaluwarsa",
+                value=total_kedaluwarsa,
+                subtitle="Perlu tindak lanjut",
+                color="#DC2626",
+                key="btn_kpi_kedaluwarsa",
+                mode="kedaluwarsa",
             )
 
         with s4:
-            render_kpi(
-                "Belum Uji",
-                total_belum_uji,
-                "Belum ada riwayat",
-                "#64748B",
+            render_kpi_button(
+                title="Belum Uji",
+                value=total_belum_uji,
+                subtitle="Belum ada riwayat",
+                color="#64748B",
+                key="btn_kpi_belum_uji",
+                mode="belum_uji",
             )
 
         with s5:
@@ -2819,7 +2823,46 @@ def render_dashboard_uttp():
                 ),
                 color="#F59E0B",
             )
+        # =================================================
+        # KEDALUWARSA
+        # =================================================
+        elif (
+            mode_dashboard
+            == "kedaluwarsa"
+        ):
 
+            data_kedaluwarsa = fdf[
+                fdf[
+                    "status_tera"
+                ]
+                == STATUS_KEDALUWARSA
+            ].copy()
+
+            render_tabel_ringkasan_pemilik(
+                data=data_kedaluwarsa,
+                title="🚨 Pemilik dengan UTTP Kedaluwarsa",
+                color="#DC2626",
+            )
+        # =================================================
+        # BELUM UJI
+        # =================================================
+        elif (
+            mode_dashboard
+            == "belum_uji"
+        ):
+
+            data_belum_uji = fdf[
+                fdf[
+                    "status_tera"
+                ]
+                == STATUS_BELUM_UJI
+            ].copy()
+
+            render_tabel_ringkasan_pemilik(
+                data=data_belum_uji,
+                title="🕒 Pemilik dengan UTTP Belum Pernah Diuji",
+                color="#64748B",
+            )
         # =================================================
         # KOMPOSISI JENIS UTTP GLOBAL
         # =================================================
