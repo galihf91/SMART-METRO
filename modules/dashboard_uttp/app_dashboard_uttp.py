@@ -3975,7 +3975,7 @@ def generate_excel_laporan_bulanan(
                 row=excel_row,
                 column=col_num,
             )
-
+            
             cell.font = font_data
             cell.border = border
             cell.alignment = (
@@ -4208,7 +4208,10 @@ def generate_excel_laporan_bulanan(
             row=row_summary,
             column=6,
         ).value = nilai_total
-
+        ws.cell(
+            row=row_summary,
+            column=6,
+        ).number_format = '#,##0'
         ws.cell(
             row=row_summary,
             column=6,
