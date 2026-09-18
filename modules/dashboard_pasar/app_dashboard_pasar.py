@@ -985,6 +985,31 @@ def render_dashboard_pasar():
                 use_container_width=True,
                 hide_index=True,
             )
+            # =================================================
+            # GENERATE FILE EXCEL
+            # =================================================
+            excel_pasar = generate_excel_rekap_pasar(
+                laporan=laporan_pasar,
+                tahun=year_pick,
+            )
+    
+            nama_file_pasar = (
+                f"Rekap_Data_UTTP_Pasar_"
+                f"{year_pick}.xlsx"
+            )
+    
+            st.download_button(
+                label="⬇️ Download Excel",
+                data=excel_pasar,
+                file_name=nama_file_pasar,
+                mime=(
+                    "application/"
+                    "vnd.openxmlformats-officedocument."
+                    "spreadsheetml.sheet"
+                ),
+                use_container_width=True,
+                key="download_rekap_pasar",
+            )
     status_pick = st.sidebar.selectbox(
         "Status",
         ["(Semua)", "Sudah Tera", "Belum Tera"],
