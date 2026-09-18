@@ -172,6 +172,7 @@ def load_data_dashboard_uttp():
             "penera_1, "
             "penera_2, "
             "berlaku_sampai, "
+            "jumlah_alat, "
             "data_pengujian"
         ),
     )
@@ -2990,15 +2991,44 @@ def build_data_laporan_bulanan(
                     f"{kode_alat}"
                 )
 
-                jumlah_per_jenis[
-                    key
-                ] = (
-                    jumlah_per_jenis.get(
-                        key,
-                        0,
+                # =============================================
+                # JUMLAH ALAT
+                # =============================================
+                if kode_alat == "KWH":
+                
+                    jumlah_alat = pd.to_numeric(
+                        p.get(
+                            "jumlah_alat"
+                        ),
+                        errors="coerce",
                     )
-                    + 1
-                )
+                
+                    if pd.isna(
+                        jumlah_alat
+                    ):
+                        jumlah_alat = 0
+                
+                    jumlah_alat = int(
+                        jumlah_alat
+                    )
+                
+                    # kWh hanya dihitung sekali per pengujian,
+                    # walaupun mempunyai master UTTP terkait.
+                    jumlah_per_jenis[
+                        key
+                    ] = jumlah_alat
+                
+                else:
+                
+                    jumlah_per_jenis[
+                        key
+                    ] = (
+                        jumlah_per_jenis.get(
+                            key,
+                            0,
+                        )
+                        + 1
+                    )
 
             # =============================================
             # PEMILIK / LOKASI DARI ALAT PERTAMA
