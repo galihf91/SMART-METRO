@@ -4,7 +4,15 @@ import folium
 from folium.plugins import MarkerCluster
 from streamlit_folium import st_folium
 from datetime import datetime
-from io import StringIO
+from io import StringIO, BytesIO
+from openpyxl import Workbook
+from openpyxl.styles import (
+    Alignment,
+    Border,
+    Font,
+    PatternFill,
+    Side,
+)
 import re
 import numpy as np
 import json
@@ -513,6 +521,318 @@ def build_export_pasar(
     )
 
     return laporan
+
+def generate_excel_rekap_pasar(
+    laporan,
+    tahun,
+):
+
+    output = BytesIO()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = f"Pasar {tahun}"
+
+    tahun_sebelumnya = int(tahun) - 1
+
+    # =====================================================
+    # STYLE
+    # =====================================================
+    thin = Side(
+        style="thin",
+        color="000000",
+    )
+
+    border = Border(
+        left=thin,
+        right=thin,
+        top=thin,
+        bottom=thin,
+    )
+
+    align_center = Alignment(
+        horizontal="center",
+        vertical="center",
+        wrap_text=True,
+    )
+
+    align_left = Alignment(
+        horizontal="left",
+        vertical="center",
+        wrap_text=True,
+    )
+
+    font_header = Font(
+        name="Arial",
+        size=9,
+        bold=True,
+    )
+
+    font_data = Font(
+        name="Arial",
+        size=9,
+    )
+
+    fill_header = PatternFill(
+        "solid",
+        fgColor="D9EAF7",
+    )
+
+    fill_total = PatternFill(
+        "solid",
+        fgColor="E2F0D9",
+    )
+
+    # =====================================================
+    # JUDUL
+    # =====================================================
+    ws.merge_cells(
+        "A1:M1"
+    )
+
+    ws["A1"] = (
+        "REKAP DATA UTTP SIDANG TERA ULANG PASAR "
+        f"TAHUN {tahun}"
+    )
+
+    ws["A1"].font = Font(
+        name="Arial",
+        size=12,
+        bold=True,
+    )
+
+    ws["A1"].alignment = align_center
+
+    ws.row_dimensions[1].height = 24
+
+    # =====================================================
+    # HEADER
+    # =====================================================
+    headers = [
+        "No",
+        "Nama Pasar",
+        f"Pelaksanaan {tahun_sebelumnya}",
+        f"Pelaksanaan {tahun}",
+        "TP",
+        "TM",
+        "TE",
+        "Sentisimal",
+        "Bobot Ingsut",
+        "Neraca",
+        "Total UTTP",
+        "Total Pedagang",
+        "Jumlah Hari",
+    ]
+
+    for col_num, header in enumerate(
+        headers,
+        start=1,
+    ):
+
+        cell = ws.cell(
+            row=3,
+            column=col_num,
+        )
+
+        cell.value = header
+        cell.font = font_header
+        cell.fill = fill_header
+        cell.alignment = align_center
+        cell.border = border
+
+    ws.row_dimensions[3].height = 38
+
+    # =====================================================
+    # DATA
+    # =====================================================
+    data_start = 4
+
+    for index, row in laporan.iterrows():
+
+        excel_row = (
+            data_start
+            + index
+        )
+
+        values = [
+            row.get("No", ""),
+            row.get("Nama Pasar", ""),
+            row.get(
+                f"Pelaksanaan {tahun_sebelumnya}",
+                "",
+            ),
+            row.get(
+                f"Pelaksanaan {tahun}",
+                "",
+            ),
+            row.get("TP", 0),
+            row.get("TM", 0),
+            row.get("TE", 0),
+            row.get("Sentisimal", 0),
+            row.get("Bobot Ingsut", 0),
+            row.get("Neraca", 0),
+            row.get("Total UTTP", 0),
+            row.get("Total Pedagang", 0),
+            row.get("Jumlah Hari", 0),
+        ]
+
+        for col_num, value in enumerate(
+            values,
+            start=1,
+        ):
+
+            # Jangan tampilkan None sebagai tulisan "None"
+            if value is None:
+                value = ""
+
+            cell = ws.cell(
+                row=excel_row,
+                column=col_num,
+            )
+
+            cell.value = value
+            cell.font = font_data
+            cell.border = border
+            cell.alignment = align_center
+
+        # Nama pasar rata kiri
+        ws.cell(
+            row=excel_row,
+            column=2,
+        ).alignment = align_left
+
+        ws.row_dimensions[
+            excel_row
+        ].height = 25
+
+    # =====================================================
+    # TOTAL
+    # =====================================================
+    total_row = (
+        data_start
+        + len(laporan)
+    )
+
+    ws.merge_cells(
+        start_row=total_row,
+        start_column=1,
+        end_row=total_row,
+        end_column=4,
+    )
+
+    total_label = ws.cell(
+        row=total_row,
+        column=1,
+    )
+
+    total_label.value = "JUMLAH"
+    total_label.font = font_header
+    total_label.alignment = align_center
+
+    # Kolom angka E:M
+    kolom_total = [
+        "TP",
+        "TM",
+        "TE",
+        "Sentisimal",
+        "Bobot Ingsut",
+        "Neraca",
+        "Total UTTP",
+        "Total Pedagang",
+        "Jumlah Hari",
+    ]
+
+    for offset, nama_col in enumerate(
+        kolom_total,
+        start=5,
+    ):
+
+        nilai = pd.to_numeric(
+            laporan[nama_col],
+            errors="coerce",
+        ).fillna(0).sum()
+
+        ws.cell(
+            row=total_row,
+            column=offset,
+        ).value = int(nilai)
+
+    for col_num in range(
+        1,
+        14,
+    ):
+
+        cell = ws.cell(
+            row=total_row,
+            column=col_num,
+        )
+
+        cell.border = border
+        cell.fill = fill_total
+        cell.font = font_header
+        cell.alignment = align_center
+
+    ws.row_dimensions[
+        total_row
+    ].height = 24
+
+    # =====================================================
+    # LEBAR KOLOM
+    # =====================================================
+    widths = {
+        "A": 6,
+        "B": 24,
+        "C": 23,
+        "D": 23,
+        "E": 9,
+        "F": 9,
+        "G": 9,
+        "H": 13,
+        "I": 15,
+        "J": 10,
+        "K": 13,
+        "L": 16,
+        "M": 12,
+    }
+
+    for col, width in widths.items():
+        ws.column_dimensions[
+            col
+        ].width = width
+
+    # =====================================================
+    # FREEZE & PRINT
+    # =====================================================
+    ws.freeze_panes = "E4"
+
+    ws.sheet_view.showGridLines = False
+
+    ws.page_setup.orientation = (
+        "landscape"
+    )
+
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+
+    ws.page_margins.left = 0.25
+    ws.page_margins.right = 0.25
+    ws.page_margins.top = 0.5
+    ws.page_margins.bottom = 0.5
+
+    ws.print_title_rows = "1:3"
+
+    # =====================================================
+    # SIMPAN
+    # =====================================================
+    wb.save(
+        output
+    )
+
+    output.seek(0)
+
+    return output.getvalue()
 @st.cache_data
 def load_excel(path_like):
     try:
