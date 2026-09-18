@@ -343,8 +343,6 @@ def build_export_pasar(
     if data_tahun.empty:
         return pd.DataFrame()
 
-    ].copy()
-
     hasil = []
 
     for _, row in data_tahun.iterrows():
