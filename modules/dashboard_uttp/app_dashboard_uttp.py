@@ -2701,11 +2701,13 @@ def render_dashboard_uttp():
         )
 
         with s1:
-            render_kpi(
-                "Tera Aktif",
-                total_aktif,
-                "Masih berlaku",
-                "#16A34A",
+            render_kpi_button(
+                title="Tera Aktif",
+                value=total_aktif,
+                subtitle="Masih berlaku",
+                color="#16A34A",
+                key="btn_kpi_aktif",
+                mode="aktif",
             )
 
         with s2:
@@ -2768,12 +2770,30 @@ def render_dashboard_uttp():
             mode_dashboard
             == "pemilik"
         ):
-
+        
             render_tabel_ringkasan_pemilik(
                 data=fdf,
                 title="🏢 Daftar Pemilik / Lokasi UTTP",
                 color="#1D4ED8",
             )
+        
+        elif (
+            mode_dashboard
+            == "aktif"
+        ):
+        
+            data_aktif = fdf[
+                fdf[
+                    "status_tera"
+                ]
+                == STATUS_AKTIF
+            ].copy()
+
+    render_tabel_ringkasan_pemilik(
+        data=data_aktif,
+        title="✅ Pemilik dengan UTTP Tera Aktif",
+        color="#16A34A",
+    )
         # =================================================
         # PRIORITAS PENGAWASAN
         # =================================================
@@ -2782,6 +2802,7 @@ def render_dashboard_uttp():
             not in [
                 "pemilik",
                 "total_uttp",
+                "aktif",
             ]
         ):
         
