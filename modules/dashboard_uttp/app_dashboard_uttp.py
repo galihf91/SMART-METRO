@@ -3509,6 +3509,559 @@ def build_data_laporan_bulanan(
     )
 
     return laporan
+def generate_excel_laporan_bulanan(
+    laporan,
+    bulan_nama,
+    tahun,
+):
+
+    output = BytesIO()
+
+    wb = Workbook()
+
+    ws = wb.active
+    ws.title = str(
+        bulan_nama
+    ).upper()
+
+    # =====================================================
+    # WARNA & STYLE
+    # =====================================================
+    fill_mt = PatternFill(
+        "solid",
+        fgColor="19DDE3",
+    )
+
+    fill_uapv = PatternFill(
+        "solid",
+        fgColor="20E300",
+    )
+
+    fill_header = PatternFill(
+        "solid",
+        fgColor="FFFFFF",
+    )
+
+    thin = Side(
+        style="thin",
+        color="000000",
+    )
+
+    border = Border(
+        left=thin,
+        right=thin,
+        top=thin,
+        bottom=thin,
+    )
+
+    align_center = Alignment(
+        horizontal="center",
+        vertical="center",
+        wrap_text=True,
+    )
+
+    align_left = Alignment(
+        horizontal="left",
+        vertical="center",
+        wrap_text=True,
+    )
+
+    font_header = Font(
+        name="Arial",
+        size=8,
+        bold=True,
+    )
+
+    font_data = Font(
+        name="Arial",
+        size=8,
+    )
+
+    # =====================================================
+    # STRUKTUR KOLOM
+    # =====================================================
+    #
+    # A  NO.
+    # B  KET
+    # C  TANGGAL
+    # D  NO. ORDER
+    # E  NAMA PERUSAHAAN
+    # F  ALAMAT
+    # G  LOKASI
+    # H  PENERA
+    #
+    # I - M   MT TERA
+    # N - V   MT TERA ULANG
+    #
+    # W - Z   UAPV TERA
+    # AA - AC UAPV TERA ULANG
+    # =====================================================
+
+    # =====================================================
+    # JUDUL
+    # =====================================================
+    ws.merge_cells(
+        "A1:AC1"
+    )
+
+    ws["A1"] = (
+        "REKAPITULASI DATA "
+        "TERA/TERA ULANG UTTP"
+    )
+
+    ws["A1"].font = Font(
+        name="Arial",
+        size=12,
+        bold=True,
+    )
+
+    ws["A1"].alignment = (
+        align_center
+    )
+
+    ws.merge_cells(
+        "A2:AC2"
+    )
+
+    ws["A2"] = (
+        f"BULAN "
+        f"{str(bulan_nama).upper()} "
+        f"{tahun}"
+    )
+
+    ws["A2"].font = Font(
+        name="Arial",
+        size=11,
+        bold=True,
+    )
+
+    ws["A2"].alignment = (
+        align_center
+    )
+
+    # =====================================================
+    # HEADER UTAMA
+    # =====================================================
+    header_mulai = 4
+
+    # Kolom identitas
+    identitas = {
+        "A": "NO.",
+        "B": "KET",
+        "C": "TANGGAL",
+        "D": "NO. ORDER",
+        "E": "NAMA PERUSAHAAN",
+        "F": "ALAMAT",
+        "G": "LOKASI",
+        "H": "PENERA",
+    }
+
+    for col, judul in (
+        identitas.items()
+    ):
+
+        ws.merge_cells(
+            f"{col}{header_mulai}:"
+            f"{col}{header_mulai + 2}"
+        )
+
+        cell = ws[
+            f"{col}{header_mulai}"
+        ]
+
+        cell.value = judul
+        cell.font = font_header
+        cell.alignment = align_center
+        cell.fill = fill_header
+
+    # =====================================================
+    # KETERANGAN UTTP
+    # =====================================================
+    ws.merge_cells(
+        "I4:AC4"
+    )
+
+    ws["I4"] = (
+        "KETERANGAN UTTP"
+    )
+
+    ws["I4"].font = font_header
+    ws["I4"].alignment = align_center
+
+    # =====================================================
+    # MASSA TIMBANGAN
+    # =====================================================
+    ws.merge_cells(
+        "I5:V5"
+    )
+
+    ws["I5"] = (
+        "MASSA TIMBANGAN"
+    )
+
+    ws["I5"].font = font_header
+    ws["I5"].alignment = align_center
+    ws["I5"].fill = fill_mt
+
+    # TERA
+    ws.merge_cells(
+        "I6:M6"
+    )
+
+    ws["I6"] = "TERA"
+    ws["I6"].font = font_header
+    ws["I6"].alignment = align_center
+
+    # TERA ULANG
+    ws.merge_cells(
+        "N6:V6"
+    )
+
+    ws["N6"] = "TERA ULANG"
+    ws["N6"].font = font_header
+    ws["N6"].alignment = align_center
+
+    # =====================================================
+    # UAPV
+    # =====================================================
+    ws.merge_cells(
+        "W5:AC5"
+    )
+
+    ws["W5"] = "UAPV"
+    ws["W5"].font = font_header
+    ws["W5"].alignment = align_center
+    ws["W5"].fill = fill_uapv
+
+    ws.merge_cells(
+        "W6:Z6"
+    )
+
+    ws["W6"] = "TERA"
+    ws["W6"].font = font_header
+    ws["W6"].alignment = align_center
+
+    ws.merge_cells(
+        "AA6:AC6"
+    )
+
+    ws["AA6"] = (
+        "TERA ULANG"
+    )
+
+    ws["AA6"].font = font_header
+    ws["AA6"].alignment = align_center
+
+    # =====================================================
+    # NAMA JENIS ALAT
+    # =====================================================
+    header_alat = {
+        # MT TERA
+        "I": "TJE",
+        "J": "BP",
+        "K": "TE",
+        "L": "SENTISIMAL",
+        "M": "TBI",
+
+        # MT TERA ULANG
+        "N": "TJE",
+        "O": "BP",
+        "P": "TE",
+        "Q": "SENTISIMAL",
+        "R": "TBI",
+        "S": "NERACA",
+        "T": "PEGAS",
+        "U": "TM",
+        "V": "DACIN",
+
+        # UAPV TERA
+        "W": "kWh",
+        "X": "TUM",
+        "Y": "NOZZLE",
+        "Z": "METER AIR",
+
+        # UAPV TERA ULANG
+        "AA": "TUM",
+        "AB": "NOZZLE",
+        "AC": "METER AIR",
+    }
+
+    for col, judul in (
+        header_alat.items()
+    ):
+
+        cell = ws[
+            f"{col}7"
+        ]
+
+        cell.value = judul
+        cell.font = font_header
+        cell.alignment = align_center
+
+    # =====================================================
+    # BORDER HEADER
+    # =====================================================
+    for row in ws.iter_rows(
+        min_row=4,
+        max_row=7,
+        min_col=1,
+        max_col=29,
+    ):
+
+        for cell in row:
+            cell.border = border
+
+    # =====================================================
+    # DATA
+    # =====================================================
+    kolom_excel = {
+        "MT_TERA_TJE": "I",
+        "MT_TERA_BP": "J",
+        "MT_TERA_TE": "K",
+        "MT_TERA_SENTISIMAL": "L",
+        "MT_TERA_TBI": "M",
+
+        "MT_TERA_ULANG_TJE": "N",
+        "MT_TERA_ULANG_BP": "O",
+        "MT_TERA_ULANG_TE": "P",
+        "MT_TERA_ULANG_SENTISIMAL": "Q",
+        "MT_TERA_ULANG_TBI": "R",
+        "MT_TERA_ULANG_NERACA": "S",
+        "MT_TERA_ULANG_PEGAS": "T",
+        "MT_TERA_ULANG_TM": "U",
+        "MT_TERA_ULANG_DACIN": "V",
+
+        "UAPV_TERA_KWH": "W",
+        "UAPV_TERA_TUM": "X",
+        "UAPV_TERA_NOZZLE": "Y",
+        "UAPV_TERA_METER_AIR": "Z",
+
+        "UAPV_TERA_ULANG_TUM": "AA",
+        "UAPV_TERA_ULANG_NOZZLE": "AB",
+        "UAPV_TERA_ULANG_METER_AIR": "AC",
+    }
+
+    data_mulai = 8
+
+    for index, row in (
+        laporan.iterrows()
+    ):
+
+        excel_row = (
+            data_mulai
+            + index
+        )
+
+        tanggal = pd.to_datetime(
+            row.get(
+                "Tanggal"
+            ),
+            errors="coerce",
+        )
+
+        # =============================================
+        # IDENTITAS
+        # =============================================
+        ws[
+            f"A{excel_row}"
+        ] = int(
+            row.get(
+                "No.",
+                index + 1,
+            )
+        )
+
+        ws[
+            f"B{excel_row}"
+        ] = clean_text(
+            row.get(
+                "KET"
+            )
+        )
+
+        if not pd.isna(
+            tanggal
+        ):
+
+            ws[
+                f"C{excel_row}"
+            ] = tanggal.to_pydatetime()
+
+            ws[
+                f"C{excel_row}"
+            ].number_format = (
+                "d mmmm yyyy"
+            )
+
+        ws[
+            f"D{excel_row}"
+        ] = clean_text(
+            row.get(
+                "No. Order"
+            )
+        )
+
+        ws[
+            f"E{excel_row}"
+        ] = clean_text(
+            row.get(
+                "Nama Perusahaan"
+            )
+        )
+
+        ws[
+            f"F{excel_row}"
+        ] = clean_text(
+            row.get(
+                "Alamat"
+            )
+        )
+
+        ws[
+            f"G{excel_row}"
+        ] = clean_text(
+            row.get(
+                "Lokasi"
+            )
+        )
+
+        ws[
+            f"H{excel_row}"
+        ] = clean_text(
+            row.get(
+                "Penera"
+            )
+        )
+
+        # =============================================
+        # JUMLAH UTTP
+        # =============================================
+        for (
+            kolom_data,
+            kolom_sheet,
+        ) in kolom_excel.items():
+
+            nilai = row.get(
+                kolom_data,
+                0,
+            )
+
+            nilai = pd.to_numeric(
+                nilai,
+                errors="coerce",
+            )
+
+            if (
+                pd.notna(nilai)
+                and int(nilai) > 0
+            ):
+
+                ws[
+                    f"{kolom_sheet}"
+                    f"{excel_row}"
+                ] = int(
+                    nilai
+                )
+
+        # =============================================
+        # FORMAT BARIS
+        # =============================================
+        for col_num in range(
+            1,
+            30,
+        ):
+
+            cell = ws.cell(
+                row=excel_row,
+                column=col_num,
+            )
+
+            cell.font = font_data
+            cell.border = border
+            cell.alignment = (
+                align_center
+            )
+
+        ws[
+            f"E{excel_row}"
+        ].alignment = align_left
+
+        ws[
+            f"F{excel_row}"
+        ].alignment = align_left
+
+    # =====================================================
+    # UKURAN KOLOM
+    # =====================================================
+    widths = {
+        "A": 5,
+        "B": 8,
+        "C": 15,
+        "D": 20,
+        "E": 30,
+        "F": 55,
+        "G": 15,
+        "H": 10,
+    }
+
+    for col in [
+        "I", "J", "K", "L", "M",
+        "N", "O", "P", "Q", "R",
+        "S", "T", "U", "V",
+        "W", "X", "Y", "Z",
+        "AA", "AB", "AC",
+    ]:
+        widths[col] = 10
+
+    for col, width in (
+        widths.items()
+    ):
+
+        ws.column_dimensions[
+            col
+        ].width = width
+
+    # =====================================================
+    # TINGGI BARIS HEADER
+    # =====================================================
+    ws.row_dimensions[1].height = 22
+    ws.row_dimensions[2].height = 20
+    ws.row_dimensions[4].height = 30
+    ws.row_dimensions[5].height = 22
+    ws.row_dimensions[6].height = 22
+    ws.row_dimensions[7].height = 35
+
+    # =====================================================
+    # FREEZE
+    # =====================================================
+    ws.freeze_panes = "A8"
+
+    # =====================================================
+    # PRINT SETUP
+    # =====================================================
+    ws.page_setup.orientation = (
+        "landscape"
+    )
+
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+
+    ws.print_title_rows = (
+        "1:7"
+    )
+
+    # =====================================================
+    # SIMPAN KE MEMORY
+    # =====================================================
+    wb.save(
+        output
+    )
+
+    output.seek(0)
+
+    return output.getvalue()
 # =========================================================
 # DASHBOARD
 # =========================================================
