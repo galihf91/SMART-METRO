@@ -1605,13 +1605,6 @@ def render_detail_perusahaan(
     # =====================================================
     # CARD PERUSAHAAN
     # =====================================================
-    nomor_spbu = (
-        clean_text(
-            first.get(
-                "nomor_spbu"
-            )
-        )
-    )
     company_html = (
         '<div class="company-card">'
         '<div style="'
@@ -2758,7 +2751,7 @@ def render_dashboard_uttp():
                 f"Ada {abs(selisih)} UTTP "
                 "yang statusnya belum terklasifikasi."
             )
-        # =================================================
+         # =================================================
         # AREA INTERAKTIF CARD
         # =================================================
         mode_dashboard = (
@@ -2768,33 +2761,49 @@ def render_dashboard_uttp():
             )
         )
 
+        # =================================================
+        # PEMILIK / LOKASI
+        # =================================================
         if (
             mode_dashboard
             == "pemilik"
         ):
-        
+
             render_tabel_ringkasan_pemilik(
                 data=fdf,
                 title="🏢 Daftar Pemilik / Lokasi UTTP",
                 color="#1D4ED8",
             )
-        
+
+        # =================================================
+        # TERA AKTIF
+        # =================================================
         elif (
             mode_dashboard
             == "aktif"
         ):
-        
+
             data_aktif = fdf[
                 fdf[
                     "status_tera"
                 ]
                 == STATUS_AKTIF
             ].copy()
+
+            render_tabel_ringkasan_pemilik(
+                data=data_aktif,
+                title="✅ Pemilik dengan UTTP Tera Aktif",
+                color="#16A34A",
+            )
+
+        # =================================================
+        # AKAN JATUH TEMPO
+        # =================================================
         elif (
             mode_dashboard
             == "jatuh_tempo"
         ):
-        
+
             data_jatuh_tempo = fdf[
                 fdf[
                     "status_tera"
@@ -2802,119 +2811,14 @@ def render_dashboard_uttp():
                 == STATUS_JATUH_TEMPO
             ].copy()
 
-    render_tabel_ringkasan_pemilik(
-        data=data_jatuh_tempo,
-        title=(
-            f"⏳ Pemilik dengan UTTP "
-            f"≤ {BATAS_JATUH_TEMPO_HARI} Hari"
-        ),
-        color="#F59E0B",
-    )
-    render_tabel_ringkasan_pemilik(
-        data=data_aktif,
-        title="✅ Pemilik dengan UTTP Tera Aktif",
-        color="#16A34A",
-    )
-        # =================================================
-        # PRIORITAS PENGAWASAN
-        # =================================================
-        if (
-            mode_dashboard
-            not in [
-                "pemilik",
-                "total_uttp",
-                "aktif",
-                "jatuh_tempo",
-            ]
-        ):
-        
-            priority = fdf[
-                fdf[
-                    "status_tera"
-                ].isin(
-                    [
-                        STATUS_KEDALUWARSA,
-                        STATUS_JATUH_TEMPO,
-                        STATUS_BELUM_UJI,
-                        STATUS_DATA_KURANG,
-                    ]
-                )
-            ].copy()
-    
-            if not priority.empty:
-    
-                priority[
-                    "prioritas"
-                ] = priority[
-                    "status_tera"
-                ].map({
-                    STATUS_KEDALUWARSA: 0,
-                    STATUS_JATUH_TEMPO: 1,
-                    STATUS_BELUM_UJI: 2,
-                    STATUS_DATA_KURANG: 3,
-                })
-    
-                priority[
-                    "sisa_sort"
-                ] = pd.to_numeric(
-                    priority[
-                        "sisa_hari"
-                    ],
-                    errors="coerce",
-                ).fillna(
-                    999999
-                )
-    
-                priority = (
-                    priority
-                    .sort_values(
-                        [
-                            "prioritas",
-                            "sisa_sort",
-                            "pemilik_display",
-                        ]
-                    )
-                    .head(25)
-                )
-    
-                st.markdown("---")
-    
-                st.subheader(
-                    "🚨 Prioritas Pengawasan"
-                )
-    
-                priority_view = (
-                    priority[
-                        [
-                            "pemilik_display",
-                            "jenis_uttp",
-                            "status_tera",
-                            "sisa_hari",
-                        ]
-                    ]
-                    .copy()
-                )
-    
-                priority_view[
-                    "sisa_hari"
-                ] = priority_view[
-                    "sisa_hari"
-                ].apply(
-                    format_sisa_hari
-                )
-    
-                priority_view.columns = [
-                    "Pemilik",
-                    "Jenis UTTP",
-                    "Status",
-                    "Sisa Waktu",
-                ]
-    
-                st.dataframe(
-                    priority_view,
-                    use_container_width=True,
-                    hide_index=True,
-                )
+            render_tabel_ringkasan_pemilik(
+                data=data_jatuh_tempo,
+                title=(
+                    f"⏳ Pemilik dengan UTTP "
+                    f"≤ {BATAS_JATUH_TEMPO_HARI} Hari"
+                ),
+                color="#F59E0B",
+            )
 
         # =================================================
         # KOMPOSISI JENIS UTTP GLOBAL
