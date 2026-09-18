@@ -56,6 +56,39 @@ MAPPING_JENIS_LAPORAN = {
     "Meter Air": ("UAPV", "METER_AIR"),
 }
 # =========================================================
+# KOLOM TETAP LAPORAN BULANAN
+# =========================================================
+
+KOLOM_ALAT_LAPORAN = [
+    # MASSA TIMBANGAN - TERA
+    "MT_TERA_TJE",
+    "MT_TERA_BP",
+    "MT_TERA_TE",
+    "MT_TERA_SENTISIMAL",
+    "MT_TERA_TBI",
+
+    # MASSA TIMBANGAN - TERA ULANG
+    "MT_TERA_ULANG_TJE",
+    "MT_TERA_ULANG_BP",
+    "MT_TERA_ULANG_TE",
+    "MT_TERA_ULANG_SENTISIMAL",
+    "MT_TERA_ULANG_TBI",
+    "MT_TERA_ULANG_NERACA",
+    "MT_TERA_ULANG_PEGAS",
+    "MT_TERA_ULANG_TM",
+    "MT_TERA_ULANG_DACIN",
+
+    # UAPV - TERA
+    "UAPV_TERA_KWH",
+    "UAPV_TERA_TUM",
+    "UAPV_TERA_NOZZLE",
+
+    # UAPV - TERA ULANG
+    "UAPV_TERA_ULANG_TUM",
+    "UAPV_TERA_ULANG_NOZZLE",
+    "UAPV_TERA_ULANG_METER_AIR",
+]
+# =========================================================
 # SUPABASE
 # =========================================================
 @st.cache_resource
@@ -3414,7 +3447,35 @@ def build_data_laporan_bulanan(
             agregasi
         )
     )
+    # =====================================================
+    # PASTIKAN SEMUA KOLOM LAPORAN TERSEDIA
+    # =====================================================
+    for col in KOLOM_ALAT_LAPORAN:
 
+        if col not in laporan.columns:
+            laporan[col] = 0
+
+        laporan[col] = pd.to_numeric(
+            laporan[col],
+            errors="coerce",
+        ).fillna(0).astype(int)
+    # =====================================================
+    # URUTAN KOLOM LAPORAN
+    # =====================================================
+    kolom_utama = [
+        "Tanggal",
+        "No. Order",
+        "Nama Perusahaan",
+        "Alamat",
+        "Lokasi",
+        "KET",
+        "Penera",
+    ]
+
+    laporan = laporan[
+        kolom_utama
+        + KOLOM_ALAT_LAPORAN
+    ]
     # =====================================================
     # URUTKAN
     # =====================================================
