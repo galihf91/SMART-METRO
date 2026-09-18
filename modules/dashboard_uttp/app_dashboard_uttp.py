@@ -34,7 +34,27 @@ STATUS_COLOR = {
     STATUS_DATA_KURANG: "#64748B",
 }
 
+# =========================================================
+# MAPPING LAPORAN BULANAN
+# =========================================================
 
+MAPPING_JENIS_LAPORAN = {
+    # MASSA TIMBANGAN
+    "Timbangan Jembatan": ("MT", "TJE"),
+    "Timbangan Elektronik": ("MT", "TE"),
+    "Timbangan Meja": ("MT", "TE"),
+    "Timbangan Sentisimal": ("MT", "SENTISIMAL"),
+    "Timbangan Bobot Insut": ("MT", "TBI"),
+    "Timbangan Pegas": ("MT", "PEGAS"),
+    "Neraca": ("MT", "NERACA"),
+    "Dacin": ("MT", "DACIN"),
+
+    # UAPV
+    "kWh Meter": ("UAPV", "KWH"),
+    "Tangki Ukur Mobil": ("UAPV", "TUM"),
+    "Pompa Ukur BBM": ("UAPV", "NOZZLE"),
+    "Meter Air": ("UAPV", "METER_AIR"),
+}
 # =========================================================
 # SUPABASE
 # =========================================================
@@ -217,6 +237,52 @@ def clean_text(value):
 
     return text
 
+def normalisasi_jenis_pengujian(value):
+
+    text = (
+        clean_text(value)
+        .lower()
+    )
+
+    if "ulang" in text:
+        return "TERA_ULANG"
+
+    if "tera" in text:
+        return "TERA"
+
+    return ""
+def kategori_laporan_dari_jenis_uttp(jenis_uttp):
+
+    jenis = clean_text(
+        jenis_uttp
+    )
+
+    mapping = (
+        MAPPING_JENIS_LAPORAN.get(
+            jenis
+        )
+    )
+
+    if not mapping:
+        return ""
+
+    return mapping[0]
+def kode_alat_laporan(jenis_uttp):
+
+    jenis = clean_text(
+        jenis_uttp
+    )
+
+    mapping = (
+        MAPPING_JENIS_LAPORAN.get(
+            jenis
+        )
+    )
+
+    if not mapping:
+        return ""
+
+    return mapping[1]
 
 def format_tanggal(value):
 
@@ -2665,7 +2731,418 @@ def render_detail_perusahaan(
                     hide_index=True,
                 )
 
+def build_data_laporan_bulanan(
+    df_pengujian,
+    df_relasi,
+    df_uttp,
+    df_perusahaan,
+    df_spbu,
+    bulan,
+    tahun,
+):
 
+    if df_pengujian.empty:
+        return pd.DataFrame()
+
+    pengujian = df_pengujian.copy()
+
+    pengujian[
+        "tanggal_pengujian_dt"
+    ] = pd.to_datetime(
+        pengujian[
+            "tanggal_pengujian"
+        ],
+        errors="coerce",
+    )
+
+    # =====================================================
+    # FILTER BULAN & TAHUN
+    # =====================================================
+    pengujian = pengujian[
+        (
+            pengujian[
+                "tanggal_pengujian_dt"
+            ].dt.month
+            == bulan
+        )
+        &
+        (
+            pengujian[
+                "tanggal_pengujian_dt"
+            ].dt.year
+            == tahun
+        )
+    ].copy()
+
+    if pengujian.empty:
+        return pd.DataFrame()
+
+    # =====================================================
+    # MASTER UTTP
+    # =====================================================
+    uttp = df_uttp.copy()
+
+    uttp = uttp.rename(
+        columns={
+            "id": "uttp_id"
+        }
+    )
+
+    uttp[
+        "uttp_id"
+    ] = pd.to_numeric(
+        uttp[
+            "uttp_id"
+        ],
+        errors="coerce",
+    )
+
+    # =====================================================
+    # RELASI PENGUJIAN - UTTP
+    # =====================================================
+    relasi = df_relasi.copy()
+
+    if not relasi.empty:
+
+        relasi[
+            "pengujian_id"
+        ] = pd.to_numeric(
+            relasi[
+                "pengujian_id"
+            ],
+            errors="coerce",
+        )
+
+        relasi[
+            "uttp_id"
+        ] = pd.to_numeric(
+            relasi[
+                "uttp_id"
+            ],
+            errors="coerce",
+        )
+
+    # =====================================================
+    # MASTER PERUSAHAAN
+    # =====================================================
+    perusahaan = df_perusahaan.copy()
+
+    if not perusahaan.empty:
+
+        perusahaan = perusahaan.rename(
+            columns={
+                "id": "perusahaan_id"
+            }
+        )
+
+        perusahaan[
+            "perusahaan_id"
+        ] = pd.to_numeric(
+            perusahaan[
+                "perusahaan_id"
+            ],
+            errors="coerce",
+        )
+
+    # =====================================================
+    # MASTER SPBU
+    # =====================================================
+    spbu = df_spbu.copy()
+
+    if not spbu.empty:
+
+        spbu = spbu.rename(
+            columns={
+                "id": "spbu_id",
+                "alamat": "alamat_spbu",
+            }
+        )
+
+        spbu[
+            "spbu_id"
+        ] = pd.to_numeric(
+            spbu[
+                "spbu_id"
+            ],
+            errors="coerce",
+        )
+
+    hasil = []
+
+    # =====================================================
+    # 1 PENGUJIAN / ORDER = 1 BARIS
+    # =====================================================
+    for _, p in pengujian.iterrows():
+
+        pengujian_id = p.get("id")
+
+        nomor_order = clean_text(
+            p.get("nomor_order")
+        )
+
+        jenis_pengujian = (
+            normalisasi_jenis_pengujian(
+                p.get(
+                    "jenis_pengujian"
+                )
+            )
+        )
+
+        tanggal = p.get(
+            "tanggal_pengujian_dt"
+        )
+
+        # =================================================
+        # CARI UTTP YANG TERKAIT
+        # =================================================
+        relasi_pengujian = (
+            relasi[
+                relasi[
+                    "pengujian_id"
+                ]
+                == pengujian_id
+            ]
+            .copy()
+            if not relasi.empty
+            else pd.DataFrame()
+        )
+
+        alat = pd.DataFrame()
+
+        if not relasi_pengujian.empty:
+
+            alat = (
+                relasi_pengujian[
+                    [
+                        "uttp_id"
+                    ]
+                ]
+                .merge(
+                    uttp,
+                    on="uttp_id",
+                    how="left",
+                )
+            )
+
+        # =================================================
+        # FALLBACK pengujian.uttp_id
+        # =================================================
+        if alat.empty:
+
+            uttp_id_direct = p.get(
+                "uttp_id"
+            )
+
+            if pd.notna(
+                uttp_id_direct
+            ):
+
+                alat = uttp[
+                    uttp[
+                        "uttp_id"
+                    ]
+                    == uttp_id_direct
+                ].copy()
+
+        # =================================================
+        # IDENTITAS
+        # =================================================
+        nama_perusahaan = ""
+        alamat = ""
+        lokasi = ""
+        ket = ""
+
+        # =================================================
+        # HITUNG JUMLAH PER JENIS
+        # =================================================
+        jumlah_per_jenis = {}
+
+        if not alat.empty:
+
+            for _, a in alat.iterrows():
+
+                jenis_uttp = clean_text(
+                    a.get(
+                        "jenis_uttp"
+                    )
+                )
+
+                kategori = (
+                    kategori_laporan_dari_jenis_uttp(
+                        jenis_uttp
+                    )
+                )
+
+                kode_alat = (
+                    kode_alat_laporan(
+                        jenis_uttp
+                    )
+                )
+
+                if not kategori or not kode_alat:
+                    continue
+
+                ket = kategori
+
+                key = (
+                    f"{kategori}_"
+                    f"{jenis_pengujian}_"
+                    f"{kode_alat}"
+                )
+
+                jumlah_per_jenis[
+                    key
+                ] = (
+                    jumlah_per_jenis.get(
+                        key,
+                        0,
+                    )
+                    + 1
+                )
+
+            # =============================================
+            # PEMILIK / LOKASI DARI ALAT PERTAMA
+            # =============================================
+            alat_pertama = alat.iloc[0]
+
+            spbu_id = alat_pertama.get(
+                "spbu_id"
+            )
+
+            perusahaan_id = (
+                alat_pertama.get(
+                    "perusahaan_id"
+                )
+            )
+
+            if pd.notna(
+                spbu_id
+            ):
+
+                data_spbu = spbu[
+                    spbu[
+                        "spbu_id"
+                    ]
+                    == spbu_id
+                ]
+
+                if not data_spbu.empty:
+
+                    s = data_spbu.iloc[0]
+
+                    nomor_spbu = (
+                        clean_text(
+                            s.get(
+                                "nomor_spbu"
+                            )
+                        )
+                    )
+
+                    nama_perusahaan = (
+                        f"SPBU {nomor_spbu}"
+                        if nomor_spbu
+                        else clean_text(
+                            s.get(
+                                "nama_spbu"
+                            )
+                        )
+                    )
+
+                    alamat = clean_text(
+                        s.get(
+                            "alamat_spbu"
+                        )
+                    )
+
+            elif pd.notna(
+                perusahaan_id
+            ):
+
+                data_perusahaan = (
+                    perusahaan[
+                        perusahaan[
+                            "perusahaan_id"
+                        ]
+                        == perusahaan_id
+                    ]
+                )
+
+                if not data_perusahaan.empty:
+
+                    pr = (
+                        data_perusahaan.iloc[0]
+                    )
+
+                    nama_perusahaan = (
+                        clean_text(
+                            pr.get(
+                                "nama_perusahaan"
+                            )
+                        )
+                    )
+
+                    alamat = clean_text(
+                        pr.get(
+                            "alamat"
+                        )
+                    )
+
+        # =================================================
+        # BASE ROW
+        # =================================================
+        row = {
+            "Tanggal": tanggal,
+            "No. Order": nomor_order,
+            "Nama Perusahaan": nama_perusahaan,
+            "Alamat": alamat,
+            "KET": ket,
+            "Jenis Pengujian": jenis_pengujian,
+            "Penera 1": clean_text(
+                p.get(
+                    "penera_1"
+                )
+            ),
+            "Penera 2": clean_text(
+                p.get(
+                    "penera_2"
+                )
+            ),
+        }
+
+        row.update(
+            jumlah_per_jenis
+        )
+
+        hasil.append(
+            row
+        )
+
+    laporan = pd.DataFrame(
+        hasil
+    )
+
+    if laporan.empty:
+        return laporan
+
+    laporan = laporan.sort_values(
+        [
+            "Tanggal",
+            "No. Order",
+        ]
+    ).reset_index(
+        drop=True
+    )
+
+    laporan.insert(
+        0,
+        "No.",
+        range(
+            1,
+            len(laporan) + 1,
+        ),
+    )
+
+    return laporan
 # =========================================================
 # DASHBOARD
 # =========================================================
