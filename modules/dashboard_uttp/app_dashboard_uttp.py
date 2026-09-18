@@ -2680,11 +2680,13 @@ def render_dashboard_uttp():
                 mode="pemilik",
             )
         with k2:
-            render_kpi(
-                "Total UTTP",
-                total_uttp,
-                "Seluruh master alat aktif",
-                "#2563EB",
+            render_kpi_button(
+                title="Total UTTP",
+                value=total_uttp,
+                subtitle="Seluruh alat aktif",
+                color="#2563EB",
+                key="btn_kpi_total_uttp",
+                mode="total_uttp",
             )
 
         st.markdown(
