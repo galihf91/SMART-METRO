@@ -416,6 +416,9 @@ def render_header():
    ===================================================== */
 
 div[data-testid="stButton"] > button {
+    min-height: 86px;
+    border-radius: 11px;
+    font-weight: 700;
     transition:
         transform 0.18s ease,
         box-shadow 0.18s ease,
@@ -424,12 +427,14 @@ div[data-testid="stButton"] > button {
 
 div[data-testid="stButton"] > button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.10);
+    box-shadow:
+        0 8px 18px
+        rgba(15, 23, 42, 0.10);
 }
 
 div[data-testid="stButton"] > button p {
     white-space: pre-line;
-    line-height: 1.35;
+    line-height: 1.40;
 }
 .company-card {
     background: #F8FAFC;
@@ -499,37 +504,56 @@ def render_kpi_button(
         == mode
     )
 
-    icon_aktif = (
+    status_aktif = (
         "● "
         if aktif
         else ""
     )
 
     label = (
-        f"{icon_aktif}{title}\n\n"
-        f"{value}\n\n"
+        f"{status_aktif}{title}\n\n"
+        f"{value}\n"
         f"{subtitle}"
     )
 
-    if st.button(
-        label,
-        key=key,
-        use_container_width=True,
-        type=(
-            "primary"
-            if aktif
-            else "secondary"
-        ),
+    with st.container(
+        border=True
     ):
-        st.session_state[
-            "dashboard_uttp_mode"
-        ] = mode
 
-        st.session_state[
-            "dashboard_uttp_page"
-        ] = 1
+        st.markdown(
+            f"""
+            <div style="
+                height:5px;
+                width:100%;
+                background:{color};
+                border-radius:999px;
+                margin-bottom:7px;
+            ">
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-        st.rerun()
+        if st.button(
+            label,
+            key=key,
+            use_container_width=True,
+            type=(
+                "primary"
+                if aktif
+                else "secondary"
+            ),
+        ):
+
+            st.session_state[
+                "dashboard_uttp_mode"
+            ] = mode
+
+            st.session_state[
+                "dashboard_uttp_page"
+            ] = 1
+
+            st.rerun()
 def render_tabel_ringkasan_pemilik(
     data,
     title,
