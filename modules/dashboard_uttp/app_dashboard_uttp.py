@@ -701,7 +701,7 @@ def render_tabel_ringkasan_pemilik(
     # =====================================================
     # HEADER TABEL
     # =====================================================
-    st.markdown(
+    st.html(
         f"""
         <div style="
             background:white;
@@ -901,7 +901,7 @@ def render_tabel_ringkasan_pemilik(
     </div>
     """
 
-    st.markdown(
+    st.html(
         table_html,
         unsafe_allow_html=True,
     )
