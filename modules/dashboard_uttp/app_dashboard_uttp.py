@@ -4122,6 +4122,25 @@ def generate_excel_laporan_bulanan(
         total_row + 2
     )
 
+    # =====================================================
+    # TOTAL KEGIATAN & PELAKU USAHA
+    # =====================================================
+    total_kegiatan = len(
+        laporan
+    )
+
+    total_pelaku_usaha = (
+        laporan[
+            "Nama Perusahaan"
+        ]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+        .replace("", pd.NA)
+        .dropna()
+        .nunique()
+    )
+
     ringkasan_total = [
         (
             "TOTAL MASSA TIMBANGAN",
@@ -4134,6 +4153,14 @@ def generate_excel_laporan_bulanan(
         (
             "GRAND TOTAL UTTP",
             grand_total,
+        ),
+        (
+            "TOTAL NOMOR ORDER / KEGIATAN",
+            total_kegiatan,
+        ),
+        (
+            "TOTAL PELAKU USAHA",
+            total_pelaku_usaha,
         ),
     ]
 
