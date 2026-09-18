@@ -332,7 +332,6 @@ def build_export_pasar(
         return pd.DataFrame()
 
     tahun = int(tahun)
-    tahun_sebelumnya = tahun - 1
 
     data_tahun = df[
         pd.to_numeric(
@@ -344,31 +343,7 @@ def build_export_pasar(
     if data_tahun.empty:
         return pd.DataFrame()
 
-    data_sebelumnya = df[
-        pd.to_numeric(
-            df["tera_ulang_tahun"],
-            errors="coerce",
-        ) == tahun_sebelumnya
     ].copy()
-
-    # =====================================================
-    # LOOKUP TANGGAL TAHUN SEBELUMNYA
-    # =====================================================
-    lookup_tanggal_sebelumnya = {}
-
-    if not data_sebelumnya.empty:
-
-        for _, row in data_sebelumnya.iterrows():
-
-            pasar_id = row.get(
-                "pasar_id"
-            )
-
-            lookup_tanggal_sebelumnya[
-                pasar_id
-            ] = row.get(
-                "tanggal_pelaksanaan"
-            )
 
     hasil = []
 
@@ -383,13 +358,6 @@ def build_export_pasar(
                 "Nama Pasar": row.get(
                     "nama_pasar",
                     "",
-                ),
-
-                f"Pelaksanaan {tahun_sebelumnya}": (
-                    lookup_tanggal_sebelumnya.get(
-                        pasar_id,
-                        "",
-                    )
                 ),
 
                 f"Pelaksanaan {tahun}": row.get(
@@ -587,7 +555,7 @@ def generate_excel_rekap_pasar(
     # JUDUL
     # =====================================================
     ws.merge_cells(
-        "A1:M1"
+        "A1:L1"
     )
 
     ws["A1"] = (
@@ -611,7 +579,6 @@ def generate_excel_rekap_pasar(
     headers = [
         "No",
         "Nama Pasar",
-        f"Pelaksanaan {tahun_sebelumnya}",
         f"Pelaksanaan {tahun}",
         "TP",
         "TM",
@@ -657,10 +624,6 @@ def generate_excel_rekap_pasar(
         values = [
             row.get("No", ""),
             row.get("Nama Pasar", ""),
-            row.get(
-                f"Pelaksanaan {tahun_sebelumnya}",
-                "",
-            ),
             row.get(
                 f"Pelaksanaan {tahun}",
                 "",
