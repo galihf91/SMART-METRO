@@ -284,7 +284,79 @@ def kode_alat_laporan(jenis_uttp):
         return ""
 
     return mapping[1]
+def tentukan_lokasi_laporan(
+    jenis_uttp,
+    data_pengujian,
+):
 
+    jenis = (
+        clean_text(
+            jenis_uttp
+        )
+        .lower()
+    )
+
+    # =====================================================
+    # MODUL YANG SELALU LUAR KANTOR
+    # =====================================================
+    if jenis in {
+        "timbangan jembatan",
+        "pompa ukur bbm",
+        "kwh meter",
+    }:
+        return "Luar Kantor"
+
+    # =====================================================
+    # MODUL LAIN:
+    # baca dari data_pengujian
+    # =====================================================
+    detail = (
+        data_pengujian
+        if isinstance(
+            data_pengujian,
+            dict,
+        )
+        else {}
+    )
+
+    lokasi_raw = (
+        detail.get(
+            "lokasi_pengujian"
+        )
+        or detail.get(
+            "lokasi"
+        )
+        or detail.get(
+            "jenis_lokasi"
+        )
+        or ""
+    )
+
+    lokasi_text = (
+        clean_text(
+            lokasi_raw
+        )
+        .lower()
+    )
+
+    if lokasi_text in {
+        "dalam kantor",
+        "kantor",
+        "di kantor",
+        "unit metrologi legal",
+    }:
+        return "Dalam Kantor"
+
+    if lokasi_text in {
+        "luar kantor",
+        "perusahaan",
+        "di perusahaan",
+        "lokasi perusahaan",
+        "lapangan",
+    }:
+        return "Luar Kantor"
+
+    return ""
 def format_tanggal(value):
 
     if value is None:
@@ -3034,7 +3106,18 @@ def build_data_laporan_bulanan(
             # PEMILIK / LOKASI DARI ALAT PERTAMA
             # =============================================
             alat_pertama = alat.iloc[0]
-
+            jenis_uttp_utama = clean_text(
+                alat_pertama.get(
+                    "jenis_uttp"
+                )
+            )
+            
+            lokasi = tentukan_lokasi_laporan(
+                jenis_uttp=jenis_uttp_utama,
+                data_pengujian=p.get(
+                    "data_pengujian"
+                ),
+            )
             spbu_id = alat_pertama.get(
                 "spbu_id"
             )
@@ -3125,6 +3208,7 @@ def build_data_laporan_bulanan(
             "No. Order": nomor_order,
             "Nama Perusahaan": nama_perusahaan,
             "Alamat": alamat,
+            "Lokasi": lokasi,
             "KET": ket,
             "Jenis Pengujian": jenis_pengujian,
             "Penera 1": clean_text(
