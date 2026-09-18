@@ -3317,22 +3317,113 @@ def render_dashboard_uttp():
                 color="#475569",
             )
         # =================================================
+        # DATA GRAFIK SESUAI CARD AKTIF
+        # =================================================
+        data_grafik = fdf.copy()
+
+        judul_grafik = (
+            "📊 Komposisi Jenis UTTP"
+        )
+
+        if (
+            mode_dashboard
+            == "aktif"
+        ):
+            data_grafik = fdf[
+                fdf[
+                    "status_tera"
+                ]
+                == STATUS_AKTIF
+            ].copy()
+
+            judul_grafik = (
+                "📊 Komposisi UTTP Tera Aktif"
+            )
+
+        elif (
+            mode_dashboard
+            == "jatuh_tempo"
+        ):
+            data_grafik = fdf[
+                fdf[
+                    "status_tera"
+                ]
+                == STATUS_JATUH_TEMPO
+            ].copy()
+
+            judul_grafik = (
+                f"📊 Komposisi UTTP "
+                f"≤ {BATAS_JATUH_TEMPO_HARI} Hari"
+            )
+
+        elif (
+            mode_dashboard
+            == "kedaluwarsa"
+        ):
+            data_grafik = fdf[
+                fdf[
+                    "status_tera"
+                ]
+                == STATUS_KEDALUWARSA
+            ].copy()
+
+            judul_grafik = (
+                "📊 Komposisi UTTP Kedaluwarsa"
+            )
+
+        elif (
+            mode_dashboard
+            == "belum_uji"
+        ):
+            data_grafik = fdf[
+                fdf[
+                    "status_tera"
+                ]
+                == STATUS_BELUM_UJI
+            ].copy()
+
+            judul_grafik = (
+                "📊 Komposisi UTTP Belum Uji"
+            )
+
+        elif (
+            mode_dashboard
+            == "data_kurang"
+        ):
+            data_grafik = fdf[
+                fdf[
+                    "status_tera"
+                ]
+                == STATUS_DATA_KURANG
+            ].copy()
+
+            judul_grafik = (
+                "📊 Komposisi UTTP "
+                "Data Belum Lengkap"
+            )
+
+        # Pemilik dan Total UTTP
+        # tetap menggunakan seluruh fdf
+
+        # =================================================
         # KOMPOSISI JENIS UTTP GLOBAL
         # =================================================
         st.markdown("---")
 
         st.subheader(
-            "📊 Komposisi Jenis UTTP"
+            judul_grafik
         )
 
         # =================================================
         # SIAPKAN DATA
         # =================================================
         jenis_global = (
-            fdf
+            data_grafik
             .assign(
                 jenis_display=(
-                    fdf["jenis_uttp"]
+                    data_grafik[
+                        "jenis_uttp"
+                    ]
                     .fillna("")
                     .astype(str)
                     .str.strip()
@@ -3341,65 +3432,6 @@ def render_dashboard_uttp():
                         "Jenis Belum Diisi"
                     )
                 )
-            )
-            .groupby(
-                "jenis_display"
-            )[
-                "uttp_id"
-            ]
-            .nunique()
-            .rename(
-                "Jumlah UTTP"
-            )
-            .reset_index()
-            .rename(
-                columns={
-                    "jenis_display":
-                    "Jenis UTTP"
-                }
-            )
-            .sort_values(
-                "Jumlah UTTP",
-                ascending=False
-            )
-            .reset_index(
-                drop=True
-            )
-        )
-
-        if not jenis_global.empty:
-
-            jumlah_jenis = len(
-                jenis_global
-            )
-
-            total_dalam_grafik = int(
-                jenis_global[
-                    "Jumlah UTTP"
-                ].sum()
-            )
-
-            # Tinggi dinamis tetapi tetap compact
-            tinggi_chart = min(
-                max(
-                    220,
-                    jumlah_jenis * 34
-                ),
-                480
-            )
-
-            nilai_maks = max(
-                1,
-                int(
-                    jenis_global[
-                        "Jumlah UTTP"
-                    ].max()
-                )
-            )
-
-            st.caption(
-                f"{total_dalam_grafik:,} UTTP "
-                f"• {jumlah_jenis} jenis alat"
             )
 
             # =================================================
