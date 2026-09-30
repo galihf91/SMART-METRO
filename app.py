@@ -2,6 +2,7 @@ import streamlit as st
 from pathlib import Path
 import importlib
 import hmac
+from ai_service import tanya_deepseek
 
 
 # =========================================================
@@ -516,6 +517,36 @@ def home():
         ):
             pindah_halaman("dashboard_tera_ulang")
 
+    # =====================================================
+    # ASISTEN AI - DEEPSEEK
+    # =====================================================
+    st.markdown(
+        """
+        <div class="section-title" style="margin-top:30px;">
+            🤖 Tanya Asisten SMART METRO
+        </div>
+        <div class="section-subtitle">
+            Ajukan pertanyaan seputar pelayanan tera, UTTP,
+            atau informasi SMART METRO lainnya.
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    pertanyaan = st.text_input(
+        "Pertanyaan Anda:",
+        placeholder="Contoh: Apa saja jenis UTTP yang diuji?",
+        key="input_tanya_ai"
+    )
+
+    if pertanyaan:
+        with st.spinner("Asisten sedang berpikir..."):
+            try:
+                jawaban = tanya_deepseek(pertanyaan)
+                st.success("Jawaban Asisten:")
+                st.write(jawaban)
+            except Exception as e:
+                st.error(f"Terjadi kesalahan: {e}")
     st.markdown(
         """
         <div class="status-strip">
