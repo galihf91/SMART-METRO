@@ -5,8 +5,8 @@ import streamlit as st
 
 # 1. Koneksi ke Supabase
 # Ganti dengan URL dan KEY dari proyek Supabase Anda
-SUPABASE_URL = "https://xxxxx.supabase.co"
-SUPABASE_KEY = "eyJhbGciOi..." # Gunakan anon key atau service_role key
+SUPABASE_URL = "https://lbqwhuhciqovalyoqwwd.supabase.co"
+SUPABASE_KEY = "sb_publishable_7M7YKsbjTXnjKZzSsvNgZA_t6p3dX5-" 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # 2. Muat Model Embedding
