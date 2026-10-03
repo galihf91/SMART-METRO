@@ -39,7 +39,7 @@ def tanya_deepseek(pertanyaan):
         {
             'query_embedding': vektor_pertanyaan,
             'match_threshold': 0.3,
-            'match_count': 5
+            'match_count': 20
         }
     ).execute()
 
