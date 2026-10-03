@@ -219,14 +219,22 @@ def generate_form_peminjaman_ctt_timbangan_pdf(
         or data.get("nama_perusahaan")
         or ""
     )
+    # =====================================================
+    # LOKASI PENGUJIAN
+    # "Perusahaan"   -> tulis nama perusahaan
+    # "Dalam Kantor" -> tulis "Dalam Kantor"
+    # =====================================================
     lokasi_pengujian = str(
-        data.get("lokasi_pengujian", "")
+        data.get("lokasi")
+        or data.get("lokasi_pengujian")
+        or "Perusahaan"
     ).strip()
 
-    if lokasi_pengujian == "Dalam Kantor":
+    if lokasi_pengujian.lower() in {"dalam kantor", "kantor"}:
         lokasi_kegiatan = "Dalam Kantor"
     else:
         lokasi_kegiatan = nama_perusahaan
+
 
     jenis_pengujian = data.get(
         "keterangan",
