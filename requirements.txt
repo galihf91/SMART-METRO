@@ -8,3 +8,5 @@ streamlit-folium
 altair
 supabase
 openai
+sentence-transformers
+torch
