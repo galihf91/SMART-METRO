@@ -235,7 +235,21 @@ def generate_form_peminjaman_standar_timbangan_pdf(
     tanggal_teks = format_tanggal_huruf_besar(
         tanggal_pengujian
     )
+    # =====================================================
+    # LOKASI PENGUJIAN
+    # "Perusahaan"   -> tulis nama perusahaan
+    # "Dalam Kantor" -> tulis "Dalam Kantor"
+    # =====================================================
+    lokasi_pengujian = str(
+        data.get("lokasi")
+        or data.get("lokasi_pengujian")
+        or "Perusahaan"
+    ).strip()
 
+    if lokasi_pengujian.lower() in {"dalam kantor", "kantor"}:
+        lokasi_kegiatan = "Dalam Kantor"
+    else:
+        lokasi_kegiatan = nama_perusahaan
     # =====================================================
     # IDENTITAS PEMINJAM
     # =====================================================
