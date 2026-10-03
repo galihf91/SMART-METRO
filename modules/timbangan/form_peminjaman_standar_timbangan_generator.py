@@ -260,6 +260,20 @@ def generate_form_peminjaman_standar_timbangan_pdf(
     c.drawString(x_colon, y, ":")
     c.drawString(x_value, y, nip_penera)
     y -= 0.7 * cm
+    
+    # =====================================================
+    # LOKASI PENGUJIAN
+    # "Perusahaan"   -> tulis nama perusahaan
+    # "Dalam Kantor" -> tulis "Dalam Kantor"
+    # =====================================================
+    lokasi_pengujian = str(
+        data.get("lokasi", "Perusahaan") or "Perusahaan"
+    ).strip()
+
+    if lokasi_pengujian.lower() in {"dalam kantor", "kantor"}:
+        tempat_pengujian = "Dalam Kantor"
+    else:
+        tempat_pengujian = nama_perusahaan
 
     # =====================================================
     # PARAGRAF PERMOHONAN
@@ -267,7 +281,7 @@ def generate_form_peminjaman_standar_timbangan_pdf(
     paragraf_permohonan = (
         "Mengajukan permohonan peminjaman Alat Standar untuk "
         f"melaksanakan kegiatan {jenis_pengujian} UTTP di "
-        f"{nama_perusahaan} pada tanggal {tanggal_teks} "
+        f"{tempat_pengujian} pada tanggal {tanggal_teks} "
         "berdasarkan Surat Perintah Nomor "
         f"{nomor_surat_perintah or '................................'} "
         "dengan rincian sebagai berikut:"
