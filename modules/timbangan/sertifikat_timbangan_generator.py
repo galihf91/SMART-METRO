@@ -1421,6 +1421,49 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     x_bullet = left_col_x + 0.6 * cm
     x_colon_cond = x_bullet + max_label_width + 0.2 * cm
     x_value_cond = x_colon_cond + 0.3 * cm
+    # --------------------------------------------------------
+    # HELPER: TULIS NILAI KONDISI DENGAN WRAP OTOMATIS
+    # Bila teks melebihi batas kanan konten, otomatis turun baris.
+    # Mengembalikan posisi y setelah seluruh baris ditulis.
+    # --------------------------------------------------------
+    def tulis_nilai_kondisi(x_pos, y_pos, teks, line_height=0.45 * cm):
+        teks = str(teks or "").strip()
+
+        if not teks:
+            return y_pos - line_height
+
+        maks_width = right_limit_content - x_pos
+
+        c.setFont("Helvetica", 12)
+
+        if maks_width <= 0:
+            c.drawString(x_pos, y_pos, teks)
+            return y_pos - line_height
+
+        # Susun kata per kata agar tidak melewati batas kanan
+        baris_list = []
+        baris_sekarang = ""
+
+        for kata in teks.split():
+            uji = f"{baris_sekarang} {kata}".strip()
+
+            if c.stringWidth(uji, "Helvetica", 12) <= maks_width:
+                baris_sekarang = uji
+            else:
+                if baris_sekarang:
+                    baris_list.append(baris_sekarang)
+                baris_sekarang = kata
+
+        if baris_sekarang:
+            baris_list.append(baris_sekarang)
+
+        if not baris_list:
+            baris_list = [teks]
+
+        for i, baris in enumerate(baris_list):
+            c.drawString(x_pos, y_pos - i * line_height, baris)
+
+        return y_pos - (len(baris_list) * line_height)
 
     # --------------------------------------------------------
     # TENTUKAN LOKASI PENGUJIAN
@@ -1477,31 +1520,21 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     # Lokasi
     c.drawString(x_bullet, y, "- Lokasi")
     c.drawString(x_colon_cond, y, ":")
-    c.drawString(x_value_cond, y, lokasi_nilai)
-
-    y -= 0.45 * cm
+    y = tulis_nilai_kondisi(x_value_cond, y, lokasi_nilai)
 
     # Suhu
     c.drawString(x_bullet, y, "- Suhu ruangan")
     c.drawString(x_colon_cond, y, ":")
-    c.drawString(
-        x_value_cond,
-        y,
-        str(data.get("suhu") or "Ambient")
+    y = tulis_nilai_kondisi(
+        x_value_cond, y, str(data.get("suhu") or "Ambient")
     )
-
-    y -= 0.45 * cm
 
     # Kelembaban
     c.drawString(x_bullet, y, "- Kelembaban relatif")
     c.drawString(x_colon_cond, y, ":")
-    c.drawString(
-        x_value_cond,
-        y,
-        str(data.get("kelembaban") or "Ambient")
+    y = tulis_nilai_kondisi(
+        x_value_cond, y, str(data.get("kelembaban") or "Ambient")
     )
-
-    y -= 0.45 * cm
 
     # Tanggal
     c.drawString(x_bullet, y, "- Tanggal")
@@ -1513,9 +1546,8 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
         or ""
     )
 
-    c.drawString(x_value_cond, y, tanggal_nilai)
+    y = tulis_nilai_kondisi(x_value_cond, y, tanggal_nilai)
 
-    y -= 0.45 * cm
 
     # Metode
     c.drawString(
