@@ -6470,6 +6470,30 @@ def run():
         ):
             col.write(label)
 
+        # =====================================================
+        # SIGNATURE SPESIFIKASI UNTUK MUATAN UJI
+        # Muatan uji dibangun ulang otomatis bila user mengubah
+        # Kapasitas / Interval Skala / Satuan / Kelas / Jumlah Titik.
+        # =====================================================
+        signature_muatan_uji = (
+            str(st.session_state.get("tb_nama_alat", "")),
+            str(satuan_tampilan),
+            str(cls),
+            int(jumlah_titik_uji),
+            round(float(kapasitas_max_kg), 12),
+            round(float(e), 12),
+        )
+
+        spesifikasi_muatan_berubah = (
+            st.session_state.get("tb_signature_muatan_uji")
+            != signature_muatan_uji
+        )
+
+        if spesifikasi_muatan_berubah:
+            st.session_state["tb_signature_muatan_uji"] = (
+                signature_muatan_uji
+            )
+
         for i in range(num_results):
             cols = st.columns(
                 [0.5, 2.1, 2.3, 1.4, 3.6, 1.2, 1.4]
@@ -6706,28 +6730,37 @@ def run():
                 )
 
             # --- Muatan Uji ---
+            key_muatan = f"tb_muatan_uji_{i}"
+
+            # Neraca Obat & Timbangan Meja: muatan selalu ikut hitungan
+            if is_neraca or is_timbangan_meja:
+                paksa_sinkron_muatan = True
+            else:
+                paksa_sinkron_muatan = spesifikasi_muatan_berubah
+
+            # Penting: sinkronkan session_state SEBELUM widget dibuat,
+            # sama seperti pola pada kolom Penunjukan.
+            if (
+                paksa_sinkron_muatan
+                or key_muatan not in st.session_state
+            ):
+                st.session_state[key_muatan] = float(
+                    default_muatan_tampil
+                )
+
             with cols[1]:
                 sub_muatan1, sub_muatan2 = st.columns([4, 1])
 
                 with sub_muatan1:
                     muatan_uji_tampil = st.number_input(
                         f"Muatan Uji {nomor_baris}",
-                        value=float(
-                            default_muatan_tampil
-                        ),
-                        step=float(
-                            step_muatan_tampil
-                        ),
+                        step=float(step_muatan_tampil),
                         format="%g",
-                        disabled=(
-                            is_neraca
-                            or is_timbangan_meja
-                        ),
-                        key=(
-                            f"tb_muatan_uji_{i}"
-                        ),
+                        disabled=(is_neraca or is_timbangan_meja),
+                        key=key_muatan,
                         label_visibility="collapsed"
                     )
+
 
                 with sub_muatan2:
                     st.markdown(f"**{satuan_tampilan}**")
