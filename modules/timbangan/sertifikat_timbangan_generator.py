@@ -423,7 +423,7 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
         y_row - 1.5 * cm
     )
 
-   # ============================================================
+    # ============================================================
     # BARIS 4
     # Timbangan Elektronik : Model/Tipe + Interval Skala
     # Alat lain            : Nomor Seri + Interval Skala
@@ -700,9 +700,6 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
             f"{no_seri} / {no_alat}"
         )
     
-        tinggi_blok_nomor = 1.80 * cm
-    
-    
     # ============================================================
     # JIKA NOMOR ALAT TIDAK DIISI
     # Hanya tampilkan Nomor Seri
@@ -748,9 +745,6 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
         )
     
         nomor_identitas = no_seri
-    
-        tinggi_blok_nomor = 1.0 * cm
-    
     
     # ============================================================
     # TITIK DUA
@@ -1131,7 +1125,7 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     c.drawString(colon_fixed_shifted + 0.3*cm, y, berlaku_str)
     y -= 1.0*cm
 
-   # ======================== CATATAN ========================
+    # ======================== CATATAN ========================
     c.setFont("Helvetica", 12)
     c.drawString(left_col_x, y, "Catatan")
 
