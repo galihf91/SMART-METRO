@@ -132,6 +132,168 @@ def simpan_atau_update_perusahaan(
         )
 
     return response.data[0]["id"]
+    
+def normalisasi_nama_perusahaan(nama):
+    """Normalisasi nama perusahaan untuk pencocokan anti-duplikat."""
+    teks = str(nama or "").strip()
+    teks = re.sub(r"\s+", " ", teks)
+    teks = teks.lower()
+    teks = re.sub(r"[^a-z0-9]+", "", teks)
+    return teks
+
+
+def cari_perusahaan_by_nama(supabase, nama_perusahaan):
+    """Cari perusahaan: exact match dulu, lalu nama ternormalisasi (paging)."""
+    nama_bersih = re.sub(
+        r"\s+", " ", str(nama_perusahaan or "").strip()
+    )
+    nama_normal = normalisasi_nama_perusahaan(nama_bersih)
+
+    if not nama_normal:
+        return None
+
+    try:
+        resp = (
+            supabase.table("perusahaan")
+            .select("id, nama_perusahaan, alamat")
+            .eq("nama_perusahaan", nama_bersih)
+            .limit(1)
+            .execute()
+        )
+        if resp.data:
+            return resp.data[0]
+    except Exception:
+        pass
+
+    ukuran = 1000
+    offset = 0
+
+    while True:
+        resp = (
+            supabase.table("perusahaan")
+            .select("id, nama_perusahaan, alamat")
+            .order("id")
+            .range(offset, offset + ukuran - 1)
+            .execute()
+        )
+        baris = resp.data or []
+
+        if not baris:
+            break
+
+        for row in baris:
+            if (
+                normalisasi_nama_perusahaan(
+                    row.get("nama_perusahaan", "")
+                )
+                == nama_normal
+            ):
+                return row
+
+        if len(baris) < ukuran:
+            break
+
+        offset += ukuran
+
+    return None
+
+
+def simpan_perusahaan_dari_nomor_order(nama_perusahaan, alamat):
+    """
+    Simpan/periksa perusahaan saat Generate Nomor Order.
+    Return (perusahaan_id, status): "baru" | "sudah_ada" | "kosong"
+    """
+    nama_perusahaan = str(nama_perusahaan or "").strip()
+
+    if not nama_perusahaan:
+        return None, "kosong"
+
+    supabase = get_supabase()
+
+    row = cari_perusahaan_by_nama(supabase, nama_perusahaan)
+
+    if row:
+        return row["id"], "sudah_ada"
+
+    perusahaan_id = simpan_atau_update_perusahaan(
+        supabase,
+        nama_perusahaan,
+        alamat,
+    )
+
+    return perusahaan_id, "baru"
+
+
+def ambil_nomor_order_berikutnya(tanggal, supabase=None):
+    """
+    Nomor order berikutnya dari kolom nomor_order tabel `pengujian`,
+    untuk bulan + tahun yang sama. Format: 0148/SCD/IX/2026
+    """
+    if supabase is None:
+        supabase = get_supabase()
+
+    if isinstance(tanggal, str):
+        tanggal = datetime.strptime(tanggal, "%Y-%m-%d")
+
+    romawi = bulan_ke_romawi(tanggal.month)
+    tahun = tanggal.year
+
+    response = (
+        supabase
+        .table("pengujian")
+        .select("nomor_order")
+        .ilike("nomor_order", f"%/SCD/{romawi}/{tahun}")
+        .execute()
+    )
+
+    pola = re.compile(
+        rf"^\s*(\d{{1,6}})\s*/\s*SCD\s*/\s*{romawi}\s*/\s*{tahun}\s*$",
+        re.IGNORECASE,
+    )
+
+    nomor_tertinggi = 0
+
+    for baris in (response.data or []):
+        nilai = str(baris.get("nomor_order") or "").strip()
+        cocok = pola.match(nilai)
+
+        if cocok:
+            nomor_tertinggi = max(
+                nomor_tertinggi,
+                int(cocok.group(1)),
+            )
+
+    nomor_baru = nomor_tertinggi + 1
+
+    return f"{nomor_baru:04d}/SCD/{romawi}/{tahun}"
+
+def ambil_lokasi_pengujian_final():
+    """
+    Nilai lokasi pengujian yang akan DISIMPAN.
+
+    - "Dalam Kantor" -> apa adanya
+    - "Perusahaan"   -> nama perusahaan lain bila checklist aktif,
+                        atau "Perusahaan" (pakai identitas pemilik)
+    """
+    lokasi = str(
+        st.session_state.get("tb_lokasi_pengujian", "Perusahaan")
+        or "Perusahaan"
+    ).strip()
+
+    if (
+        lokasi == "Perusahaan"
+        and st.session_state.get("tb_lokasi_beda_pemilik")
+    ):
+        nama_lokasi = str(
+            st.session_state.get("tb_lokasi_nama_perusahaan", "")
+            or ""
+        ).strip()
+
+        if nama_lokasi:
+            return nama_lokasi
+
+    return lokasi
+
 
 def normalisasi_nomor_seri(nilai):
     """
@@ -739,6 +901,8 @@ def simpan_pengujian_timbangan_ke_supabase(data):
     # =====================================================
     payload = {
         "uttp_id": uttp_id,
+        
+        "perusahaan_id": perusahaan_id,
 
         "tanggal_pengujian": (
             tanggal_pengujian
@@ -4733,6 +4897,8 @@ def simpan_draft_widget_timbangan():
         "tb_metode_pengujian",
         "tb_at_standar",
         "tb_lokasi_pengujian",
+        "tb_lokasi_beda_pemilik",
+        "tb_lokasi_nama_perusahaan",
         "tb_jumlah_titik_kebenaran",
 
         # Tanggal
@@ -4805,6 +4971,248 @@ def simpan_draft_widget_timbangan():
     st.session_state[
         "tb_draft_widget"
     ] = draft
+    
+def render_generate_nomor_order():
+    """Mode 1: membuat Nomor Order sebelum input data pengujian."""
+
+    if st.session_state.pop("tb_no_sukses", False):
+        st.success("✅ Nomor order berhasil dibuat.")
+
+    pesan_perusahaan = st.session_state.pop(
+        "tb_no_flash_perusahaan", None
+    )
+
+    if pesan_perusahaan:
+        jenis_pesan, teks_pesan = pesan_perusahaan
+
+        if jenis_pesan == "success":
+            st.success(teks_pesan)
+        elif jenis_pesan == "info":
+            st.info(teks_pesan)
+        else:
+            st.warning(teks_pesan)
+
+    st.header("🔢 Generate Nomor Order")
+    st.caption(
+        "Langkah 1 — buat Nomor Order sebelum mengisi data pengujian. "
+        "Nomor diambil berurutan dari data pengujian di database."
+    )
+
+    df_perusahaan = st.session_state.get("tb_data_perusahaan")
+
+    if df_perusahaan is None or df_perusahaan.empty:
+        st.warning(
+            "⚠️ Data perusahaan belum tersedia. Pastikan tabel "
+            "`perusahaan` di Supabase sudah terisi."
+        )
+        return
+
+    all_names = (
+        df_perusahaan["Nama Perusahaan"]
+        .dropna()
+        .astype(str)
+        .str.strip()
+        .tolist()
+    )
+
+    def _reset_nomor_order():
+        st.session_state.pop("tb_no_hasil", None)
+        st.session_state.pop("tb_no_nomor_order", None)
+        st.session_state.pop("tb_no_nomor_terakhir_generate", None)
+
+    col1, col2 = st.columns(2)
+
+    # =====================================================
+    # KOLOM 1 — IDENTITAS PEMILIK
+    # =====================================================
+    with col1:
+        st.subheader("Identitas Pemilik")
+
+        if "tb_perusahaan_select" not in st.session_state:
+            st.session_state["tb_perusahaan_select"] = ""
+
+        if "tb_manual_perusahaan" not in st.session_state:
+            st.session_state["tb_manual_perusahaan"] = False
+
+        st.selectbox(
+            "Cari & Pilih Nama Perusahaan",
+            options=[""] + all_names,
+            placeholder="Ketik nama perusahaan...",
+            key="tb_perusahaan_select",
+            on_change=update_perusahaan_terpilih_tb,
+        )
+
+        st.text_area(
+            "Alamat",
+            height=90,
+            key="tb_alamat_input",
+            help="Alamat otomatis terisi setelah perusahaan dipilih.",
+        )
+
+        st.checkbox(
+            "Input manual nama perusahaan",
+            key="tb_manual_perusahaan",
+        )
+
+        if st.session_state.get("tb_manual_perusahaan"):
+            st.text_input(
+                "Nama Pemilik / Perusahaan",
+                key="tb_nama_perusahaan",
+                placeholder="Contoh: PT. ABC",
+            )
+
+            nama_perusahaan = str(
+                st.session_state.get("tb_nama_perusahaan", "") or ""
+            ).strip()
+        else:
+            nama_perusahaan = str(
+                st.session_state.get("tb_perusahaan_select", "") or ""
+            ).strip()
+
+        alamat = str(
+            st.session_state.get("tb_alamat_input", "") or ""
+        ).strip()
+
+    # =====================================================
+    # KOLOM 2 — TANGGAL + NOMOR ORDER
+    # =====================================================
+    with col2:
+        st.subheader("Tanggal Pengujian")
+
+        tanggal_pengujian = st.date_input(
+            "Pilih Tanggal Pengujian",
+            key="tb_tanggal_pengujian",
+            on_change=_reset_nomor_order,
+        )
+
+        nomor_hasil = st.session_state.get("tb_no_hasil")
+
+        if nomor_hasil:
+            if (
+                st.session_state.get("tb_no_nomor_terakhir_generate")
+                != nomor_hasil
+            ):
+                st.session_state["tb_no_nomor_order"] = nomor_hasil
+                st.session_state[
+                    "tb_no_nomor_terakhir_generate"
+                ] = nomor_hasil
+
+            st.text_input(
+                "Nomor Order",
+                key="tb_no_nomor_order",
+                help="Nomor ini masih bisa diedit manual bila perlu.",
+            )
+
+            nomor_terpilih = str(
+                st.session_state.get("tb_no_nomor_order", "") or ""
+            ).strip()
+
+            if nomor_terpilih:
+                st.session_state["tb_nomor_order"] = nomor_terpilih
+
+                if st.session_state.get("tb_saved_data"):
+                    st.session_state.tb_saved_data[
+                        "nomor_order"
+                    ] = nomor_terpilih
+        else:
+            st.caption(
+                "ℹ️ Kolom Nomor Order akan muncul setelah "
+                "tombol Generate diklik."
+            )
+
+        st.caption(
+            "Nomor urut dihitung per bulan dan tahun."
+        )
+
+    st.markdown("---")
+
+    # =====================================================
+    # TOMBOL GENERATE
+    # =====================================================
+    if st.button(
+        "🔢 Generate Nomor Order",
+        type="primary",
+        use_container_width=True,
+        key="tb_btn_generate_nomor_order",
+    ):
+        if not nama_perusahaan:
+            st.error(
+                "Isi nama perusahaan terlebih dahulu — pilih dari "
+                "daftar atau centang 'Input manual nama perusahaan'."
+            )
+        else:
+            try:
+                nomor_baru = ambil_nomor_order_berikutnya(
+                    tanggal_pengujian
+                )
+
+                st.session_state["tb_no_hasil"] = nomor_baru
+                st.session_state["tb_no_sukses"] = True
+
+                # Simpan / periksa perusahaan
+                try:
+                    _, status_perusahaan = (
+                        simpan_perusahaan_dari_nomor_order(
+                            nama_perusahaan,
+                            alamat,
+                        )
+                    )
+
+                    if status_perusahaan == "baru":
+                        try:
+                            load_data_perusahaan.clear()
+                        except Exception:
+                            pass
+
+                        st.session_state["tb_data_perusahaan"] = (
+                            load_data_perusahaan()
+                        )
+
+                        st.session_state[
+                            "tb_no_flash_perusahaan"
+                        ] = (
+                            "success",
+                            f"✅ Perusahaan baru '{nama_perusahaan}' "
+                            "berhasil disimpan ke database.",
+                        )
+
+                    elif status_perusahaan == "sudah_ada":
+                        st.session_state[
+                            "tb_no_flash_perusahaan"
+                        ] = (
+                            "info",
+                            f"ℹ️ Perusahaan '{nama_perusahaan}' "
+                            "sudah terdaftar.",
+                        )
+
+                except Exception as exc_perusahaan:
+                    st.session_state[
+                        "tb_no_flash_perusahaan"
+                    ] = (
+                        "warning",
+                        "⚠️ Perusahaan gagal disimpan ke database: "
+                        f"{exc_perusahaan}",
+                    )
+
+                st.rerun()
+
+            except Exception as exc:
+                st.error(f"❌ Gagal mengambil nomor order: {exc}")
+                st.exception(exc)
+
+    # =====================================================
+    # LANJUT KE INPUT DATA
+    # =====================================================
+    if st.session_state.get("tb_no_hasil"):
+        if st.button(
+            "➡️ Lanjut ke Input Data Pengujian",
+            use_container_width=True,
+            key="tb_no_lanjut_input",
+        ):
+            st.session_state["tb_next_mode"] = "📝 Input Data Pengujian"
+            st.rerun()
+
+
 def reset_form_timbangan():
     """Menghapus state khusus timbangan tanpa mengganggu modul lain."""
     for key in list(st.session_state.keys()):
@@ -4870,6 +5278,7 @@ def run():
         mode = st.radio(
             "Pilih Mode:",
             [
+                "🔢 Generate Nomor Order",
                 "📝 Input Data Pengujian",
                 "📄 Generate Dokumen",
                 "📚 Riwayat Timbangan"
@@ -5857,12 +6266,29 @@ def run():
                 key="tb_tanggal_tanda_tangan",
             )
 
+            # =================================================
+            # LOKASI PENGUJIAN
+            # Termasuk kasus: pengujian dilaksanakan di
+            # perusahaan LAIN (berbeda dari identitas pemilik).
+            # =================================================
             lokasi_options = ["Perusahaan", "Dalam Kantor"]
-            if (
-                st.session_state.get("tb_lokasi_pengujian")
-                not in lokasi_options
-            ):
-                st.session_state.tb_lokasi_pengujian = "Perusahaan"
+
+            lokasi_tersimpan = str(
+                st.session_state.get("tb_lokasi_pengujian", "")
+                or ""
+            ).strip()
+
+            # Auto-detect: kalau nilai tersimpan bukan opsi standar,
+            # berarti itu nama perusahaan lain (hasil restore data lama).
+            if lokasi_tersimpan not in lokasi_options:
+                if lokasi_tersimpan:
+                    st.session_state["tb_lokasi_pengujian"] = "Perusahaan"
+                    st.session_state["tb_lokasi_beda_pemilik"] = True
+                    st.session_state[
+                        "tb_lokasi_nama_perusahaan"
+                    ] = lokasi_tersimpan
+                else:
+                    st.session_state["tb_lokasi_pengujian"] = "Perusahaan"
 
             lokasi = st.selectbox(
                 "Lokasi Pengujian",
@@ -5870,6 +6296,59 @@ def run():
                 key="tb_lokasi_pengujian",
                 help="Pilih lokasi pelaksanaan pengujian.",
             )
+
+            # -------------------------------------------------
+            # LOKASI DI PERUSAHAAN LAIN
+            # -------------------------------------------------
+            if lokasi == "Perusahaan":
+
+                st.checkbox(
+                    "Nama perusahaan lokasi berbeda dengan identitas pemilik",
+                    key="tb_lokasi_beda_pemilik",
+                    help=(
+                        "Centang bila pengujian dilaksanakan di perusahaan "
+                        "lain, lalu cari nama perusahaannya di bawah."
+                    ),
+                )
+
+                if st.session_state.get("tb_lokasi_beda_pemilik"):
+
+                    df_pt = st.session_state.get("tb_data_perusahaan")
+                    daftar_pt = []
+
+                    if df_pt is not None and not df_pt.empty:
+                        daftar_pt = (
+                            df_pt["Nama Perusahaan"]
+                            .dropna()
+                            .astype(str)
+                            .str.strip()
+                            .tolist()
+                        )
+
+                    # Pastikan nilai tersimpan masih valid
+                    if (
+                        st.session_state.get("tb_lokasi_nama_perusahaan")
+                        not in [""] + daftar_pt
+                    ):
+                        st.session_state["tb_lokasi_nama_perusahaan"] = ""
+
+                    lokasi_perusahaan_lain = st.selectbox(
+                        "Nama Perusahaan Lokasi Pengujian",
+                        options=[""] + daftar_pt,
+                        placeholder="Ketik atau pilih nama perusahaan...",
+                        key="tb_lokasi_nama_perusahaan",
+                        help="Pilih perusahaan tempat pengujian dilaksanakan.",
+                    )
+
+                    if not lokasi_perusahaan_lain:
+                        st.warning(
+                            "⚠️ Pilih dulu nama perusahaan lokasi pengujian."
+                        )
+            else:
+                # Lokasi bukan "Perusahaan" -> checklist dimatikan
+                st.session_state["tb_lokasi_beda_pemilik"] = False
+                st.session_state["tb_lokasi_nama_perusahaan"] = ""
+
 
         with col5:
             st.subheader("Data Penera")
@@ -8797,7 +9276,15 @@ def run():
                     )
                     for item in daftar_alat_standar_peminjaman
                 },
-                'lokasi': st.session_state.get('tb_lokasi_pengujian', 'Perusahaan'),
+                'lokasi': ambil_lokasi_pengujian_final(),
+                'lokasi_beda_pemilik': bool(
+                    st.session_state.get("tb_lokasi_beda_pemilik")
+                ),
+                'lokasi_nama_perusahaan': str(
+                    st.session_state.get("tb_lokasi_nama_perusahaan", "")
+                    or ""
+                ).strip(),
+
                 'nama_penera': nama_penera,
                 'nip_penera': nip_penera,
                 'golongan_penera': st.session_state.get('tb_golongan_penera', ''),
@@ -8827,8 +9314,12 @@ def run():
                 'nomor_order': (
                     nomor_order_lama
                     if sedang_edit
-                    else ""
+                    else str(
+                        st.session_state.get("tb_nomor_order", "")
+                        or ""
+                    ).strip()
                 ),
+
                 'berlaku_sampai': add_one_year_safe(
                     tanggal_final
                 ).strftime(
@@ -8885,11 +9376,16 @@ def run():
                     "tb_nomor_sertifikat",
                     None
                 )
-            
-                st.session_state.pop(
-                    "tb_nomor_order",
-                    None
-                )
+
+                if not str(
+                    st.session_state.get("tb_nomor_order", "")
+                    or ""
+                ).strip():
+                    st.session_state.pop(
+                        "tb_nomor_order",
+                        None
+                    )
+
             st.success("✅ Data berhasil disimpan!")
             st.balloons()
 
@@ -9388,6 +9884,11 @@ def run():
     # =========================================================
     # MODE 3: RIWAYAT TIMBANGAN
     # =========================================================
+    # ===== MODE: GENERATE NOMOR ORDER =====
+    elif mode == "🔢 Generate Nomor Order":
+        render_generate_nomor_order()
+
+
     elif mode == "📚 Riwayat Timbangan":
     
         st.header("📚 Riwayat Timbangan")
