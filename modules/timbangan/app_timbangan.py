@@ -9558,7 +9558,7 @@ def run():
         
             with col2:
                 st.subheader("📊 Nomor Dokumen")
-            
+
                 tanggal_data = _parse_date_safe(
                     data.get("tanggal"),
                     datetime.now().date(),
@@ -9569,13 +9569,16 @@ def run():
                     tanggal_data,
                 )
 
-                default_order = generate_nomor_order(tanggal_data)
-
-                # Nomor sudah disiapkan tombol "💾 Simpan Data".
-                # Fallback: hitung dari tabel pengujian (bulan = tgl sertifikat).
-                if "tb_nomor_sertifikat" not in st.session_state:
+                # =================================================
+                # NOMOR SERTIFIKAT
+                # Prioritas: isi yang ada -> nomor tersimpan -> counter
+                # (Romawi mengikuti Tanggal Sertifikat)
+                # =================================================
+                if not str(
+                    st.session_state.get("tb_nomor_sertifikat", "") or ""
+                ).strip():
                     st.session_state["tb_nomor_sertifikat"] = (
-                        data.get("nomor_sertifikat")
+                        str(data.get("nomor_sertifikat") or "").strip()
                         or ambil_nomor_sertifikat_berikutnya(
                             tanggal_sertifikat_data
                         )
@@ -9591,26 +9594,36 @@ def run():
                     ),
                 )
 
-            
+                # =================================================
+                # NOMOR ORDER
+                # Kalau user belum pakai mode "🔢 Generate Nomor Order",
+                # tampilkan TEMPLATE: 0000/SCD/ROMAWI/TAHUN
+                # (Romawi mengikuti Tanggal Pengujian)
+                # =================================================
+                if not str(
+                    st.session_state.get("tb_nomor_order", "") or ""
+                ).strip():
+                    st.session_state["tb_nomor_order"] = (
+                        str(data.get("nomor_order") or "").strip()
+                        or generate_nomor_order(tanggal_data)
+                    )
+
                 nomor_order = st.text_input(
                     "Nomor Order",
-                    value=(
-                        data.get("nomor_order")
-                        or default_order
-                    ),
                     placeholder="Format nomor order",
                     key="tb_nomor_order",
                 )
-            
-            st.session_state.tb_saved_data[
-                "nomor_sertifikat"
-            ] = nomor_sertifikat
 
-            st.session_state.tb_saved_data[
-                "nomor_order"
-            ] = nomor_order
+                st.session_state.tb_saved_data[
+                    "nomor_sertifikat"
+                ] = nomor_sertifikat
 
-            data = st.session_state.tb_saved_data
+                st.session_state.tb_saved_data[
+                    "nomor_order"
+                ] = nomor_order
+
+                data = st.session_state.tb_saved_data
+
         
             st.markdown("---")
         
