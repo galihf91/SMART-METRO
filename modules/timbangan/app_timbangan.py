@@ -9596,17 +9596,43 @@ def run():
 
                 # =================================================
                 # NOMOR ORDER
-                # Kalau user belum pakai mode "🔢 Generate Nomor Order",
-                # tampilkan TEMPLATE: 0000/SCD/ROMAWI/TAHUN
-                # (Romawi mengikuti Tanggal Pengujian)
+                # Belum digenerate (mode "🔢 Generate Nomor Order")
+                #  → tampilkan TEMPLATE: 0000/SCD/ROMAWI/TAHUN
+                # Template dihitung ULANG setiap render supaya bulan
+                # Romawi selalu mengikuti Tanggal Pengujian terbaru.
                 # =================================================
-                if not str(
+                tanggal_pengujian_data = _parse_date_safe(
+                    st.session_state.get("tb_tanggal_pengujian")
+                    or data.get("tanggal"),
+                    datetime.now().date(),
+                )
+
+                nomor_order_skrg = str(
                     st.session_state.get("tb_nomor_order", "") or ""
-                ).strip():
-                    st.session_state["tb_nomor_order"] = (
-                        str(data.get("nomor_order") or "").strip()
-                        or generate_nomor_order(tanggal_data)
-                    )
+                ).strip()
+
+                if (
+                    not nomor_order_skrg
+                    or nomor_order_skrg.startswith("0000/SCD/")
+                ):
+                    nomor_order_tersimpan = str(
+                        data.get("nomor_order") or ""
+                    ).strip()
+
+                    if (
+                        nomor_order_tersimpan
+                        and not nomor_order_tersimpan.startswith("0000/SCD/")
+                    ):
+                        # Nomor asli hasil mode "Generate Nomor Order"
+                        st.session_state["tb_nomor_order"] = (
+                            nomor_order_tersimpan
+                        )
+                    else:
+                        # Template: ikuti Tanggal Pengujian terbaru
+                        st.session_state["tb_nomor_order"] = (
+                            generate_nomor_order(tanggal_pengujian_data)
+                        )
+
 
                 nomor_order = st.text_input(
                     "Nomor Order",
