@@ -307,6 +307,24 @@ def normalisasi_nomor_seri(nilai):
     teks = re.sub(r"\s+", " ", teks)
     return teks.upper()
 
+PLACEHOLDER_NO_SERI = {
+    "-", "--", "---", "0", "0.0", "N/A", "NA", "NONE",
+    "TIDAK ADA", "TIDAKADA", "TIDAK ADA SERI", "TANPA SERI",
+}
+
+
+def _ke_angka(nilai, default=0.0):
+    try:
+        return float(nilai)
+    except (TypeError, ValueError):
+        return default
+
+
+def _seri_bersih(nilai):
+    """Normalisasi nomor seri; tanda placeholder dianggap KOSONG."""
+    teks = normalisasi_nomor_seri(nilai)
+    return "" if teks in PLACEHOLDER_NO_SERI else teks
+
 
 def get_or_create_uttp_timbangan(
     supabase,
