@@ -3554,6 +3554,34 @@ def ambil_nomor_sertifikat_berikutnya(tanggal, supabase=None):
 
     return f"500.2.3.15/{tertinggi + 1:04d}/BID-K/{romawi}/{tahun}"
 
+def nomor_sertifikat_sudah_dipakai(nomor, kecuali_id=None, supabase=None):
+    """True kalau `nomor` sudah dipakai baris LAIN di tabel pengujian."""
+    if supabase is None:
+        supabase = get_supabase()
+
+    nomor = str(nomor or "").strip()
+    if not nomor:
+        return False
+
+    res = (
+        supabase
+        .table("pengujian")
+        .select("id")
+        .eq("nomor_sertifikat", nomor)
+        .limit(1)
+        .execute()
+    )
+
+    data = res.data or []
+    if not data:
+        return False
+
+    # Nomor milik baris ini sendiri → bukan bentrok
+    if kecuali_id is not None and str(data[0]["id"]) == str(kecuali_id):
+        return False
+
+    return True
+
 
 # ===== BACA DATA PERUSAHAAN =====
 def format_tanggal_indonesia(tanggal_str):
@@ -9697,64 +9725,89 @@ def run():
                         output_path = OUTPUT_DIR
                         output_path.mkdir(parents=True, exist_ok=True)
 
+                        st.session_state.tb_saved_data["nomor_sertifikat"] = nomor_sertifikat
+                        st.session_state.tb_saved_data["nomor_order"] = nomor_order
+
                         nama_file_sertifikat = format_nama_file_dokumen(
-                            data,
-                            "SERTIFIKAT",
+                            data, "SERTIFIKAT"
                         )
                         filename = output_path / nama_file_sertifikat
 
-                        st.session_state.tb_saved_data[
-                            "nomor_sertifikat"
-                        ] = nomor_sertifikat
-                        st.session_state.tb_saved_data[
-                            "nomor_order"
-                        ] = nomor_order
+                        # =====================================
+                        # CEK KEUNIKAN NOMOR SERTIFIKAT DULU
+                        # =====================================
+                        id_baris_ini = (
+                            st.session_state.get("tb_edit_pengujian_id")
+                            or st.session_state.get("tb_pengujian_id_aktif")
+                        )
+
+                        boleh_simpan = not nomor_sertifikat_sudah_dipakai(
+                            nomor_sertifikat,
+                            kecuali_id=id_baris_ini,
+                        )
+
+                        if not boleh_simpan:
+                            nomor_baru = ambil_nomor_sertifikat_berikutnya(
+                                _parse_date_safe(
+                                    st.session_state.tb_saved_data.get(
+                                        "tanggal_tanda_tangan"
+                                    )
+                                )
+                            )
+                            st.session_state["tb_nomor_sertifikat"] = nomor_baru
+                            st.session_state.tb_saved_data["nomor_sertifikat"] = nomor_baru
+                            st.error(
+                                "❌ Nomor sertifikat sudah dipakai pengujian lain. "
+                                f"Nomor baru {nomor_baru} sudah disiapkan — "
+                                "silahkan klik Generate lagi."
+                            )
 
                         # =====================================
                         # 1) SIMPAN DATABASE DULU
                         # =====================================
-                        berhasil_simpan = True
+                        berhasil_simpan = boleh_simpan
 
-                        try:
-                            simpan_pengujian_timbangan_ke_supabase(
-                                st.session_state.tb_saved_data
-                            )
-                        except Exception as db_error:
-                            error_text = str(db_error)
-                            berhasil_simpan = False
+                        if boleh_simpan:
+                            try:
+                                simpan_pengujian_timbangan_ke_supabase(
+                                    st.session_state.tb_saved_data
+                                )
+                            except Exception as db_error:
+                                error_text = str(db_error)
+                                berhasil_simpan = False
 
-                            if (
-                                "duplicate key value violates unique constraint"
-                                in error_text
-                                and "pengujian_nomor_sertifikat_unique"
-                                in error_text
-                            ):
-                                nomor_baru = ambil_nomor_sertifikat_berikutnya(
-                                    _parse_date_safe(
-                                        st.session_state.tb_saved_data.get(
-                                            "tanggal_tanda_tangan"
+                                if (
+                                    "duplicate key value violates unique constraint"
+                                    in error_text
+                                    and "pengujian_nomor_sertifikat_unique"
+                                    in error_text
+                                ):
+                                    nomor_baru = ambil_nomor_sertifikat_berikutnya(
+                                        _parse_date_safe(
+                                            st.session_state.tb_saved_data.get(
+                                                "tanggal_tanda_tangan"
+                                            )
                                         )
                                     )
-                                )
-                                st.session_state["tb_nomor_sertifikat"] = nomor_baru
-                                st.session_state.tb_saved_data[
-                                    "nomor_sertifikat"
-                                ] = nomor_baru
-                                st.error(
-                                    "❌ Nomor sertifikat sudah terpakai. "
-                                    f"Nomor baru {nomor_baru} sudah disiapkan — "
-                                    "silahkan klik Generate lagi."
-                                )
-                            else:
-                                st.warning(
-                                    "⚠️ Data gagal disimpan ke database. "
-                                    "Dokumen tidak dibuat agar tidak "
-                                    "menghasilkan sertifikat tanpa data."
-                                )
-                                st.exception(db_error)
+                                    st.session_state["tb_nomor_sertifikat"] = nomor_baru
+                                    st.session_state.tb_saved_data[
+                                        "nomor_sertifikat"
+                                    ] = nomor_baru
+                                    st.error(
+                                        "❌ Nomor sertifikat sudah terpakai. "
+                                        f"Nomor baru {nomor_baru} sudah disiapkan — "
+                                        "silahkan klik Generate lagi."
+                                    )
+                                else:
+                                    st.warning(
+                                        "⚠️ Data gagal disimpan ke database. "
+                                        "Dokumen tidak dibuat agar tidak "
+                                        "menghasilkan sertifikat tanpa data."
+                                    )
+                                    st.exception(db_error)
 
                         # =====================================
-                        # 2) BARU BUAT PDF (hanya jika simpan sukses)
+                        # 2) BARU BUAT PDF
                         # =====================================
                         if berhasil_simpan:
                             generate_sertifikat_pdf(
@@ -9762,9 +9815,9 @@ def run():
                                 str(filename),
                                 nomor_sertifikat,
                             )
-                            st.session_state.tb_generated_files[
-                                "sertifikat"
-                            ] = str(filename)
+                            st.session_state.tb_generated_files["sertifikat"] = (
+                                str(filename)
+                            )
                             st.success(
                                 "✅ Sertifikat berhasil dibuat dan "
                                 "data pengujian tersimpan ke database."
@@ -9773,6 +9826,7 @@ def run():
                     except Exception as exc:
                         st.error(f"❌ Error: {exc}")
                         st.code(traceback.format_exc())
+
 
             # --- Tombol Generate Kedua Dokumen ---
             with col_btn3:
@@ -9785,74 +9839,92 @@ def run():
                         output_path = OUTPUT_DIR
                         output_path.mkdir(parents=True, exist_ok=True)
 
-                        # Nomor terbaru dari form (bisa saja baru diedit manual)
-                        st.session_state.tb_saved_data[
-                            "nomor_sertifikat"
-                        ] = nomor_sertifikat
+                        st.session_state.tb_saved_data["nomor_sertifikat"] = nomor_sertifikat
+                        st.session_state.tb_saved_data["nomor_order"] = nomor_order
 
-                        st.session_state.tb_saved_data[
-                            "nomor_order"
-                        ] = nomor_order
-
-                        nama_file_cerapan = format_nama_file_dokumen(
-                            data,
-                            "CERAPAN",
-                        )
+                        nama_file_cerapan = format_nama_file_dokumen(data, "CERAPAN")
                         cerapan_file = output_path / nama_file_cerapan
 
                         nama_file_sertifikat = format_nama_file_dokumen(
-                            data,
-                            "SERTIFIKAT",
+                            data, "SERTIFIKAT"
                         )
-                        sertifikat_file = (
-                            output_path / nama_file_sertifikat
+                        sertifikat_file = output_path / nama_file_sertifikat
+
+                        # =====================================
+                        # CEK KEUNIKAN NOMOR SERTIFIKAT DULU
+                        # =====================================
+                        id_baris_ini = (
+                            st.session_state.get("tb_edit_pengujian_id")
+                            or st.session_state.get("tb_pengujian_id_aktif")
                         )
+
+                        boleh_simpan = not nomor_sertifikat_sudah_dipakai(
+                            nomor_sertifikat,
+                            kecuali_id=id_baris_ini,
+                        )
+
+                        if not boleh_simpan:
+                            nomor_baru = ambil_nomor_sertifikat_berikutnya(
+                                _parse_date_safe(
+                                    st.session_state.tb_saved_data.get(
+                                        "tanggal_tanda_tangan"
+                                    )
+                                )
+                            )
+                            st.session_state["tb_nomor_sertifikat"] = nomor_baru
+                            st.session_state.tb_saved_data["nomor_sertifikat"] = nomor_baru
+                            st.error(
+                                "❌ Nomor sertifikat sudah dipakai pengujian lain. "
+                                f"Nomor baru {nomor_baru} sudah disiapkan — "
+                                "silahkan klik Generate lagi."
+                            )
 
                         # =====================================
                         # 1) SIMPAN DATABASE DULU
                         # =====================================
-                        berhasil_simpan = True
+                        berhasil_simpan = boleh_simpan
 
-                        try:
-                            simpan_pengujian_timbangan_ke_supabase(
-                                st.session_state.tb_saved_data
-                            )
-                        except Exception as db_error:
-                            error_text = str(db_error)
-                            berhasil_simpan = False
+                        if boleh_simpan:
+                            try:
+                                simpan_pengujian_timbangan_ke_supabase(
+                                    st.session_state.tb_saved_data
+                                )
+                            except Exception as db_error:
+                                error_text = str(db_error)
+                                berhasil_simpan = False
 
-                            if (
-                                "duplicate key value violates unique constraint"
-                                in error_text
-                                and "pengujian_nomor_sertifikat_unique"
-                                in error_text
-                            ):
-                                nomor_baru = ambil_nomor_sertifikat_berikutnya(
-                                    _parse_date_safe(
-                                        st.session_state.tb_saved_data.get(
-                                            "tanggal_tanda_tangan"
+                                if (
+                                    "duplicate key value violates unique constraint"
+                                    in error_text
+                                    and "pengujian_nomor_sertifikat_unique"
+                                    in error_text
+                                ):
+                                    nomor_baru = ambil_nomor_sertifikat_berikutnya(
+                                        _parse_date_safe(
+                                            st.session_state.tb_saved_data.get(
+                                                "tanggal_tanda_tangan"
+                                            )
                                         )
                                     )
-                                )
-                                st.session_state["tb_nomor_sertifikat"] = nomor_baru
-                                st.session_state.tb_saved_data[
-                                    "nomor_sertifikat"
-                                ] = nomor_baru
-                                st.error(
-                                    "❌ Nomor sertifikat sudah terpakai. "
-                                    f"Nomor baru {nomor_baru} sudah disiapkan — "
-                                    "silahkan klik Generate lagi."
-                                )
-                            else:
-                                st.warning(
-                                    "⚠️ Data gagal disimpan ke database. "
-                                    "Dokumen tidak dibuat agar tidak "
-                                    "menghasilkan sertifikat tanpa data."
-                                )
-                                st.exception(db_error)
+                                    st.session_state["tb_nomor_sertifikat"] = nomor_baru
+                                    st.session_state.tb_saved_data[
+                                        "nomor_sertifikat"
+                                    ] = nomor_baru
+                                    st.error(
+                                        "❌ Nomor sertifikat sudah terpakai. "
+                                        f"Nomor baru {nomor_baru} sudah disiapkan — "
+                                        "silahkan klik Generate lagi."
+                                    )
+                                else:
+                                    st.warning(
+                                        "⚠️ Data gagal disimpan ke database. "
+                                        "Dokumen tidak dibuat agar tidak "
+                                        "menghasilkan sertifikat tanpa data."
+                                    )
+                                    st.exception(db_error)
 
                         # =====================================
-                        # 2) BARU BUAT PDF (hanya jika simpan sukses)
+                        # 2) BARU BUAT PDF
                         # =====================================
                         if berhasil_simpan:
                             generate_cerapan_pdf(
@@ -9874,13 +9946,13 @@ def run():
 
                             st.success(
                                 "✅ Cerapan dan sertifikat berhasil dibuat "
-                                "serta data pengujian berhasil disimpan "
-                                "ke database."
+                                "serta data pengujian tersimpan ke database."
                             )
 
                     except Exception as exc:
                         st.error(f"❌ Error: {exc}")
                         st.code(traceback.format_exc())
+
 
 
             st.markdown("---")
