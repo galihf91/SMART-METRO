@@ -339,10 +339,13 @@ def get_or_create_uttp_timbangan(
     """
     Cari atau buat UTTP Timbangan.
 
-    Pencocokan memakai jenis alat + NOMOR SERI yang sudah
-    dinormalkan (huruf besar, spasi dirapikan). Perusahaan
-    tidak dijadikan identitas alat karena pemilik dapat
-    berubah.
+    Nomor seri DAN model BOLEH kosong.
+
+    Kunci pencocokan:
+    - no_seri terisi -> jenis_uttp + nomor_seri
+    - no_seri kosong -> jenis_uttp + merk + tipe + kapasitas
+                        + perusahaan_id
+      (supaya alat BERBEDA tidak saling menimpa)
     """
 
     nama_alat = str(nama_alat or "Timbangan").strip()
@@ -350,32 +353,14 @@ def get_or_create_uttp_timbangan(
     model = str(model or "").strip()
     lokasi = str(lokasi or "Perusahaan").strip()
 
-    no_seri = normalisasi_nomor_seri(no_seri)
-
-    if not no_seri:
-        raise ValueError("No. Seri wajib diisi.")
-
-    # -----------------------------------------------------
-    # Tolak nomor seri palsu / placeholder.
-    # Tanpa ini, semua alat ber-serial "-" akan menyatu
-    # ke satu baris uttp (penyebab masalah uttp_id 37).
-    # -----------------------------------------------------
-    placeholder = {
-        "-", "--", "---", "0", "N/A", "NA",
-        "TIDAK ADA", "TIDAKADA", "TIDAK ADA SERI",
-    }
-
-    if no_seri in placeholder:
-        raise ValueError(
-            "No. Seri tidak valid. Isi nomor seri sebenarnya "
-            "dari alat (bukan '-', '0', atau 'N/A')."
-        )
+    no_seri = _seri_bersih(no_seri)
 
     kapasitas_teks = str(kapasitas_max)
+    kapasitas_angka = _ke_angka(kapasitas_max)
+    perusahaan_teks = str(perusahaan_id or "")
 
     # =====================================================
-    # CARI UTTP: jenis alat sama, lalu saring nomor seri
-    # di sisi Python agar tahan beda huruf besar/kecil.
+    # AMBIL SEMUA KANDIDAT DENGAN JENIS ALAT SAMA
     # =====================================================
     response = (
         supabase
@@ -385,41 +370,68 @@ def get_or_create_uttp_timbangan(
         .execute()
     )
 
-    kandidat = [
-        row
-        for row in (response.data or [])
-        if normalisasi_nomor_seri(row.get("nomor_seri")) == no_seri
-    ]
+    kandidat = []
+
+    for row in (response.data or []):
+        seri_row = _seri_bersih(row.get("nomor_seri"))
+
+        # ---------- Kasus 1: pakai nomor seri ----------
+        if no_seri:
+            if seri_row == no_seri:
+                kandidat.append(row)
+            continue
+
+        # ---------- Kasus 2: tanpa nomor seri ----------
+        if seri_row:
+            # baris ini punya serial -> bukan pasangan kita
+            continue
+
+        if (
+            str(row.get("merk") or "").strip().upper()
+            == merek.upper()
+            and str(row.get("tipe") or "").strip().upper()
+            == model.upper()
+            and abs(
+                _ke_angka(row.get("kapasitas")) - kapasitas_angka
+            ) < 1e-9
+            and str(row.get("perusahaan_id") or "")
+            == perusahaan_teks
+        ):
+            kandidat.append(row)
 
     # =====================================================
-    # JIKA DITEMUKAN -> UPDATE IDENTITAS ALAT
+    # SUDAH ADA -> UPDATE IDENTITAS
     # =====================================================
     if kandidat:
 
-        # Bila ada beberapa baris (mis. duplikat lama),
-        # pilih yang paling mirip dengan data yang diinput.
         def skor_kecocokan(row):
-            skor = 0
+            nilai = 0
 
-            if str(row.get("perusahaan_id")) == str(perusahaan_id):
-                skor += 4
+            if str(row.get("perusahaan_id") or "") == perusahaan_teks:
+                nilai += 4
 
             if (
                 str(row.get("merk") or "").strip().upper()
                 == merek.upper()
             ):
-                skor += 2
+                nilai += 2
 
             if (
                 str(row.get("tipe") or "").strip().upper()
                 == model.upper()
             ):
-                skor += 2
+                nilai += 2
 
-            if str(row.get("kapasitas") or "").strip() == kapasitas_teks:
-                skor += 1
+            if (
+                abs(
+                    _ke_angka(row.get("kapasitas"))
+                    - kapasitas_angka
+                )
+                < 1e-9
+            ):
+                nilai += 1
 
-            return skor
+            return nilai
 
         kandidat.sort(key=skor_kecocokan, reverse=True)
         uttp_id = kandidat[0]["id"]
@@ -443,7 +455,7 @@ def get_or_create_uttp_timbangan(
         return uttp_id
 
     # =====================================================
-    # JIKA BELUM ADA -> BUAT BARU
+    # BELUM ADA -> BUAT BARU
     # =====================================================
     response = (
         supabase
@@ -462,6 +474,7 @@ def get_or_create_uttp_timbangan(
     )
 
     return response.data[0]["id"]
+
 
 
 def build_data_pengujian_timbangan(data):
