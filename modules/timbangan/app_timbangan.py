@@ -983,14 +983,21 @@ def simpan_pengujian_timbangan_ke_supabase(data):
         "tb_edit_pengujian_id"
     )
 
-    if edit_id:
+    # ID baris pengujian yang sedang dipegang form ini.
+    # Setelah INSERT pertama, id-nya diingat supaya klik berikutnya
+    # menjadi UPDATE — bukan INSERT baris baru lagi.
+    id_aktif = edit_id or st.session_state.get(
+        "tb_pengujian_id_aktif"
+    )
+
+    if id_aktif:
         response = (
             supabase
             .table("pengujian")
             .update(payload)
             .eq(
                 "id",
-                edit_id
+                id_aktif
             )
             .execute()
         )
@@ -1002,6 +1009,12 @@ def simpan_pengujian_timbangan_ke_supabase(data):
             .insert(payload)
             .execute()
         )
+
+        if response.data:
+            st.session_state["tb_pengujian_id_aktif"] = (
+                response.data[0]["id"]
+            )
+
     
     
     # =====================================================
@@ -1132,6 +1145,10 @@ def gunakan_data_lama_untuk_pengujian_baru_timbangan(
     # Pastikan bukan mode edit
     st.session_state.pop(
         "tb_edit_pengujian_id",
+        None
+    )
+    st.session_state.pop(
+        "tb_pengujian_id_aktif",
         None
     )
 
@@ -1885,6 +1902,9 @@ def gunakan_data_lama_untuk_edit_timbangan(
     # =====================================================
     st.session_state[
         "tb_edit_pengujian_id"
+    ] = pengujian["id"]
+    st.session_state[
+        "tb_pengujian_id_aktif"
     ] = pengujian["id"]
 
     # =====================================================
@@ -9416,6 +9436,18 @@ def run():
             # Dokumen lama tidak boleh tetap tersedia setelah data berubah.
             st.session_state.tb_generated_files = {}
             # =====================================================
+            # ANCHOR BARIS PENGUJIAN UNTUK FORM INI
+            # Edit dari Riwayat : ikuti id baris yang diedit
+            # Data baru         : lepas anchor → Generate = INSERT baru
+            # =====================================================
+            if sedang_edit:
+                st.session_state["tb_pengujian_id_aktif"] = (
+                    st.session_state.get("tb_edit_pengujian_id")
+                )
+            else:
+                st.session_state.pop("tb_pengujian_id_aktif", None)
+
+            # =====================================================
             # DATA SUDAH MENJADI SNAPSHOT RESMI
             # Draft lama tidak lagi digunakan sebagai sumber restore
             # =====================================================
@@ -9632,35 +9664,26 @@ def run():
                         )
                         filename = output_path / nama_file_sertifikat
 
-                        generate_sertifikat_pdf(
-                            st.session_state.tb_saved_data,
-                            str(filename),
-                            nomor_sertifikat,
-                        )
-                        st.session_state.tb_generated_files["sertifikat"] = (
-                            str(filename)
-                        )
                         st.session_state.tb_saved_data[
                             "nomor_sertifikat"
                         ] = nomor_sertifikat
-                        
                         st.session_state.tb_saved_data[
                             "nomor_order"
                         ] = nomor_order
-                        
+
+                        # =====================================
+                        # 1) SIMPAN DATABASE DULU
+                        # =====================================
+                        berhasil_simpan = True
+
                         try:
                             simpan_pengujian_timbangan_ke_supabase(
                                 st.session_state.tb_saved_data
                             )
-                        
-                            st.success(
-                                "✅ Sertifikat berhasil dibuat dan "
-                                "data pengujian berhasil disimpan ke database."
-                            )
-                        
                         except Exception as db_error:
                             error_text = str(db_error)
-                        
+                            berhasil_simpan = False
+
                             if (
                                 "duplicate key value violates unique constraint"
                                 in error_text
@@ -9683,15 +9706,31 @@ def run():
                                     f"Nomor baru {nomor_baru} sudah disiapkan — "
                                     "silahkan klik Generate lagi."
                                 )
-
-                        
                             else:
                                 st.warning(
-                                    "⚠️ Sertifikat berhasil dibuat, "
-                                    "tetapi data gagal disimpan ke database."
+                                    "⚠️ Data gagal disimpan ke database. "
+                                    "Dokumen tidak dibuat agar tidak "
+                                    "menghasilkan sertifikat tanpa data."
                                 )
-                        
                                 st.exception(db_error)
+
+                        # =====================================
+                        # 2) BARU BUAT PDF (hanya jika simpan sukses)
+                        # =====================================
+                        if berhasil_simpan:
+                            generate_sertifikat_pdf(
+                                st.session_state.tb_saved_data,
+                                str(filename),
+                                nomor_sertifikat,
+                            )
+                            st.session_state.tb_generated_files[
+                                "sertifikat"
+                            ] = str(filename)
+                            st.success(
+                                "✅ Sertifikat berhasil dibuat dan "
+                                "data pengujian tersimpan ke database."
+                            )
+
                     except Exception as exc:
                         st.error(f"❌ Error: {exc}")
                         st.code(traceback.format_exc())
