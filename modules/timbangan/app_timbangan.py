@@ -802,6 +802,76 @@ def simpan_pengujian_timbangan_ke_supabase(data):
     
     
     return response.data
+
+def cari_uttp_cocok(
+    supabase,
+    jenis_uttp,
+    nomor_seri,
+    merk,
+    tipe,
+    kapasitas_kg,
+    perusahaan_id,
+):
+    """
+    Mencari baris `uttp` yang BENAR-BENAR cocok.
+
+    - nomor_seri terisi -> kunci: jenis_uttp + nomor_seri
+    - nomor_seri kosong -> kunci: jenis_uttp + merk + tipe
+                           + kapasitas + perusahaan_id
+
+    Tujuan: mencegah alat berbeda (serial kosong) saling
+    menimpa dalam satu baris uttp.
+    """
+    nomor_seri = str(nomor_seri or "").strip()
+    merk = str(merk or "").strip()
+    tipe = str(tipe or "").strip()
+
+    try:
+        kapasitas_kg = float(kapasitas_kg)
+    except (TypeError, ValueError):
+        kapasitas_kg = 0.0
+
+    response = (
+        supabase
+        .table("uttp")
+        .select(
+            "id, perusahaan_id, jenis_uttp, merk, tipe, "
+            "nomor_seri, kapasitas, status"
+        )
+        .eq("jenis_uttp", jenis_uttp)
+        .execute()
+    )
+
+    for row in (response.data or []):
+        seri_row = str(row.get("nomor_seri") or "").strip()
+
+        # ---------- kasus 1: pakai nomor seri ----------
+        if nomor_seri:
+            if seri_row == nomor_seri:
+                return row
+            continue
+
+        # ---------- kasus 2: tanpa nomor seri ----------
+        if seri_row:
+            # baris ini punya serial -> bukan pasangan kita
+            continue
+
+        try:
+            kap_row = float(row.get("kapasitas") or 0)
+        except (TypeError, ValueError):
+            kap_row = 0.0
+
+        if (
+            str(row.get("merk") or "").strip() == merk
+            and str(row.get("tipe") or "").strip() == tipe
+            and abs(kap_row - kapasitas_kg) < 1e-9
+            and row.get("perusahaan_id") == perusahaan_id
+        ):
+            return row
+
+    return None
+
+
 def gunakan_data_lama_untuk_pengujian_baru_timbangan(
     alat,
     perusahaan,
