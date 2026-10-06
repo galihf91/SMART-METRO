@@ -133,6 +133,19 @@ def simpan_atau_update_perusahaan(
 
     return response.data[0]["id"]
 
+def normalisasi_nomor_seri(nilai):
+    """
+    Menormalkan nomor seri agar alat yang sama tidak
+    tercipta dua kali di tabel uttp.
+
+    ' a12e '   -> 'A12E'
+    'a  12e'   -> 'A 12E'
+    """
+    teks = str(nilai or "").strip()
+    teks = re.sub(r"\s+", " ", teks)
+    return teks.upper()
+
+
 def get_or_create_uttp_timbangan(
     supabase,
     perusahaan_id,
@@ -145,57 +158,91 @@ def get_or_create_uttp_timbangan(
 ):
     """
     Cari atau buat UTTP Timbangan.
+
+    Pencocokan memakai jenis alat + NOMOR SERI yang sudah
+    dinormalkan (huruf besar, spasi dirapikan). Perusahaan
+    tidak dijadikan identitas alat karena pemilik dapat
+    berubah.
     """
 
-    nama_alat = str(
-        nama_alat or "Timbangan"
-    ).strip()
+    nama_alat = str(nama_alat or "Timbangan").strip()
+    merek = str(merek or "").strip()
+    model = str(model or "").strip()
+    lokasi = str(lokasi or "Perusahaan").strip()
 
-    merek = str(
-        merek or ""
-    ).strip()
-
-    model = str(
-        model or ""
-    ).strip()
-
-    no_seri = str(
-        no_seri or ""
-    ).strip()
-
-    lokasi = str(
-        lokasi or "Perusahaan"
-    ).strip()
+    no_seri = normalisasi_nomor_seri(no_seri)
 
     if not no_seri:
+        raise ValueError("No. Seri wajib diisi.")
+
+    # -----------------------------------------------------
+    # Tolak nomor seri palsu / placeholder.
+    # Tanpa ini, semua alat ber-serial "-" akan menyatu
+    # ke satu baris uttp (penyebab masalah uttp_id 37).
+    # -----------------------------------------------------
+    placeholder = {
+        "-", "--", "---", "0", "N/A", "NA",
+        "TIDAK ADA", "TIDAKADA", "TIDAK ADA SERI",
+    }
+
+    if no_seri in placeholder:
         raise ValueError(
-            "No. Seri wajib diisi."
+            "No. Seri tidak valid. Isi nomor seri sebenarnya "
+            "dari alat (bukan '-', '0', atau 'N/A')."
         )
 
+    kapasitas_teks = str(kapasitas_max)
+
     # =====================================================
-    # CARI UTTP BERDASARKAN JENIS ALAT + NOMOR SERI
-    # perusahaan_id TIDAK digunakan sebagai identitas alat,
-    # karena pemilik/perusahaan dapat berubah.
+    # CARI UTTP: jenis alat sama, lalu saring nomor seri
+    # di sisi Python agar tahan beda huruf besar/kecil.
     # =====================================================
     response = (
         supabase
         .table("uttp")
         .select("*")
-        .eq(
-            "jenis_uttp",
-            nama_alat
-        )
-        .eq(
-            "nomor_seri",
-            no_seri
-        )
+        .eq("jenis_uttp", nama_alat)
         .execute()
     )
 
-    # Jika sudah ada, update identitas alat
-    if response.data:
-        uttp = response.data[0]
-        uttp_id = uttp["id"]
+    kandidat = [
+        row
+        for row in (response.data or [])
+        if normalisasi_nomor_seri(row.get("nomor_seri")) == no_seri
+    ]
+
+    # =====================================================
+    # JIKA DITEMUKAN -> UPDATE IDENTITAS ALAT
+    # =====================================================
+    if kandidat:
+
+        # Bila ada beberapa baris (mis. duplikat lama),
+        # pilih yang paling mirip dengan data yang diinput.
+        def skor_kecocokan(row):
+            skor = 0
+
+            if str(row.get("perusahaan_id")) == str(perusahaan_id):
+                skor += 4
+
+            if (
+                str(row.get("merk") or "").strip().upper()
+                == merek.upper()
+            ):
+                skor += 2
+
+            if (
+                str(row.get("tipe") or "").strip().upper()
+                == model.upper()
+            ):
+                skor += 2
+
+            if str(row.get("kapasitas") or "").strip() == kapasitas_teks:
+                skor += 1
+
+            return skor
+
+        kandidat.sort(key=skor_kecocokan, reverse=True)
+        uttp_id = kandidat[0]["id"]
 
         (
             supabase
@@ -204,22 +251,20 @@ def get_or_create_uttp_timbangan(
                 "perusahaan_id": perusahaan_id,
                 "merk": merek,
                 "tipe": model,
-                "kapasitas": str(
-                    kapasitas_max
-                ),
+                "nomor_seri": no_seri,
+                "kapasitas": kapasitas_teks,
                 "lokasi": lokasi,
                 "status": "aktif",
             })
-            .eq(
-                "id",
-                uttp_id
-            )
+            .eq("id", uttp_id)
             .execute()
         )
 
         return uttp_id
 
-    # Jika belum ada, buat baru
+    # =====================================================
+    # JIKA BELUM ADA -> BUAT BARU
+    # =====================================================
     response = (
         supabase
         .table("uttp")
@@ -229,9 +274,7 @@ def get_or_create_uttp_timbangan(
             "merk": merek,
             "tipe": model,
             "nomor_seri": no_seri,
-            "kapasitas": str(
-                kapasitas_max
-            ),
+            "kapasitas": kapasitas_teks,
             "lokasi": lokasi,
             "status": "aktif",
         })
@@ -239,6 +282,7 @@ def get_or_create_uttp_timbangan(
     )
 
     return response.data[0]["id"]
+
 
 def build_data_pengujian_timbangan(data):
     """
