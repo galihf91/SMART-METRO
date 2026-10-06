@@ -1576,34 +1576,15 @@ def gunakan_data_lama_untuk_pengujian_baru_timbangan(
 
     # =====================================================
     # NOMOR DOKUMEN BARU
+    # Nomor sertifikat diisi otomatis saat "💾 Simpan Data".
+    # Nomor order diisi otomatis di mode "🔢 Generate Nomor Order".
     # =====================================================
-    nomor_sertifikat_baru = (
-        generate_nomor_sertifikat(
-            hari_ini
-        )
-    )
+    st.session_state.pop("tb_nomor_sertifikat", None)
+    st.session_state.pop("tb_nomor_order", None)
 
-    nomor_order_baru = (
-        generate_nomor_order(
-            hari_ini
-        )
-    )
+    st.session_state.tb_saved_data["nomor_sertifikat"] = ""
+    st.session_state.tb_saved_data["nomor_order"] = ""
 
-    st.session_state[
-        "tb_nomor_sertifikat"
-    ] = nomor_sertifikat_baru
-
-    st.session_state[
-        "tb_nomor_order"
-    ] = nomor_order_baru
-
-    st.session_state.tb_saved_data[
-        "nomor_sertifikat"
-    ] = nomor_sertifikat_baru
-
-    st.session_state.tb_saved_data[
-        "nomor_order"
-    ] = nomor_order_baru
 
     # Hapus file generated lama
     st.session_state.tb_generated_files = {}
@@ -3515,6 +3496,44 @@ def generate_nomor_order(tanggal):
     else:
         t = tanggal
     return f"0000/SCD/{bulan_ke_romawi(t.month)}/{t.year}"
+
+def ambil_nomor_sertifikat_berikutnya(tanggal, supabase=None):
+    """
+    Nomor sertifikat berikutnya dari kolom nomor_sertifikat tabel `pengujian`,
+    untuk bulan + tahun yang sama. Format: 500.2.3.15/0001/BID-K/IX/2026
+    Romawi & tahun mengikuti bulan `tanggal` (harus tanggal_sertifikat).
+    """
+    if supabase is None:
+        supabase = get_supabase()
+
+    if isinstance(tanggal, str):
+        tanggal = datetime.strptime(tanggal[:10], "%Y-%m-%d")
+
+    romawi = bulan_ke_romawi(tanggal.month)
+    tahun = tanggal.year
+
+    response = (
+        supabase
+        .table("pengujian")
+        .select("nomor_sertifikat")
+        .ilike("nomor_sertifikat", f"%/BID-K/{romawi}/{tahun}")
+        .execute()
+    )
+
+    pola = re.compile(
+        rf"^\s*500\.2\.3\.15\s*/\s*(\d{{1,6}})\s*/\s*BID-K"
+        rf"\s*/\s*{romawi}\s*/\s*{tahun}\s*$",
+        re.IGNORECASE,
+    )
+
+    tertinggi = 0
+    for baris in (response.data or []):
+        cocok = pola.match(str(baris.get("nomor_sertifikat") or "").strip())
+        if cocok:
+            tertinggi = max(tertinggi, int(cocok.group(1)))
+
+    return f"500.2.3.15/{tertinggi + 1:04d}/BID-K/{romawi}/{tahun}"
+
 
 # ===== BACA DATA PERUSAHAAN =====
 def format_tanggal_indonesia(tanggal_str):
@@ -9242,7 +9261,26 @@ def run():
                     tanggal_tanda_tangan
                 )
             )
-            
+            # =====================================================
+            # NOMOR SERTIFIKAT OTOMATIS (Opsi A)
+            # Data baru : nomor berikutnya dari tabel `pengujian`,
+            #             bulan Romawi = bulan Tanggal Sertifikat.
+            # Mode edit : pertahankan nomor lama.
+            # =====================================================
+            if sedang_edit and str(nomor_sertifikat_lama or "").strip():
+                nomor_sertifikat_final = str(nomor_sertifikat_lama).strip()
+            else:
+                try:
+                    nomor_sertifikat_final = ambil_nomor_sertifikat_berikutnya(
+                        tanggal_tanda_tangan_final
+                    )
+                except Exception as exc_nomor:
+                    nomor_sertifikat_final = ""
+                    st.warning(
+                        f"⚠️ Nomor sertifikat otomatis gagal dihitung: "
+                        f"{exc_nomor}. Silakan isi manual di tab Generate Dokumen."
+                    )
+
             # Buat salinan hasil pengujian supaya snapshot
             # tidak ikut berubah oleh rerun/widget berikutnya.
             test_results_final = [
@@ -9331,11 +9369,8 @@ def run():
                     )
                 ),
                 'keterangan': keterangan_final,
-                'nomor_sertifikat': (
-                    nomor_sertifikat_lama
-                    if sedang_edit
-                    else ""
-                ),
+                'nomor_sertifikat': nomor_sertifikat_final,
+
                 
                 'nomor_order': (
                     nomor_order_lama
@@ -9388,10 +9423,15 @@ def run():
                 "tb_draft_widget",
                 None
             )
+            st.session_state["tb_nomor_sertifikat"] = nomor_sertifikat_final
+
             if sedang_edit:
-                st.session_state[
-                    "tb_nomor_sertifikat"
-                ] = nomor_sertifikat_lama
+                st.session_state["tb_nomor_order"] = nomor_order_lama
+            elif not str(
+                st.session_state.get("tb_nomor_order", "") or ""
+            ).strip():
+                st.session_state.pop("tb_nomor_order", None)
+
             
                 st.session_state[
                     "tb_nomor_order"
@@ -9412,7 +9452,11 @@ def run():
                         None
                     )
 
-            st.success("✅ Data berhasil disimpan!")
+            st.success(
+                "✅ Data berhasil disimpan! "
+                f"Nomor sertifikat: {nomor_sertifikat_final or '-'}"
+            )
+
             st.balloons()
 
         # =========================================================
@@ -9484,32 +9528,37 @@ def run():
                 st.subheader("📊 Nomor Dokumen")
             
                 tanggal_data = _parse_date_safe(
-                    data.get(
-                        "tanggal"
-                    ),
-                    datetime.now().date()
+                    data.get("tanggal"),
+                    datetime.now().date(),
                 )
 
-                default_sertifikat = generate_nomor_sertifikat(
-                    tanggal_data
+                tanggal_sertifikat_data = _parse_date_safe(
+                    data.get("tanggal_tanda_tangan"),
+                    tanggal_data,
                 )
 
-                default_order = generate_nomor_order(
-                    tanggal_data
-                )
-            
+                default_order = generate_nomor_order(tanggal_data)
+
+                # Nomor sudah disiapkan tombol "💾 Simpan Data".
+                # Fallback: hitung dari tabel pengujian (bulan = tgl sertifikat).
+                if "tb_nomor_sertifikat" not in st.session_state:
+                    st.session_state["tb_nomor_sertifikat"] = (
+                        data.get("nomor_sertifikat")
+                        or ambil_nomor_sertifikat_berikutnya(
+                            tanggal_sertifikat_data
+                        )
+                    )
+
                 nomor_sertifikat = st.text_input(
                     "Nomor Sertifikat",
-                    value=(
-                        data.get("nomor_sertifikat")
-                        or default_sertifikat
-                    ),
-                    placeholder=(
-                        "Format: "
-                        "XXX.X.X.XX/XXXX/XXX-X/X/XXXX"
-                    ),
+                    placeholder="Format: XXX.X.X.XX/XXXX/XXX-X/X/XXXX",
                     key="tb_nomor_sertifikat",
+                    help=(
+                        "Bulan Romawi mengikuti Tanggal Sertifikat: "
+                        f"{tanggal_sertifikat_data.strftime('%d-%m-%Y')}"
+                    ),
                 )
+
             
                 nomor_order = st.text_input(
                     "Nomor Order",
@@ -9618,10 +9667,23 @@ def run():
                                 and "pengujian_nomor_sertifikat_unique"
                                 in error_text
                             ):
-                                st.error(
-                                    "❌ Nomor sertifikat sudah pernah digunakan. "
-                                    "Silakan gunakan nomor sertifikat yang berbeda."
+                                nomor_baru = ambil_nomor_sertifikat_berikutnya(
+                                    _parse_date_safe(
+                                        st.session_state.tb_saved_data.get(
+                                            "tanggal_tanda_tangan"
+                                        )
+                                    )
                                 )
+                                st.session_state["tb_nomor_sertifikat"] = nomor_baru
+                                st.session_state.tb_saved_data[
+                                    "nomor_sertifikat"
+                                ] = nomor_baru
+                                st.error(
+                                    "❌ Nomor sertifikat sudah terpakai. "
+                                    f"Nomor baru {nomor_baru} sudah disiapkan — "
+                                    "silahkan klik Generate lagi."
+                                )
+
                         
                             else:
                                 st.warning(
@@ -9703,10 +9765,23 @@ def run():
                                 and "pengujian_nomor_sertifikat_unique"
                                 in error_text
                             ):
-                                st.error(
-                                    "❌ Nomor sertifikat sudah pernah digunakan. "
-                                    "Silakan gunakan nomor sertifikat yang berbeda."
+                                nomor_baru = ambil_nomor_sertifikat_berikutnya(
+                                    _parse_date_safe(
+                                        st.session_state.tb_saved_data.get(
+                                            "tanggal_tanda_tangan"
+                                        )
+                                    )
                                 )
+                                st.session_state["tb_nomor_sertifikat"] = nomor_baru
+                                st.session_state.tb_saved_data[
+                                    "nomor_sertifikat"
+                                ] = nomor_baru
+                                st.error(
+                                    "❌ Nomor sertifikat sudah terpakai. "
+                                    f"Nomor baru {nomor_baru} sudah disiapkan — "
+                                    "silahkan klik Generate lagi."
+                                )
+
                         
                             else:
                                 st.warning(
