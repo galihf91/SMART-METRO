@@ -706,11 +706,6 @@ def simpan_pengujian_timbangan_ke_supabase(data):
             "Nama alat belum diisi."
         )
 
-    if not no_seri:
-        raise ValueError(
-            "No. Seri belum diisi."
-        )
-
     if not nomor_order:
         raise ValueError(
             "Nomor order belum diisi."
