@@ -9746,19 +9746,20 @@ def run():
                         output_path = OUTPUT_DIR
                         output_path.mkdir(parents=True, exist_ok=True)
 
+                        # Nomor terbaru dari form (bisa saja baru diedit manual)
+                        st.session_state.tb_saved_data[
+                            "nomor_sertifikat"
+                        ] = nomor_sertifikat
+
+                        st.session_state.tb_saved_data[
+                            "nomor_order"
+                        ] = nomor_order
+
                         nama_file_cerapan = format_nama_file_dokumen(
                             data,
                             "CERAPAN",
                         )
                         cerapan_file = output_path / nama_file_cerapan
-
-                        generate_cerapan_pdf(
-                            st.session_state.tb_saved_data,
-                            str(cerapan_file),
-                        )
-                        st.session_state.tb_generated_files["cerapan"] = (
-                            str(cerapan_file)
-                        )
 
                         nama_file_sertifikat = format_nama_file_dokumen(
                             data,
@@ -9768,36 +9769,19 @@ def run():
                             output_path / nama_file_sertifikat
                         )
 
-                        generate_sertifikat_pdf(
-                            st.session_state.tb_saved_data,
-                            str(sertifikat_file),
-                            nomor_sertifikat,
-                        )
-                        st.session_state.tb_generated_files["sertifikat"] = (
-                            str(sertifikat_file)
-                        )
-                        st.session_state.tb_saved_data[
-                            "nomor_sertifikat"
-                        ] = nomor_sertifikat
-                        
-                        st.session_state.tb_saved_data[
-                            "nomor_order"
-                        ] = nomor_order
-                        
+                        # =====================================
+                        # 1) SIMPAN DATABASE DULU
+                        # =====================================
+                        berhasil_simpan = True
+
                         try:
                             simpan_pengujian_timbangan_ke_supabase(
                                 st.session_state.tb_saved_data
                             )
-                        
-                            st.success(
-                                "✅ Cerapan dan sertifikat berhasil dibuat "
-                                "serta data pengujian berhasil disimpan "
-                                "ke database."
-                            )
-                        
                         except Exception as db_error:
                             error_text = str(db_error)
-                        
+                            berhasil_simpan = False
+
                             if (
                                 "duplicate key value violates unique constraint"
                                 in error_text
@@ -9820,19 +9804,45 @@ def run():
                                     f"Nomor baru {nomor_baru} sudah disiapkan — "
                                     "silahkan klik Generate lagi."
                                 )
-
-                        
                             else:
                                 st.warning(
-                                    "⚠️ Cerapan dan sertifikat berhasil dibuat, "
-                                    "tetapi data gagal disimpan ke database."
+                                    "⚠️ Data gagal disimpan ke database. "
+                                    "Dokumen tidak dibuat agar tidak "
+                                    "menghasilkan sertifikat tanpa data."
                                 )
-                        
                                 st.exception(db_error)
+
+                        # =====================================
+                        # 2) BARU BUAT PDF (hanya jika simpan sukses)
+                        # =====================================
+                        if berhasil_simpan:
+                            generate_cerapan_pdf(
+                                st.session_state.tb_saved_data,
+                                str(cerapan_file),
+                            )
+                            st.session_state.tb_generated_files["cerapan"] = (
+                                str(cerapan_file)
+                            )
+
+                            generate_sertifikat_pdf(
+                                st.session_state.tb_saved_data,
+                                str(sertifikat_file),
+                                nomor_sertifikat,
+                            )
+                            st.session_state.tb_generated_files["sertifikat"] = (
+                                str(sertifikat_file)
+                            )
+
+                            st.success(
+                                "✅ Cerapan dan sertifikat berhasil dibuat "
+                                "serta data pengujian berhasil disimpan "
+                                "ke database."
+                            )
 
                     except Exception as exc:
                         st.error(f"❌ Error: {exc}")
                         st.code(traceback.format_exc())
+
 
             st.markdown("---")
         
