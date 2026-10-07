@@ -267,6 +267,32 @@ def ambil_nomor_order_berikutnya(tanggal, supabase=None):
 
     return f"{nomor_baru:04d}/SCD/{romawi}/{tahun}"
 
+def ambil_nomor_tersimpan(id_baris, kolom, supabase=None):
+    """Ambil nomor_order / nomor_sertifikat dari baris `pengujian` tertentu."""
+    if not id_baris:
+        return ""
+
+    if supabase is None:
+        supabase = get_supabase()
+
+    try:
+        res = (
+            supabase
+            .table("pengujian")
+            .select(kolom)
+            .eq("id", id_baris)
+            .limit(1)
+            .execute()
+        )
+    except Exception:
+        return ""
+
+    if not res.data:
+        return ""
+
+    return str(res.data[0].get(kolom) or "").strip()
+
+
 def ambil_lokasi_pengujian_final():
     """
     Nilai lokasi pengujian yang akan DISIMPAN.
