@@ -9315,9 +9315,20 @@ def run():
             #             bulan Romawi = bulan Tanggal Sertifikat.
             # Mode edit : pertahankan nomor lama.
             # =====================================================
-            if sedang_edit and str(nomor_sertifikat_lama or "").strip():
-                nomor_sertifikat_final = str(nomor_sertifikat_lama).strip()
+            nomor_sertifikat_lama = str(
+                nomor_sertifikat_lama
+                or st.session_state.get("tb_nomor_sertifikat", "")
+                or ambil_nomor_tersimpan(
+                    st.session_state.get("tb_edit_pengujian_id"),
+                    "nomor_sertifikat",
+                )
+                or ""
+            ).strip()
+
+            if sedang_edit and nomor_sertifikat_lama:
+                nomor_sertifikat_final = nomor_sertifikat_lama
             else:
+
                 try:
                     nomor_sertifikat_final = ambil_nomor_sertifikat_berikutnya(
                         tanggal_tanda_tangan_final
@@ -9597,16 +9608,26 @@ def run():
                     tanggal_data,
                 )
 
+                id_baris_ini = (
+                    st.session_state.get("tb_edit_pengujian_id")
+                    or st.session_state.get("tb_pengujian_id_aktif")
+                )
+
                 # =================================================
                 # NOMOR SERTIFIKAT
-                # Prioritas: isi yang ada -> nomor tersimpan -> counter
-                # (Romawi mengikuti Tanggal Sertifikat)
+                # session -> tb_saved_data -> BARIS DI DATABASE -> counter
                 # =================================================
                 if not str(
                     st.session_state.get("tb_nomor_sertifikat", "") or ""
                 ).strip():
-                    st.session_state["tb_nomor_sertifikat"] = (
+                    nomor_sertifikat_lama = (
                         str(data.get("nomor_sertifikat") or "").strip()
+                        or ambil_nomor_tersimpan(
+                            id_baris_ini, "nomor_sertifikat"
+                        )
+                    )
+                    st.session_state["tb_nomor_sertifikat"] = (
+                        nomor_sertifikat_lama
                         or ambil_nomor_sertifikat_berikutnya(
                             tanggal_sertifikat_data
                         )
@@ -9624,43 +9645,30 @@ def run():
 
                 # =================================================
                 # NOMOR ORDER
-                # Belum digenerate (mode "🔢 Generate Nomor Order")
-                #  → tampilkan TEMPLATE: 0000/SCD/ROMAWI/TAHUN
-                # Template dihitung ULANG setiap render supaya bulan
-                # Romawi selalu mengikuti Tanggal Pengujian terbaru.
+                # session -> tb_saved_data -> BARIS DI DATABASE -> template
                 # =================================================
-                tanggal_pengujian_data = _parse_date_safe(
-                    st.session_state.get("tb_tanggal_pengujian")
-                    or data.get("tanggal"),
-                    datetime.now().date(),
-                )
-
                 nomor_order_skrg = str(
                     st.session_state.get("tb_nomor_order", "") or ""
                 ).strip()
 
-                if (
-                    not nomor_order_skrg
-                    or nomor_order_skrg.startswith("0000/SCD/")
-                ):
+                if (not nomor_order_skrg) or nomor_order_skrg.startswith("0000/SCD/"):
                     nomor_order_tersimpan = str(
                         data.get("nomor_order") or ""
                     ).strip()
 
                     if (
-                        nomor_order_tersimpan
-                        and not nomor_order_tersimpan.startswith("0000/SCD/")
+                        not nomor_order_tersimpan
+                        or nomor_order_tersimpan.startswith("0000/SCD/")
                     ):
-                        # Nomor asli hasil mode "Generate Nomor Order"
-                        st.session_state["tb_nomor_order"] = (
-                            nomor_order_tersimpan
-                        )
-                    else:
-                        # Template: ikuti Tanggal Pengujian terbaru
-                        st.session_state["tb_nomor_order"] = (
-                            generate_nomor_order(tanggal_pengujian_data)
+                        nomor_order_tersimpan = (
+                            ambil_nomor_tersimpan(id_baris_ini, "nomor_order")
+                            or nomor_order_tersimpan
                         )
 
+                    st.session_state["tb_nomor_order"] = (
+                        nomor_order_tersimpan
+                        or generate_nomor_order(tanggal_pengujian_data)
+                    )
 
                 nomor_order = st.text_input(
                     "Nomor Order",
