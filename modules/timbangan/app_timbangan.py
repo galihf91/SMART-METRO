@@ -9628,6 +9628,11 @@ def run():
                     data.get("tanggal"),
                     datetime.now().date(),
                 )
+                tanggal_pengujian_data = _parse_date_safe(
+                    st.session_state.get("tb_tanggal_pengujian")
+                    or data.get("tanggal"),
+                    datetime.now().date(),
+                )
 
                 tanggal_sertifikat_data = _parse_date_safe(
                     data.get("tanggal_tanda_tangan"),
