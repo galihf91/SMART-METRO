@@ -12,7 +12,7 @@ from modules.timbangan_jembatan.form_peminjaman_ctt_generator import (
 )
 import os
 from pathlib import Path
-
+import re
 # =========================================================
 # KONEKSI SUPABASE
 # =========================================================
@@ -674,11 +674,17 @@ def simpan_pengujian_tj_ke_supabase(data):
     # =========================================
     # 7. EDIT ATAU INSERT BARU
     # =========================================
-    edit_id = st.session_state.get(
-        "edit_pengujian_id"
+    edit_id = (
+        st.session_state.get(
+            "edit_pengujian_id"
+        )
+        or st.session_state.get(
+            "pengujian_id_aktif_tj"
+        )
     )
 
     if edit_id:
+
         response = (
             supabase
             .table("pengujian")
@@ -707,7 +713,12 @@ def simpan_pengujian_tj_ke_supabase(data):
             )
             .execute()
         )
-
+        # Simpan id baris baru → klik Generate berikutnya = UPDATE, 
+        # bukan INSERT baris baru lagi.                               
+        if response.data:                                         
+            st.session_state["pengujian_id_aktif_tj"] = (         
+                response.data[0]["id"]                             
+            )
     return response.data
 def slug_filename(text):
     text = str(text).replace("/", "_").replace("\\", "_").replace(" ", "_")
@@ -1525,6 +1536,7 @@ def gunakan_data_lama_untuk_pengujian_baru(
     # =====================================================
     keys_mode_edit = [
         "edit_pengujian_id",
+        "pengujian_id_aktif_tj",
         "tj_perusahaan_id_lama",
         "tj_uttp_id_lama",
         "tj_nama_perusahaan_lama",
@@ -1806,6 +1818,120 @@ def run():
         else:
             t = tanggal
         return f"0000/SCD/{bulan_ke_romawi(t.month)}/{t.year}"
+    
+    def ambil_nomor_order_berikutnya(tanggal, supabase=None):
+        """Nomor order berikutnya dari tabel `pengujian` (bulan+tahun sama)."""
+        if supabase is None:
+            supabase = get_supabase()
+
+        if isinstance(tanggal, str):
+            tanggal = datetime.strptime(tanggal[:10], "%Y-%m-%d")
+
+        romawi = bulan_ke_romawi(tanggal.month)
+        tahun = tanggal.year
+
+        response = (
+            supabase.table("pengujian")
+            .select("nomor_order")
+            .ilike("nomor_order", f"%/SCD/{romawi}/{tahun}")
+            .execute()
+        )
+
+        pola = re.compile(
+            rf"^\s*(\d{{1,6}})\s*/\s*SCD\s*/\s*{romawi}\s*/\s*{tahun}\s*$",
+            re.IGNORECASE,
+        )
+
+        tertinggi = 0
+        for baris in (response.data or []):
+            cocok = pola.match(str(baris.get("nomor_order") or "").strip())
+            if cocok:
+                tertinggi = max(tertinggi, int(cocok.group(1)))
+
+        return f"{tertinggi + 1:04d}/SCD/{romawi}/{tahun}"
+
+    def ambil_nomor_sertifikat_berikutnya(tanggal, supabase=None):
+        """Nomor sertifikat berikutnya. Format: 500.2.3.15/NNNN/BID-K/ROMAWI/TAHUN"""
+        if supabase is None:
+            supabase = get_supabase()
+
+        if isinstance(tanggal, str):
+            tanggal = datetime.strptime(tanggal[:10], "%Y-%m-%d")
+
+        romawi = bulan_ke_romawi(tanggal.month)
+        tahun = tanggal.year
+
+        response = (
+            supabase.table("pengujian")
+            .select("nomor_sertifikat")
+            .ilike("nomor_sertifikat", f"%/BID-K/{romawi}/{tahun}")
+            .execute()
+        )
+
+        pola = re.compile(
+            rf"^\s*500\.2\.3\.15\s*/\s*(\d{{1,6}})\s*/\s*BID-K"
+            rf"\s*/\s*{romawi}\s*/\s*{tahun}\s*$",
+            re.IGNORECASE,
+        )
+
+        tertinggi = 0
+        for baris in (response.data or []):
+            cocok = pola.match(str(baris.get("nomor_sertifikat") or "").strip())
+            if cocok:
+                tertinggi = max(tertinggi, int(cocok.group(1)))
+
+        return f"500.2.3.15/{tertinggi + 1:04d}/BID-K/{romawi}/{tahun}"
+
+    def nomor_sertifikat_sudah_dipakai(nomor, kecuali_id=None, supabase=None):
+        """True kalau `nomor` sudah dipakai baris LAIN di tabel pengujian."""
+        if supabase is None:
+            supabase = get_supabase()
+
+        nomor = str(nomor or "").strip()
+        if not nomor:
+            return False
+
+        res = (
+            supabase.table("pengujian")
+            .select("id")
+            .eq("nomor_sertifikat", nomor)
+            .limit(1)
+            .execute()
+        )
+
+        data = res.data or []
+        if not data:
+            return False
+
+        if kecuali_id is not None and str(data[0]["id"]) == str(kecuali_id):
+            return False
+
+        return True
+
+    def ambil_nomor_tersimpan(id_baris, kolom, supabase=None):
+        """Ambil nomor_order / nomor_sertifikat dari baris pengujian tertentu."""
+        if not id_baris:
+            return ""
+
+        if supabase is None:
+            supabase = get_supabase()
+
+        try:
+            res = (
+                supabase.table("pengujian")
+                .select(kolom)
+                .eq("id", id_baris)
+                .limit(1)
+                .execute()
+            )
+        except Exception:
+            return ""
+
+        if not res.data:
+            return ""
+
+        return str(res.data[0].get(kolom) or "").strip()
+
     
     # ===== BACA DATA PERUSAHAAN =====
     def format_tanggal_indonesia(tanggal_str):
@@ -2449,6 +2575,35 @@ def run():
                     ] = int(
                         value or 0
                     )
+    
+        # =====================================================
+        # TANGGAL & NOMOR DOKUMEN
+        # =====================================================
+        if "tanggal_pengujian_tj" not in st.session_state:
+            st.session_state["tanggal_pengujian_tj"] = parse_date_value(
+                data.get("tanggal", date.today())
+            )
+
+        if "tanggal_sertifikat_tj" not in st.session_state:
+            st.session_state["tanggal_sertifikat_tj"] = parse_date_value(
+                data.get("tanggal_sertifikat", date.today())
+            )
+
+        if not str(
+            st.session_state.get("nomor_sertifikat_tj", "") or ""
+        ).strip():
+            st.session_state["nomor_sertifikat_tj"] = str(
+                data.get("nomor_sertifikat", "") or ""
+            ).strip()
+
+        if not str(
+            st.session_state.get("nomor_order_tj", "") or ""
+        ).strip():
+            st.session_state["nomor_order_tj"] = str(
+                data.get("nomor_order", "") or ""
+            ).strip()
+    
+    
     def reset_form_timbangan_jembatan():
         # Key utama form
         keys_to_remove = [
@@ -2456,6 +2611,8 @@ def run():
             "test_results",
             "generated_files",
             "edit_pengujian_id",
+            "pengujian_id_aktif_tj",
+
             # Mode edit perusahaan
             "tj_perusahaan_id_lama",
             "tj_uttp_id_lama",
@@ -2676,20 +2833,6 @@ def run():
                     "nomor_order_tj"
                 ] = nomor_order_edit
         
-            col_nomor1, col_nomor2 = st.columns(2)
-        
-            with col_nomor1:
-                st.text_input(
-                    "Nomor Sertifikat",
-                    key="nomor_sertifikat_tj",
-                )
-        
-            with col_nomor2:
-                st.text_input(
-                    "Nomor Order",
-                    key="nomor_order_tj",
-                )
-        
             if st.button(
                 "❌ Batal Edit",
                 use_container_width=True,
@@ -2701,11 +2844,7 @@ def run():
         e = st.session_state.get('interval_skala_input', 20)
         cls = st.session_state.get('kelas', 'III')
         jns_uji = st.session_state.get('keterangan', 'Tera')
-    
-        # ======================== KOLOM 1-3 ========================
-        col1, col2, col3 = st.columns(3)
-    
-        with col1:
+        with st.container():
             st.subheader("Identitas Pemilik")
             # =====================================================
             # PILIHAN AKSI PERUSAHAAN SAAT MODE EDIT
@@ -3010,6 +3149,81 @@ def run():
                     ""
                 )
             ).strip()
+        # =====================================================
+        # PANEL ATAS — TANGGAL & NOMOR DOKUMEN
+        # =====================================================
+        st.subheader("📊 Nomor Dokumen")
+        st.caption(
+            "Pilih Tanggal Pengujian & Tanggal Sertifikat, lalu klik Generate "
+            "untuk mengambil nomor terbaru dari database. Nomor boleh diisi manual."
+        )
+
+        col_tgl1, col_tgl2 = st.columns(2)
+
+        with col_tgl1:
+            tanggal = st.date_input(
+                "Tanggal Pengujian",
+                value=parse_date_value(
+                    st.session_state.saved_data.get("tanggal", date.today())
+                ),
+                key="tanggal_pengujian_tj",
+            )
+
+        with col_tgl2:
+            tanggal_tanda_tangan = st.date_input(
+                "Tanggal Sertifikat",
+                value=parse_date_value(
+                    st.session_state.saved_data.get(
+                        "tanggal_sertifikat", date.today()
+                    )
+                ),
+                key="tanggal_sertifikat_tj",
+                help="Tanggal ini digunakan pada bagian tanda tangan sertifikat.",
+            )
+
+        if st.button(
+            "🔢 Generate Nomor Order & Sertifikat",
+            type="primary",
+            use_container_width=True,
+            key="tj_btn_generate_nomor_dokumen",
+        ):
+            try:
+                st.session_state["nomor_order_tj"] = (
+                    ambil_nomor_order_berikutnya(tanggal)
+                )
+            except Exception as exc_order:
+                st.error(f"❌ Gagal membuat nomor order: {exc_order}")
+
+            try:
+                st.session_state["nomor_sertifikat_tj"] = (
+                    ambil_nomor_sertifikat_berikutnya(tanggal_tanda_tangan)
+                )
+            except Exception as exc_sert:
+                st.error(f"❌ Gagal membuat nomor sertifikat: {exc_sert}")
+
+        col_nomor1, col_nomor2 = st.columns(2)
+
+        with col_nomor1:
+            st.text_input(
+                "Nomor Order",
+                key="nomor_order_tj",
+                placeholder="Format: NNNN/SCD/BULAN/TAHUN",
+                help="Bulan Romawi mengikuti Tanggal Pengujian.",
+            )
+
+        with col_nomor2:
+            st.text_input(
+                "Nomor Sertifikat",
+                key="nomor_sertifikat_tj",
+                placeholder="Format: XXX.X.X.XX/XXXX/XXX-X/X/XXXX",
+                help="Bulan Romawi mengikuti Tanggal Sertifikat.",
+            )
+
+
+        st.markdown("---")
+
+        # ======================== KOLOM 2-3 ========================
+        col2, col3 = st.columns(2)
     
         with col2:
             st.subheader("Spesifikasi Alat")
@@ -3127,16 +3341,6 @@ def run():
         with col4:
             st.subheader("Data Pengujian")
             
-            tanggal = st.date_input(
-                "Tanggal Pengujian",
-                value=parse_date_value(
-                    st.session_state.saved_data.get(
-                        "tanggal",
-                        date.today()
-                    )
-                ),
-                key="tanggal_pengujian_tj",
-            )
             
             # Lokasi Pengujian selalu "Perusahaan" (tidak bisa diubah)
             lokasi = st.text_input(
@@ -3144,20 +3348,6 @@ def run():
                 value="Perusahaan",
                 disabled=True,
                 help="Lokasi pengujian tetap Perusahaan sesuai standar."
-            )
-            tanggal_tanda_tangan = st.date_input(
-                "Tanggal Tanda Tangan",
-                value=parse_date_value(
-                    st.session_state.saved_data.get(
-                        "tanggal_sertifikat",
-                        date.today()
-                    )
-                ),
-                key="tanggal_sertifikat_tj",
-                help=(
-                    "Tanggal ini digunakan pada bagian tanda tangan "
-                    "sertifikat."
-                ),
             )
     
         with col5:
@@ -3937,7 +4127,18 @@ def run():
                     "edit_pengujian_id"
                 )
             )
-            
+            # =================================================
+            # ANCHOR BARIS PENGUJIAN UNTUK FORM INI
+            # Edit dari Riwayat : ikuti id yang diedit
+            # Data baru         : lepas anchor → Generate = INSERT baru
+            # =================================================
+            if sedang_edit:
+                st.session_state["pengujian_id_aktif_tj"] = (
+                    st.session_state.get("edit_pengujian_id")
+                )
+            else:
+                st.session_state.pop("pengujian_id_aktif_tj", None)
+
             if sedang_edit:
 
                 # =====================================================
@@ -3976,8 +4177,22 @@ def run():
                 ).strip()
             
             else:
-                nomor_sertifikat_simpan = ""
-                nomor_order_simpan = ""
+                nomor_sertifikat_simpan = str(
+                    st.session_state.get(
+                        "nomor_sertifikat_tj",
+                        ""
+                    )
+                    or ""
+                ).strip()
+
+                nomor_order_simpan = str(
+                    st.session_state.get(
+                        "nomor_order_tj",
+                        ""
+                    )
+                    or ""
+                ).strip()
+
             st.session_state.saved_data = {
                 'pemilik': pemilik,
                 'alamat': alamat,
@@ -4067,168 +4282,32 @@ def run():
             with col2:
                 st.subheader("📊 Nomor Dokumen")
 
-                # Ambil tanggal pengujian dari saved_data
-                tanggal_data = data.get(
-                    "tanggal",
-                    date.today()
-                )
-
-                tanggal_data = parse_date_value(
-                    tanggal_data,
-                    date.today()
-                )
-
-                # Generate nomor berdasarkan tanggal pengujian
-                default_sertifikat = generate_nomor_sertifikat(
-                    tanggal_data
-                )
-
-                default_order = generate_nomor_order(
-                    tanggal_data
-                )
-
-                # =====================================================
-                # NOMOR DOKUMEN
-                # EDIT  -> nomor lama
-                # BARU  -> nomor default
-                # =====================================================
-                sedang_edit = bool(
-                    st.session_state.get(
-                        "edit_pengujian_id"
-                    )
-                )
-                
-                if sedang_edit:
-                    nomor_sertifikat_awal = str(
-                        st.session_state.get(
-                            "tj_nomor_sertifikat_edit_lama",
-                            ""
-                        )
-                        or data.get(
-                            "nomor_sertifikat",
-                            ""
-                        )
-                        or st.session_state.get(
-                            "nomor_sertifikat_tj",
-                            ""
-                        )
-                        or ""
-                    ).strip()
-                
-                    nomor_order_awal = str(
-                        st.session_state.get(
-                            "tj_nomor_order_edit_lama",
-                            ""
-                        )
-                        or data.get(
-                            "nomor_order",
-                            ""
-                        )
-                        or st.session_state.get(
-                            "nomor_order_tj",
-                            ""
-                        )
-                        or ""
-                    ).strip()
-                
-                else:
-                    nomor_sertifikat_awal = str(
-                        data.get(
-                            "nomor_sertifikat",
-                            ""
-                        )
-                        or default_sertifikat
-                    ).strip()
-                
-                    nomor_order_awal = str(
-                        data.get(
-                            "nomor_order",
-                            ""
-                        )
-                        or default_order
-                    ).strip()
-                
-                # =====================================================
-                # ISI NOMOR DOKUMEN KE WIDGET
-                # =====================================================
-                
-                if sedang_edit:
-                
-                    # Saat edit, jika widget kosong,
-                    # pulihkan nomor dokumen lama
-                    if not str(
-                        st.session_state.get(
-                            "nomor_sertifikat_tj",
-                            ""
-                        )
-                    ).strip():
-                        st.session_state[
-                            "nomor_sertifikat_tj"
-                        ] = nomor_sertifikat_awal
-                
-                    if not str(
-                        st.session_state.get(
-                            "nomor_order_tj",
-                            ""
-                        )
-                    ).strip():
-                        st.session_state[
-                            "nomor_order_tj"
-                        ] = nomor_order_awal
-                
-                else:
-                
-                    # Pengujian baru
-                    if "nomor_sertifikat_tj" not in st.session_state:
-                        st.session_state[
-                            "nomor_sertifikat_tj"
-                        ] = nomor_sertifikat_awal
-                
-                    if "nomor_order_tj" not in st.session_state:
-                        st.session_state[
-                            "nomor_order_tj"
-                        ] = nomor_order_awal
-                
-                nomor_sertifikat = st.text_input(
+                st.text_input(
                     "Nomor Sertifikat",
-                    placeholder=(
-                        "Format: "
-                        "XXX.X.X.XX/XXXX/XXX-X/X/XXXX"
-                    ),
-                    key="nomor_sertifikat_tj",
+                    value=str(data.get("nomor_sertifikat") or "").strip(),
+                    disabled=True,
                 )
-                
-                nomor_order = st.text_input(
-                    "Nomor Order",
-                    placeholder="Format nomor order",
-                    key="nomor_order_tj",
-                )
-                # =====================================================
-                # SINKRONKAN NOMOR DOKUMEN SELAMA MODE EDIT
-                # =====================================================
-                if sedang_edit:
-                    st.session_state[
-                        "tj_nomor_sertifikat_edit_lama"
-                    ] = str(
-                        nomor_sertifikat
-                        or ""
-                    ).strip()
-                
-                    st.session_state[
-                        "tj_nomor_order_edit_lama"
-                    ] = str(
-                        nomor_order
-                        or ""
-                    ).strip()
-                st.session_state.saved_data[
-                    "nomor_sertifikat"
-                ] = nomor_sertifikat
 
-                st.session_state.saved_data[
-                    "nomor_order"
-                ] = nomor_order
+                st.text_input(
+                    "Nomor Order",
+                    value=str(data.get("nomor_order") or "").strip(),
+                    disabled=True,
+                )
+
+                st.caption(
+                    "Nomor dokumen diisi di menu 'Input Data Pengujian'."
+                )
+
+                nomor_sertifikat = str(
+                    data.get("nomor_sertifikat") or ""
+                ).strip()
+
+                nomor_order = str(
+                    data.get("nomor_order") or ""
+                ).strip()
 
                 data = st.session_state.saved_data
+
             
             st.markdown("---")
             
@@ -4251,120 +4330,122 @@ def run():
                 key="tj_generate_kedua_dokumen",
             ):
                 try:
-                    output_path = Path(
-                        "./output/timbangan_jembatan"
+                    # =================================================
+                    # 1) CEK KEUNIKAN NOMOR SERTIFIKAT DULU
+                    # =================================================
+                    id_baris_ini = (
+                        st.session_state.get("edit_pengujian_id")
+                        or st.session_state.get("pengujian_id_aktif_tj")
                     )
 
-                    output_path.mkdir(
-                        parents=True,
-                        exist_ok=True,
-                    )
-
-                    nama_file_cerapan = (
-                        format_nama_file_dokumen(
-                            data,
-                            "Cerapan"
-                        )
-                    )
-
-                    cerapan_file = (
-                        output_path
-                        / f"{nama_file_cerapan}.pdf"
-                    )
-
-                    generate_cerapan_pdf(
-                        st.session_state.saved_data,
-                        str(cerapan_file),
-                    )
-
-                    st.session_state.generated_files[
-                        "cerapan"
-                    ] = str(cerapan_file)
-
-                    nama_file_sertifikat = (
-                        format_nama_file_dokumen(
-                            data,
-                            "Sertifikat"
-                        )
-                    )
-
-                    sertifikat_file = (
-                        output_path
-                        / f"{nama_file_sertifikat}.pdf"
-                    )
-
-                    generate_sertifikat_pdf(
-                        st.session_state.saved_data,
-                        str(sertifikat_file),
+                    boleh_simpan = not nomor_sertifikat_sudah_dipakai(
                         nomor_sertifikat,
+                        kecuali_id=id_baris_ini,
                     )
 
-                    st.session_state.generated_files[
-                        "sertifikat"
-                    ] = str(sertifikat_file)
-                    # =====================================================
-                    # SIMPAN PENGUJIAN KE SUPABASE
-                    # =====================================================
-                    try:
+                    if not boleh_simpan:
+                        st.error(
+                            "❌ DITOLAK — nomor sertifikat ini sudah digunakan "
+                            "pada pengujian lain. Tidak ada nomor sertifikat "
+                            "dobel di database. Silakan ubah nomor sertifikat, "
+                            "atau Generate nomor baru di menu "
+                            "'Input Data Pengujian'."
+                        )
+                    else:
                         st.session_state.saved_data[
                             "nomor_sertifikat"
                         ] = nomor_sertifikat
-                    
+
                         st.session_state.saved_data[
                             "nomor_order"
                         ] = nomor_order
-                    
-                        simpan_pengujian_tj_ke_supabase(
-                            st.session_state.saved_data
-                        )
 
-                        load_data_perusahaan.clear()
+                        # =============================================
+                        # 2) SIMPAN DATABASE DULU
+                        # =============================================
+                        berhasil_simpan = True
 
-                        st.session_state[
-                            "data_perusahaan"
-                        ] = load_data_perusahaan()
-                        
-                        st.success(
-                            "✅ Cerapan dan sertifikat berhasil dibuat "
-                            "serta data pengujian berhasil disimpan "
-                            "ke database."
-                        )
-                        st.success(
-                            "✅ Cerapan dan sertifikat berhasil dibuat "
-                            "serta data pengujian berhasil disimpan "
-                            "ke database."
-                        )
-                    
-                    except Exception as db_error:
-                        error_text = str(
-                            db_error
-                        )
-                    
-                        if (
-                            "duplicate key value violates unique constraint"
-                            in error_text
-                            and
-                            "pengujian_nomor_sertifikat_unique"
-                            in error_text
-                        ):
-                            st.error(
-                                "❌ Nomor sertifikat sudah pernah digunakan. "
-                                "Silakan gunakan nomor sertifikat yang berbeda."
+                        try:
+                            simpan_pengujian_tj_ke_supabase(
+                                st.session_state.saved_data
                             )
-                    
-                        else:
-                            st.warning(
-                                "⚠️ Cerapan dan sertifikat berhasil dibuat, "
-                                "tetapi data gagal disimpan ke database."
+
+                            load_data_perusahaan.clear()
+
+                            st.session_state[
+                                "data_perusahaan"
+                            ] = load_data_perusahaan()
+
+                        except Exception as db_error:
+                            error_text = str(db_error)
+                            berhasil_simpan = False
+
+                            if (
+                                "duplicate key value violates unique constraint"
+                                in error_text
+                                and "pengujian_nomor_sertifikat_unique"
+                                in error_text
+                            ):
+                                st.error(
+                                    "❌ DITOLAK — nomor sertifikat ini sudah "
+                                    "digunakan pada pengujian lain."
+                                )
+                            else:
+                                st.warning(
+                                    "⚠️ Data gagal disimpan ke database. "
+                                    "Dokumen tidak dibuat agar tidak "
+                                    "menghasilkan dokumen tanpa data."
+                                )
+                                st.exception(db_error)
+
+                        # =============================================
+                        # 3) BARU BUAT PDF (hanya jika simpan berhasil)
+                        # =============================================
+                        if berhasil_simpan:
+                            output_path = Path(
+                                "./output/timbangan_jembatan"
                             )
-                    
-                            st.exception(
-                                db_error
+                            output_path.mkdir(
+                                parents=True,
+                                exist_ok=True,
                             )
-                    st.success(
-                        "✅ Cerapan dan sertifikat "
-                        "berhasil dibuat."
-                    )
+
+                            nama_file_cerapan = format_nama_file_dokumen(
+                                data, "Cerapan"
+                            )
+                            cerapan_file = (
+                                output_path / f"{nama_file_cerapan}.pdf"
+                            )
+
+                            generate_cerapan_pdf(
+                                st.session_state.saved_data,
+                                str(cerapan_file),
+                            )
+                            st.session_state.generated_files[
+                                "cerapan"
+                            ] = str(cerapan_file)
+
+                            nama_file_sertifikat = format_nama_file_dokumen(
+                                data, "Sertifikat"
+                            )
+                            sertifikat_file = (
+                                output_path / f"{nama_file_sertifikat}.pdf"
+                            )
+
+                            generate_sertifikat_pdf(
+                                st.session_state.saved_data,
+                                str(sertifikat_file),
+                                nomor_sertifikat,
+                            )
+                            st.session_state.generated_files[
+                                "sertifikat"
+                            ] = str(sertifikat_file)
+
+                            st.success(
+                                "✅ Cerapan dan sertifikat berhasil dibuat "
+                                "serta data pengujian berhasil disimpan "
+                                "ke database."
+                            )
 
                 except Exception as exc:
                     st.error(
@@ -4373,6 +4454,7 @@ def run():
 
                     import traceback
                     st.code(traceback.format_exc())
+
 
 
             st.markdown("### Dokumen Individual")
@@ -4479,92 +4561,106 @@ def run():
                         key="tj_generate_sertifikat",
                     ):
                         try:
-                            output_path = Path(
-                                "./output/timbangan_jembatan"
+                            id_baris_ini = (
+                                st.session_state.get("edit_pengujian_id")
+                                or st.session_state.get("pengujian_id_aktif_tj")
                             )
 
-                            output_path.mkdir(
-                                parents=True,
-                                exist_ok=True,
-                            )
-
-                            nama_file = (
-                                format_nama_file_dokumen(
-                                    data,
-                                    "Sertifikat"
-                                )
-                            )
-
-                            filename = (
-                                output_path
-                                / f"{nama_file}.pdf"
-                            )
-
-                            generate_sertifikat_pdf(
-                                st.session_state.saved_data,
-                                str(filename),
+                            boleh_simpan = not nomor_sertifikat_sudah_dipakai(
                                 nomor_sertifikat,
+                                kecuali_id=id_baris_ini,
                             )
 
-                            st.session_state.generated_files[
-                                "sertifikat"
-                            ] = str(filename)
-                            
-                            # Pastikan nomor dokumen masuk ke saved_data
-                            st.session_state.saved_data[
-                                "nomor_sertifikat"
-                            ] = nomor_sertifikat
-                            
-                            st.session_state.saved_data[
-                                "nomor_order"
-                            ] = nomor_order
-                            
-                            # Simpan ke Supabase
-                            try:
-                                simpan_pengujian_tj_ke_supabase(
-                                    st.session_state.saved_data
+                            if not boleh_simpan:
+                                st.error(
+                                    "❌ DITOLAK — nomor sertifikat ini sudah "
+                                    "digunakan pada pengujian lain. Tidak ada "
+                                    "nomor sertifikat dobel di database. "
+                                    "Silakan ubah nomor sertifikat, atau "
+                                    "Generate nomor baru di menu "
+                                    "'Input Data Pengujian'."
                                 )
-                            
-                                # Refresh master perusahaan dari Supabase
-                                load_data_perusahaan.clear()
-                            
-                                st.session_state[
-                                    "data_perusahaan"
-                                ] = load_data_perusahaan()
-                            
-                                st.success(
-                                    "✅ Sertifikat berhasil dibuat dan "
-                                    "data pengujian berhasil disimpan ke database."
-                                )
-                            
-                            except Exception as db_error:
-                                error_text = str(db_error)
-                            
-                                if (
-                                    "duplicate key value violates unique constraint"
-                                    in error_text
-                                    and
-                                    "pengujian_nomor_sertifikat_unique"
-                                    in error_text
-                                ):
-                                    st.error(
-                                        "❌ Nomor sertifikat sudah pernah digunakan. "
-                                        "Silakan gunakan nomor sertifikat yang berbeda."
+                            else:
+                                st.session_state.saved_data[
+                                    "nomor_sertifikat"
+                                ] = nomor_sertifikat
+
+                                st.session_state.saved_data[
+                                    "nomor_order"
+                                ] = nomor_order
+
+                                berhasil_simpan = True
+
+                                try:
+                                    simpan_pengujian_tj_ke_supabase(
+                                        st.session_state.saved_data
                                     )
-                            
-                                else:
-                                    st.warning(
-                                        "⚠️ Sertifikat berhasil dibuat, "
-                                        "tetapi data gagal disimpan ke database."
+
+                                    load_data_perusahaan.clear()
+
+                                    st.session_state[
+                                        "data_perusahaan"
+                                    ] = load_data_perusahaan()
+
+                                except Exception as db_error:
+                                    error_text = str(db_error)
+                                    berhasil_simpan = False
+
+                                    if (
+                                        "duplicate key value violates unique constraint"
+                                        in error_text
+                                        and "pengujian_nomor_sertifikat_unique"
+                                        in error_text
+                                    ):
+                                        st.error(
+                                            "❌ DITOLAK — nomor sertifikat ini "
+                                            "sudah digunakan pada pengujian lain."
+                                        )
+                                    else:
+                                        st.warning(
+                                            "⚠️ Data gagal disimpan ke database. "
+                                            "Dokumen tidak dibuat."
+                                        )
+                                        st.exception(db_error)
+
+                                if berhasil_simpan:
+                                    output_path = Path(
+                                        "./output/timbangan_jembatan"
                                     )
-                            
-                                    st.exception(db_error)
+                                    output_path.mkdir(
+                                        parents=True,
+                                        exist_ok=True,
+                                    )
+
+                                    nama_file = format_nama_file_dokumen(
+                                        data, "Sertifikat"
+                                    )
+                                    filename = (
+                                        output_path / f"{nama_file}.pdf"
+                                    )
+
+                                    generate_sertifikat_pdf(
+                                        st.session_state.saved_data,
+                                        str(filename),
+                                        nomor_sertifikat,
+                                    )
+
+                                    st.session_state.generated_files[
+                                        "sertifikat"
+                                    ] = str(filename)
+
+                                    st.success(
+                                        "✅ Sertifikat berhasil dibuat dan "
+                                        "data pengujian berhasil disimpan "
+                                        "ke database."
+                                    )
 
                         except Exception as exc:
                             st.error(
                                 "❌ Gagal membuat sertifikat: "
                                 f"{exc}"
                             )
+
 
                     sertifikat_path = (
                         st.session_state.generated_files.get(
