@@ -211,6 +211,199 @@ def susun_nama_alat_sertifikat(data):
         f"Unit {nama_alat} (Terlampir)"
     )
 
+# =========================================================
+# PAGINASI TABEL LAMPIRAN (berbasis tinggi baris)
+# =========================================================
+TINGGI_TTD_LAMPIRAN = 3.7 * cm
+BATAS_BAWAH_LAMPIRAN = 1.5 * cm
+JUDUL_HAL1_LAMPIRAN = 4.2 * cm
+JARAK_LANJUTAN_LAMPIRAN = 0.8 * cm
+
+
+def _style_tabel_lampiran():
+    return TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#D9EAF7")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("ALIGN", (0, 0), (0, -1), "CENTER"),
+        ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("GRID", (0, 0), (-1, -1), 0.7, colors.black),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ])
+
+
+def _cell_style_lampiran():
+    styles = getSampleStyleSheet()
+    return ParagraphStyle(
+        "CellStyle",
+        parent=styles["Normal"],
+        fontName="Helvetica",
+        fontSize=9,
+        leading=11,
+        alignment=0,
+        spaceAfter=0,
+        spaceBefore=0,
+    )
+
+
+def _kolom_lampiran(data):
+    """(col_widths, pakai_kolom_nama_alat, nama_alat)"""
+    daftar_alat = data.get("daftar_alat_uttp", [])
+    nama_alat_uttp = str(data.get("nama_alat", "UTTP")).strip()
+
+    if (
+        isinstance(daftar_alat, list)
+        and daftar_alat
+        and isinstance(daftar_alat[0], dict)
+    ):
+        nama_alat_uttp = str(
+            daftar_alat[0].get("nama_alat", nama_alat_uttp)
+        ).strip()
+
+    if not nama_alat_uttp:
+        nama_alat_uttp = "UTTP"
+
+    pakai_kolom_nama_alat = nama_alat_uttp.strip().lower() == "timbangan"
+
+    if pakai_kolom_nama_alat:
+        col_widths = [
+            0.7 * cm, 2.5 * cm, 2.5 * cm, 2.6 * cm,
+            2.3 * cm, 2.4 * cm, 2.4 * cm, 1.2 * cm,
+        ]
+    else:
+        col_widths = [
+            0.8 * cm, 2.4 * cm, 3.0 * cm, 2.8 * cm,
+            2.8 * cm, 2.8 * cm, 1.5 * cm,
+        ]
+
+    return col_widths, pakai_kolom_nama_alat, nama_alat_uttp
+
+
+def _header_tabel_lampiran(pakai_kolom_nama_alat):
+    if pakai_kolom_nama_alat:
+        return [
+            "No.", "Nama Alat", "Merek", "Model / Tipe",
+            "Nomor Seri", "Kapasitas", "Daya Baca", "Kelas",
+        ]
+    return [
+        "No.", "Merek", "Model / Tipe",
+        "Nomor Seri", "Kapasitas", "Daya Baca", "Kelas",
+    ]
+
+
+def _baris_data_lampiran(item, nomor, pakai_kolom_nama_alat, cell_style):
+    if not isinstance(item, dict):
+        return None
+
+    satuan = str(item.get("satuan", "")).strip()
+    kapasitas = f"{item.get('kapasitas', '')} {satuan}".strip()
+
+    nilai_daya_baca = str(item.get("daya_baca", "")).strip()
+    daya_baca = (
+        "-"
+        if nilai_daya_baca == "-"
+        else f"{nilai_daya_baca} {satuan}".strip()
+    )
+
+    model_tipe = str(
+        item.get("model_tipe", item.get("tipe_no_seri", ""))
+    ).strip()
+
+    nomor_seri = str(item.get("nomor_seri", "")).strip()
+
+    if pakai_kolom_nama_alat:
+        return [
+            str(nomor),
+            Paragraph(str(item.get("nama_alat", "")), cell_style),
+            Paragraph(str(item.get("merek", "")), cell_style),
+            Paragraph(model_tipe, cell_style),
+            Paragraph(nomor_seri, cell_style),
+            kapasitas,
+            daya_baca,
+            str(item.get("kelas", "")),
+        ]
+
+    return [
+        str(nomor),
+        Paragraph(str(item.get("merek", "")), cell_style),
+        Paragraph(model_tipe, cell_style),
+        Paragraph(nomor_seri, cell_style),
+        kapasitas,
+        daya_baca,
+        str(item.get("kelas", "")),
+    ]
+
+
+def _tinggi_baris_lampiran(baris, col_widths):
+    tabel = Table([baris], colWidths=col_widths)
+    tabel.setStyle(_style_tabel_lampiran())
+    _, tinggi = tabel.wrap(sum(col_widths), 100000)
+    return tinggi
+
+
+def _bagi_daftar_lampiran(data, col_widths, pakai_kolom_nama_alat, height):
+    """Bagi daftar rincian jadi halaman-halaman yang PASTI muat."""
+    daftar_rincian = data.get("daftar_rincian_uttp", [])
+
+    if not isinstance(daftar_rincian, list):
+        daftar_rincian = []
+
+    cell_style = _cell_style_lampiran()
+
+    tinggi_header = _tinggi_baris_lampiran(
+        _header_tabel_lampiran(pakai_kolom_nama_alat),
+        col_widths,
+    )
+
+    tinggi_hal1 = (
+        height - 1.5 * cm - JUDUL_HAL1_LAMPIRAN
+        - BATAS_BAWAH_LAMPIRAN - TINGGI_TTD_LAMPIRAN
+        - tinggi_header
+    )
+
+    tinggi_lanjutan = (
+        height - 1.5 * cm - JARAK_LANJUTAN_LAMPIRAN
+        - BATAS_BAWAH_LAMPIRAN - TINGGI_TTD_LAMPIRAN
+        - tinggi_header
+    )
+
+    halaman = []
+    halaman_skrg = []
+    tinggi_skrg = 0.0
+    tinggi_maks = tinggi_hal1
+    nomor = 0
+
+    for item in daftar_rincian:
+        nomor += 1
+
+        baris = _baris_data_lampiran(
+            item, nomor, pakai_kolom_nama_alat, cell_style
+        )
+
+        if baris is None:
+            continue
+
+        tinggi_baris = _tinggi_baris_lampiran(baris, col_widths)
+
+        if halaman_skrg and (tinggi_skrg + tinggi_baris > tinggi_maks):
+            halaman.append(halaman_skrg)
+            halaman_skrg = []
+            tinggi_skrg = 0.0
+            tinggi_maks = tinggi_lanjutan
+
+        halaman_skrg.append(item)
+        tinggi_skrg += tinggi_baris
+
+    if halaman_skrg or not halaman:
+        halaman.append(halaman_skrg)
+
+    return halaman
+
 
 # =========================================================
 # ELEMEN BERSAMA
@@ -933,8 +1126,10 @@ def draw_halaman_2(
     height,
     data,
     total_pages,
-    maksimal_baris=24
+    maksimal_baris=24,
+    kelompok_halaman=None,
 ):
+
     margin_old = 1.5 * cm
     margin_left_content = 3.0 * cm
     right_limit_old = width - margin_old
@@ -950,20 +1145,6 @@ def draw_halaman_2(
 
     if not isinstance(daftar_rincian, list):
         daftar_rincian = []
-
-    # Pecah daftar menjadi maksimal 24 baris per halaman
-    kelompok_halaman = [
-        daftar_rincian[i:i + maksimal_baris]
-        for i in range(
-            0,
-            len(daftar_rincian),
-            maksimal_baris
-        )
-    ]
-
-    # Tetap buat satu halaman lampiran jika data kosong
-    if not kelompok_halaman:
-        kelompok_halaman = [[]]
 
     # Nama UTTP mengikuti pilihan pengguna
     daftar_alat = data.get(
@@ -994,12 +1175,12 @@ def draw_halaman_2(
     )
     if tampilkan_kolom_nama_alat:
         # Tabel 7 kolom dibuat lebih lebar
-        table_margin_left = 1.0 * cm
+        table_margin_left = 2.5 * cm
 
         col_widths = [
             0.7 * cm,   # No.
-            3.0 * cm,   # Nama Alat
-            2.0 * cm,   # Merek
+            2.5 * cm,   # Nama Alat
+            2.5 * cm,   # Merek
             2.6 * cm,   # Model / Tipe
             2.3 * cm,   # Nomor Seri
             2.4 * cm,   # Kapasitas
@@ -1020,6 +1201,19 @@ def draw_halaman_2(
         ]
 
     table_total_width = sum(col_widths)
+    # Bagi daftar jadi halaman-halaman yang PASTI muat
+    if kelompok_halaman is None:
+        kelompok_halaman = _bagi_daftar_lampiran(
+            data,
+            col_widths,
+            tampilkan_kolom_nama_alat,
+            height,
+        )
+
+    if not kelompok_halaman:
+        kelompok_halaman = [[]]
+    
+    cell_style = _cell_style_lampiran()
 
     table_center_x = (
         table_margin_left
@@ -1310,105 +1504,25 @@ def draw_halaman_2(
                 "Kelas",
             ]]
 
-        nomor_awal = (
-            halaman_index * maksimal_baris
+        nomor_awal = sum(
+            len(halaman)
+            for halaman in kelompok_halaman[:halaman_index]
         )
-        # Style teks isi tabel agar teks panjang dapat turun baris
-        styles = getSampleStyleSheet()
 
-        cell_style = ParagraphStyle(
-            "CellStyle",
-            parent=styles["Normal"],
-            fontName="Helvetica",
-            fontSize=9,
-            leading=11,
-            alignment=0,
-            spaceAfter=0,
-            spaceBefore=0,
-        )
-        for index, item in enumerate(
+        for nomor, item in enumerate(
             kelompok_data,
-            start=1
+            start=nomor_awal + 1
         ):
-            if not isinstance(item, dict):
-                continue
-
-            satuan = str(
-                item.get("satuan", "")
-            ).strip()
-
-            kapasitas = (
-                f"{item.get('kapasitas', '')} "
-                f"{satuan}"
-            ).strip()
-
-            nilai_daya_baca = str(
-                item.get(
-                    "daya_baca",
-                    ""
-                )
-            ).strip()
-            
-            daya_baca = (
-                "-"
-                if nilai_daya_baca == "-"
-                else f"{nilai_daya_baca} {satuan}".strip()
+            baris = _baris_data_lampiran(
+                item,
+                nomor,
+                tampilkan_kolom_nama_alat,
+                cell_style,
             )
-            model_tipe = str(
-                item.get(
-                    "model_tipe",
-                    item.get("tipe_no_seri", "")
-                )
-            ).strip()
 
-            nomor_seri = str(
-                item.get(
-                    "nomor_seri",
-                    ""
-                )
-            ).strip()
-            if tampilkan_kolom_nama_alat:
-                table_data.append([
-                    str(nomor_awal + index),
-                    Paragraph(
-                        str(item.get("nama_alat", "")),
-                        cell_style
-                    ),
-                    Paragraph(
-                        str(item.get("merek", "")),
-                        cell_style
-                    ),
-                    Paragraph(
-                        model_tipe,
-                        cell_style
-                    ),
-                    Paragraph(
-                        nomor_seri,
-                        cell_style
-                    ),
-                    kapasitas,
-                    daya_baca,
-                    str(item.get("kelas", "")),
-                ])
-            else:
-                table_data.append([
-                    str(nomor_awal + index),
-                    Paragraph(
-                        str(item.get("merek", "")),
-                        cell_style
-                    ),
-                    Paragraph(
-                        model_tipe,
-                        cell_style
-                    ),
-                    Paragraph(
-                        nomor_seri,
-                        cell_style
-                    ),
-                    kapasitas,
-                    daya_baca,
-                    str(item.get("kelas", "")),
-                ])
+            if baris is not None:
+                table_data.append(baris)
+
 
         if len(table_data) == 1:
             if tampilkan_kolom_nama_alat:
@@ -1427,82 +1541,9 @@ def draw_halaman_2(
         )
 
         table.setStyle(
-            TableStyle([
-                (
-                    "BACKGROUND",
-                    (0, 0),
-                    (-1, 0),
-                    colors.HexColor("#D9EAF7"),
-                ),
-                (
-                    "FONTNAME",
-                    (0, 0),
-                    (-1, 0),
-                    "Helvetica-Bold",
-                ),
-                (
-                    "FONTNAME",
-                    (0, 1),
-                    (-1, -1),
-                    "Helvetica",
-                ),
-                (
-                    "FONTSIZE",
-                    (0, 0),
-                    (-1, -1),
-                    10,
-                ),
-                (
-                    "ALIGN",
-                    (0, 0),
-                    (0, -1),
-                    "CENTER",
-                ),
-                (
-                    "ALIGN",
-                    (0, 0),
-                    (-1, 0),
-                    "CENTER",
-                ),
-                (
-                    "VALIGN",
-                    (0, 0),
-                    (-1, -1),
-                    "MIDDLE",
-                ),
-                (
-                    "GRID",
-                    (0, 0),
-                    (-1, -1),
-                    0.7,
-                    colors.black,
-                ),
-                (
-                    "LEFTPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    6,
-                ),
-                (
-                    "RIGHTPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    6,
-                ),
-                (
-                    "TOPPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    6,
-                ),
-                (
-                    "BOTTOMPADDING",
-                    (0, 0),
-                    (-1, -1),
-                    6,
-                ),
-            ])
+            _style_tabel_lampiran()
         )
+
 
         table_width, table_height = table.wrap(
             table_total_width,
@@ -1611,21 +1652,23 @@ def generate_sertifikat_uttp_pdf(
     if not isinstance(daftar_rincian, list):
         daftar_rincian = []
 
-    maksimal_baris = 24
+    maksimal_baris = 20
 
-    jumlah_halaman_lampiran = max(
-        1,
-        (
-            len(daftar_rincian)
-            + maksimal_baris
-            - 1
-        ) // maksimal_baris
+    width, height = A4
+
+    col_widths, pakai_kolom_nama_alat, _ = _kolom_lampiran(data)
+
+    kelompok_halaman = _bagi_daftar_lampiran(
+        data,
+        col_widths,
+        pakai_kolom_nama_alat,
+        height,
     )
 
-    total_pages = (
-        1
-        + jumlah_halaman_lampiran
-    )
+    jumlah_halaman_lampiran = max(1, len(kelompok_halaman))
+
+    total_pages = 1 + jumlah_halaman_lampiran
+
 
     c = canvas.Canvas(
         str(output_path),
@@ -1651,7 +1694,9 @@ def generate_sertifikat_uttp_pdf(
         data,
         total_pages,
         maksimal_baris=maksimal_baris,
+        kelompok_halaman=kelompok_halaman,
     )
+
 
     c.save()
 
