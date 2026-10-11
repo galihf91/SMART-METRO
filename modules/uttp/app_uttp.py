@@ -1787,6 +1787,127 @@ def generate_nomor_order(tanggal):
         f"{bulan_ke_romawi(tanggal.month)}/{tanggal.year}"
     )
 
+def ambil_nomor_order_berikutnya(tanggal, supabase=None):
+    """Nomor order berikutnya dari tabel `pengujian` (bulan + tahun sama)."""
+    if supabase is None:
+        supabase = get_supabase_uttp()
+
+    if isinstance(tanggal, str):
+        tanggal = parse_tanggal_uttp(tanggal)
+
+    romawi = bulan_ke_romawi(tanggal.month)
+    tahun = tanggal.year
+
+    response = (
+        supabase
+        .table("pengujian")
+        .select("nomor_order")
+        .ilike("nomor_order", f"%/SCD/{romawi}/{tahun}")
+        .execute()
+    )
+
+    pola = re.compile(
+        rf"^\s*(\d{{1,6}})\s*/\s*SCD\s*/\s*{romawi}\s*/\s*{tahun}\s*$",
+        re.IGNORECASE,
+    )
+
+    tertinggi = 0
+    for baris in (response.data or []):
+        cocok = pola.match(str(baris.get("nomor_order") or "").strip())
+        if cocok:
+            tertinggi = max(tertinggi, int(cocok.group(1)))
+
+    return f"{tertinggi + 1:04d}/SCD/{romawi}/{tahun}"
+
+
+def ambil_nomor_sertifikat_berikutnya(tanggal, supabase=None):
+    """Nomor sertifikat berikutnya. Format: 500.2.3.15/NNNN/BID-K/ROMAWI/TAHUN"""
+    if supabase is None:
+        supabase = get_supabase_uttp()
+
+    if isinstance(tanggal, str):
+        tanggal = parse_tanggal_uttp(tanggal)
+
+    romawi = bulan_ke_romawi(tanggal.month)
+    tahun = tanggal.year
+
+    response = (
+        supabase
+        .table("pengujian")
+        .select("nomor_sertifikat")
+        .ilike("nomor_sertifikat", f"%/BID-K/{romawi}/{tahun}")
+        .execute()
+    )
+
+    pola = re.compile(
+        rf"^\s*500\.2\.3\.15\s*/\s*(\d{{1,6}})\s*/\s*BID-K"
+        rf"\s*/\s*{romawi}\s*/\s*{tahun}\s*$",
+        re.IGNORECASE,
+    )
+
+    tertinggi = 0
+    for baris in (response.data or []):
+        cocok = pola.match(str(baris.get("nomor_sertifikat") or "").strip())
+        if cocok:
+            tertinggi = max(tertinggi, int(cocok.group(1)))
+
+    return f"500.2.3.15/{tertinggi + 1:04d}/BID-K/{romawi}/{tahun}"
+
+
+def nomor_sertifikat_sudah_dipakai(nomor, kecuali_id=None, supabase=None):
+    """True kalau `nomor` sudah dipakai baris LAIN di tabel pengujian."""
+    if supabase is None:
+        supabase = get_supabase_uttp()
+
+    nomor = str(nomor or "").strip()
+    if not nomor:
+        return False
+
+    res = (
+        supabase
+        .table("pengujian")
+        .select("id")
+        .eq("nomor_sertifikat", nomor)
+        .limit(1)
+        .execute()
+    )
+
+    data = res.data or []
+    if not data:
+        return False
+
+    if kecuali_id is not None and str(data[0]["id"]) == str(kecuali_id):
+        return False
+
+    return True
+
+
+def ambil_nomor_tersimpan(id_baris, kolom, supabase=None):
+    """Ambil nomor_order / nomor_sertifikat dari baris pengujian tertentu."""
+    if not id_baris:
+        return ""
+
+    if supabase is None:
+        supabase = get_supabase_uttp()
+
+    try:
+        res = (
+            supabase
+            .table("pengujian")
+            .select(kolom)
+            .eq("id", id_baris)
+            .limit(1)
+            .execute()
+        )
+    except Exception:
+        return ""
+
+    if not res.data:
+        return ""
+
+    return str(res.data[0].get(kolom) or "").strip()
+
+
 def bersihkan_nama_file_uttp(value):
     text = str(value or "").strip()
 
@@ -1975,71 +2096,98 @@ def load_data_penera():
 
 
 def load_data_perusahaan():
-    path = PROJECT_ROOT / "data" / "data_perusahaan.xlsx"
+    """
+    Ambil daftar perusahaan dari Supabase (tabel: perusahaan).
+    Fallback: file Excel lokal data/data_perusahaan.xlsx.
+    Hasil di-cache di session_state agar tidak query tiap rerun.
+    """
+    cache_key = "uttp_cache_data_perusahaan"
+
+    cache = st.session_state.get(cache_key)
+
+    if isinstance(cache, pd.DataFrame) and not cache.empty:
+        return cache
+
+    df = pd.DataFrame(
+        columns=["Nama Perusahaan", "Alamat"]
+    )
 
     try:
-        df = _read_excel(path)
+        supabase = get_supabase_uttp()
 
-        if df is None:
-            return pd.DataFrame(
-                columns=["Nama Perusahaan", "Alamat"]
-            )
-
-        for column in ["Nama Perusahaan", "Alamat"]:
-            if column not in df.columns:
-                df[column] = ""
-
-        df["Nama Perusahaan"] = (
-            df["Nama Perusahaan"]
-            .fillna("")
-            .astype(str)
-            .str.strip()
-        )
-        df["Alamat"] = (
-            df["Alamat"]
-            .fillna("")
-            .astype(str)
-            .str.strip()
-        )
-        df["_panjang_alamat"] = (
-            df["Alamat"]
-            .str.len()
+        response = (
+            supabase
+            .table("perusahaan")
+            .select("nama_perusahaan, alamat")
+            .limit(5000)
+            .execute()
         )
 
-        df = (
-            df.sort_values(
-                "_panjang_alamat",
-                ascending=False
+        rows = response.data or []
+
+        if rows:
+            df = pd.DataFrame(rows)
+            df = df.rename(
+                columns={
+                    "nama_perusahaan": "Nama Perusahaan",
+                    "alamat": "Alamat",
+                }
             )
-            .drop_duplicates(
-                subset=[
-                    "Nama Perusahaan"
-                ],
-                keep="first"
-            )
-            .drop(
-                columns=[
-                    "_panjang_alamat"
-                ]
-            )
-            .sort_values(
-                "Nama Perusahaan"
-            )
-            .reset_index(
-                drop=True
-            )
-        )
-        return df[
-            df["Nama Perusahaan"] != ""
-        ].reset_index(
-            drop=True
-        )
 
     except Exception as exc:
-        st.warning(f"Data perusahaan tidak dapat dibaca: {exc}")
-        return pd.DataFrame(
-            columns=["Nama Perusahaan", "Alamat"]
+        st.warning(
+            f"Gagal mengambil data perusahaan dari Supabase: {exc}"
         )
+
+    if df.empty:
+        try:
+            df_excel = _read_excel(
+                PROJECT_ROOT / "data" / "data_perusahaan.xlsx"
+            )
+
+            if df_excel is not None:
+                df = df_excel
+
+        except Exception as exc:
+            st.warning(
+                f"Data perusahaan tidak dapat dibaca: {exc}"
+            )
+
+    for column in ["Nama Perusahaan", "Alamat"]:
+        if column not in df.columns:
+            df[column] = ""
+
+    df["Nama Perusahaan"] = (
+        df["Nama Perusahaan"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+
+    df["Alamat"] = (
+        df["Alamat"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+
+    df = df[df["Nama Perusahaan"] != ""]
+
+    df["_panjang_alamat"] = df["Alamat"].str.len()
+
+    df = (
+        df.sort_values("_panjang_alamat", ascending=False)
+        .drop_duplicates(subset=["Nama Perusahaan"], keep="first")
+        .drop(columns=["_panjang_alamat"])
+        .sort_values("Nama Perusahaan")
+        .reset_index(drop=True)
+    )
+
+    if not df.empty:
+        st.session_state[cache_key] = df
+
+    return df
+
 def update_perusahaan_terpilih_uttp():
     selected = str(
         st.session_state.get(
@@ -2090,23 +2238,51 @@ def update_perusahaan_terpilih_uttp():
     st.session_state[
         "uttp_manual_perusahaan"
     ] = False
+    
 def update_nomor_dokumen_uttp():
-    tanggal = st.session_state.get(
+    """
+    Dipanggil saat Tanggal Pengujian / Tanggal Sertifikat berubah.
+    - Nomor Order      : bulan Romawi = bulan Tanggal Pengujian
+    - Nomor Sertifikat : bulan Romawi = bulan Tanggal Sertifikat
+    Nomor yang sudah diedit manual TIDAK ditimpa.
+    """
+    tanggal_uji = st.session_state.get(
         "uttp_tanggal_pengujian",
         date.today()
     )
 
-    st.session_state[
-        "uttp_nomor_sertifikat"
-    ] = generate_nomor_sertifikat(
-        tanggal
+    tanggal_sert = st.session_state.get(
+        "uttp_tanggal_sertifikat",
+        tanggal_uji
     )
 
-    st.session_state[
-        "uttp_nomor_order"
-    ] = generate_nomor_order(
-        tanggal
-    )
+    nomor_order_skrg = str(
+        st.session_state.get("uttp_nomor_order", "") or ""
+    ).strip()
+
+    if (not nomor_order_skrg) or nomor_order_skrg.startswith("0000/SCD/"):
+        try:
+            st.session_state["uttp_nomor_order"] = (
+                ambil_nomor_order_berikutnya(tanggal_uji)
+            )
+        except Exception:
+            pass
+
+    nomor_sert_skrg = str(
+        st.session_state.get("uttp_nomor_sertifikat", "") or ""
+    ).strip()
+
+    if (
+        (not nomor_sert_skrg)
+        or nomor_sert_skrg.startswith("500.2.3.15/0000/BID-K/")
+    ):
+        try:
+            st.session_state["uttp_nomor_sertifikat"] = (
+                ambil_nomor_sertifikat_berikutnya(tanggal_sert)
+            )
+        except Exception:
+            pass
+
     
 def parse_tanggal_uttp(value, default=None):
     if default is None:
@@ -2350,9 +2526,10 @@ def init_uttp_state():
                 "nomor_sertifikat"
             )
             or generate_nomor_sertifikat(
-                tanggal_pengujian_saved
+                tanggal_sertifikat_saved
             )
         ),
+
         
         "uttp_nomor_order": (
             saved.get(
@@ -2513,8 +2690,11 @@ def kembali_ke_input_uttp():
             "nomor_sertifikat"
         )
         or generate_nomor_sertifikat(
-            tanggal_pengujian_restore
+            parse_tanggal_uttp(
+                saved.get("tanggal_sertifikat")
+            )
         )
+
     ).strip()
     
     st.session_state[
@@ -3363,9 +3543,10 @@ def run():
                 "yang sudah tersimpan."
             )
 
-        col1, col2 = st.columns(2)
-
-        with col1:
+        # =====================================================
+        # IDENTITAS PEMILIK (LEBAR PENUH)
+        # =====================================================
+        with st.container():
             st.subheader("Identitas Pemilik")
 
             df_perusahaan = st.session_state.get(
@@ -3455,23 +3636,85 @@ def run():
                     key="uttp_alamat_input",
                 )
 
-            pemilik = str(
-                st.session_state.get(
-                    "uttp_nama_perusahaan",
-                    ""
+        pemilik = str(
+            st.session_state.get(
+                "uttp_nama_perusahaan",
+                ""
+            )
+        ).strip()
+
+        alamat = str(
+            st.session_state.get(
+                "uttp_alamat_input",
+                ""
+            )
+        ).strip()
+
+        # =====================================================
+        # NOMOR DOKUMEN
+        # =====================================================
+        st.markdown("---")
+        st.subheader("📊 Nomor Dokumen")
+
+        col_tgl1, col_tgl2 = st.columns(2)
+
+        with col_tgl1:
+            tanggal_pengujian = st.date_input(
+                "Tanggal Pengujian",
+                key="uttp_tanggal_pengujian",
+                on_change=update_nomor_dokumen_uttp,
+            )
+
+        with col_tgl2:
+            tanggal_sertifikat = st.date_input(
+                "Tanggal Sertifikat",
+                key="uttp_tanggal_sertifikat",
+                on_change=update_nomor_dokumen_uttp,
+            )
+
+        if st.button(
+            "🔢 Generate Nomor Order & Sertifikat",
+            type="primary",
+            use_container_width=True,
+            key="uttp_btn_generate_nomor",
+        ):
+            try:
+                st.session_state["uttp_nomor_order"] = (
+                    ambil_nomor_order_berikutnya(tanggal_pengujian)
                 )
-            ).strip()
+            except Exception as exc_order:
+                st.error(f"❌ Gagal membuat nomor order: {exc_order}")
 
-            alamat = str(
-                st.session_state.get(
-                    "uttp_alamat_input",
-                    ""
+            try:
+                st.session_state["uttp_nomor_sertifikat"] = (
+                    ambil_nomor_sertifikat_berikutnya(tanggal_sertifikat)
                 )
-            ).strip()
+            except Exception as exc_sert:
+                st.error(f"❌ Gagal membuat nomor sertifikat: {exc_sert}")
 
-        with col2:
-            st.subheader("Data Sertifikat")
+        col_nomor1, col_nomor2 = st.columns(2)
 
+        with col_nomor1:
+            nomor_order = st.text_input(
+                "Nomor Order",
+                key="uttp_nomor_order",
+            )
+
+        with col_nomor2:
+            nomor_sertifikat = st.text_input(
+                "Nomor Sertifikat",
+                key="uttp_nomor_sertifikat",
+            )
+
+        # =====================================================
+        # DATA PENGUJIAN
+        # =====================================================
+        st.markdown("---")
+        st.subheader("🗂️ Data Pengujian")
+
+        col_jenis, col_lokasi = st.columns(2)
+
+        with col_jenis:
             jenis_pengujian = st.selectbox(
                 "Jenis Pengujian",
                 options=[
@@ -3480,6 +3723,8 @@ def run():
                 ],
                 key="uttp_jenis_pengujian",
             )
+
+        with col_lokasi:
             lokasi_options = [
                 "Dalam Kantor",
                 "Perusahaan",
@@ -3500,29 +3745,7 @@ def run():
                 options=lokasi_options,
                 key="uttp_lokasi_pengujian",
             )
-            tanggal_pengujian = st.date_input(
-                "Tanggal Pengujian",
-                key="uttp_tanggal_pengujian",
-                on_change=update_nomor_dokumen_uttp,
-            )
 
-            tanggal_sertifikat = st.date_input(
-                "Tanggal Sertifikat",
-                key="uttp_tanggal_sertifikat",
-            )
-
-            nomor_sertifikat = st.text_input(
-                "Nomor Sertifikat",
-                key="uttp_nomor_sertifikat",
-            )
-
-            nomor_order = st.text_input(
-                "Nomor Order",
-                key="uttp_nomor_order",
-            )
-
-        st.markdown("---")
-        st.subheader("⚖️ Data Alat UTTP")
 
         opsi_nama_alat = [
             "Timbangan Elektronik",
@@ -4594,57 +4817,47 @@ def run():
 
                 output_file = OUTPUT_DIR / nama_file
 
-                generate_sertifikat_uttp_pdf(
-                    data,
-                    str(output_file),
-                )
-
                 # =====================================================
-                # SIMPAN PENGUJIAN KE SUPABASE
+                # 1) SIMPAN DULU KE DATABASE
                 # =====================================================
                 hasil_simpan = (
                     simpan_pengujian_uttp_umum_ke_supabase(
                         data
                     )
                 )
-                
-                # =====================================================
-                # AMBIL ID PENGUJIAN HASIL SIMPAN
-                # =====================================================
+
                 pengujian_rows = (
-                    hasil_simpan.get(
-                        "pengujian",
-                        []
-                    )
+                    hasil_simpan.get("pengujian", [])
                     or []
                 )
-                
+
                 pengujian_id_hasil = None
-                
+
                 if pengujian_rows:
                     pengujian_id_hasil = (
-                        pengujian_rows[0].get(
-                            "id"
-                        )
+                        pengujian_rows[0].get("id")
                     )
-                
+
                 # =====================================================
-                # TANDAI SUDAH MASUK DATABASE
+                # 2) BARU BUAT PDF
                 # =====================================================
+                generate_sertifikat_uttp_pdf(
+                    data,
+                    str(output_file),
+                )
+
                 st.session_state[
                     "uttp_sudah_disimpan_db"
                 ] = True
-                
+
                 st.session_state[
                     "uttp_last_pengujian_id"
                 ] = pengujian_id_hasil
-                
+
                 st.session_state.uttp_generated_files[
                     "sertifikat"
-                ] = str(
-                    output_file
-                )
-                
+                ] = str(output_file)
+
                 if (
                     hasil_simpan.get("mode")
                     == "edit"
@@ -4658,9 +4871,19 @@ def run():
                         "✅ Pengujian berhasil disimpan ke "
                         "Supabase dan sertifikat berhasil dibuat!"
                     )
+
+            except ValueError as exc:
+                # mis. nomor sertifikat sudah dipakai
+                st.error(
+                    "❌ DITOLAK — "
+                    f"{exc} Tidak ada nomor sertifikat dobel "
+                    "di database. Dokumen tidak dibuat."
+                )
+
             except Exception as exc:
                 st.error(f"❌ Error: {exc}")
                 st.code(traceback.format_exc())
+
 
         sertifikat_path = (
             st.session_state.uttp_generated_files.get(
