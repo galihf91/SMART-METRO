@@ -64,7 +64,7 @@ def tanya_deepseek(pertanyaan):
     )
 
     response = client.chat.completions.create(
-        model="deepseek-flash",
+        model="deepseek-chat",
         messages=[
             {"role": "system", "content": prompt_sistem},
             {"role": "user", "content": pertanyaan}
