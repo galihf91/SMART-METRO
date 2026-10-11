@@ -591,3 +591,14 @@ def render_chat():
 
         for baris in st.session_state.get("ai_tool_log", []):
             st.code(baris)
+def tanya_deepseek(pertanyaan, riwayat=None):
+    """
+    Versi non-streaming untuk kompatibilitas dengan app.py lama.
+    Mengembalikan jawaban sebagai teks utuh.
+    """
+    potongan = []
+
+    for bagian in tanya_deepseek_stream(pertanyaan, riwayat):
+        potongan.append(bagian)
+
+    return "".join(potongan).strip()
