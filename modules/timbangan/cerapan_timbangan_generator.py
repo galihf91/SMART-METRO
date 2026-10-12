@@ -755,8 +755,9 @@ def generate_cerapan_pdf(data: dict[str, Any], filename: str) -> str:
         ),
     ]
 
-    # Model / Tipe hanya untuk Timbangan Elektronik
-    if not is_timbangan_elektronik:
+    # Model / Tipe ditampilkan untuk semua jenis alat,
+    # kecuali Neraca Obat yang memang tidak memilikinya.
+    if is_neraca_obat:
         spesifikasi = [
             item for item in spesifikasi
             if item[0] != "Model / Tipe"
