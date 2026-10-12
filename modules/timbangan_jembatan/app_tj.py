@@ -650,6 +650,7 @@ def simpan_pengujian_tj_ke_supabase(data):
     # 6. PAYLOAD PENGUJIAN
     # =========================================
     payload = {
+        "perusahaan_id": perusahaan_id,
         "uttp_id": uttp_id,
         "tanggal_pengujian": tanggal,
         "tanggal_sertifikat": tanggal_sertifikat,
