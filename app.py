@@ -45,6 +45,10 @@ def cek_login():
     # =====================================================
     # USER SUDAH LOGIN
     # =====================================================
+    if not st.secrets.get("LOGIN_AKTIF", True):
+        st.session_state.authenticated = True
+        return True
+
     if st.session_state.authenticated:
         return True
 
