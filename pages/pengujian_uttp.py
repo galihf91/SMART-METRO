@@ -91,34 +91,59 @@ def halaman_home_uttp():
         ):
             kembali_ke_smart_metro()
 
-    col_logo, col_title = st.columns([1, 5])
+    # Header halaman (logo + judul, jarak diatur presisi)
+    if LOGO_PATH.exists():
+        import base64
 
-    with col_logo:
-        if LOGO_PATH.exists():
-            st.markdown(
-                "<div style='margin-top:-18px;'>",
-                unsafe_allow_html=True
-            )
+        logo_base64 = base64.b64encode(
+            LOGO_PATH.read_bytes()
+        ).decode("utf-8")
 
-            st.image(
-                str(LOGO_PATH),
-                width=130
-            )
-
-            st.markdown(
-                "</div>",
-                unsafe_allow_html=True
-            )
-
-    with col_title:
-        st.title("Pengujian UTTP")
-        st.markdown(
-            "### SMART METRO"
+        gambar_logo = (
+            '<img src="data:image/png;base64,'
+            + logo_base64
+            + '" style="width: 260px; flex-shrink: 0;" />'
         )
-        st.write(
-            "Pelayanan pengujian, pembuatan cerapan, "
-            "dan penerbitan sertifikat UTTP."
-        )
+    else:
+        gambar_logo = ""
+
+    st.markdown(
+        f"""
+        <div style="
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-top: -10px;
+            margin-bottom: 10px;
+        ">
+            {gambar_logo}
+            <div>
+                <h1 style="
+                    margin: 0;
+                    font-size: 2.2rem;
+                    font-weight: 700;
+                ">
+                    Pengujian UTTP
+                </h1>
+                <h3 style="
+                    margin: 4px 0 0 0;
+                    font-size: 1.3rem;
+                    font-weight: 600;
+                ">
+                    SMART METRO
+                </h3>
+                <p style="
+                    margin: 8px 0 0 0;
+                    font-size: 1rem;
+                ">
+                    Pelayanan pengujian, pembuatan cerapan, dan penerbitan sertifikat UTTP.
+                </p>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
 
     st.divider()
 
