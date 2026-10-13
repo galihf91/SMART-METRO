@@ -153,6 +153,25 @@ def _cari_id_perusahaan(supabase, nama):
 
     return response.data or []
 
+def tool_hitung_spbu(argumen, supabase):
+    kecamatan = str(argumen.get("kecamatan") or "").strip()
+
+    query = supabase.table(SPBU["tabel"]).select("id", count="exact")
+
+    if kecamatan and SPBU.get("kolom_kecamatan"):
+        query = query.ilike(
+            SPBU["kolom_kecamatan"],
+            f"%{kecamatan}%",
+        )
+
+    response = query.execute()
+
+    return {
+        "jumlah_spbu": response.count or 0,
+        "wilayah": kecamatan or "Kabupaten Tangerang (seluruh kecamatan)",
+        "sumber": "tabel spbu di database",
+    }
+
 
 def tool_hitung_aset(argumen, supabase):
     kata_kunci = str(argumen.get("kata_kunci") or "").strip()
