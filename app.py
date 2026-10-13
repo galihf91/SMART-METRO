@@ -210,7 +210,9 @@ def pindah_halaman(nama_halaman):
 
     elif nama_halaman == "dashboard_tera_ulang":
         st.session_state.halaman_dashboard = "home_dashboard"
-
+    
+    elif nama_halaman == "ai":
+        st.session_state.halaman_ai = "home_ai"
     st.session_state.halaman = nama_halaman
     st.rerun()
 
@@ -492,6 +494,73 @@ def home():
         ):
             pindah_halaman("dashboard_tera_ulang")
 
+    # =====================================================
+    # ASISTEN AI
+    # =====================================================
+    st.markdown("---")
+
+    st.markdown(
+        """
+        <div class="section-title">Asisten AI SMART METRO</div>
+        <div class="section-subtitle">
+            Tanya jawab seputar metrologi, prosedur pengujian, dan data
+            pengujian yang tersimpan di database.
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    pertanyaan_ai = st.text_input(
+        "Pertanyaan untuk Asisten AI",
+        key="ai_pertanyaan_home",
+        placeholder=(
+            "Tulis pertanyaan lalu tekan Enter. "
+            "Contoh: Berapa jumlah SPBU di Kabupaten Tangerang?"
+        ),
+    )
+
+    st.caption("Tekan Enter setelah menulis pertanyaan.")
+
+    pertanyaan_bersih = str(pertanyaan_ai or "").strip()
+
+    if (
+        pertanyaan_bersih
+        and pertanyaan_bersih
+        != st.session_state.get("ai_pertanyaan_terakhir")
+    ):
+        st.session_state["ai_pertanyaan_terakhir"] = pertanyaan_bersih
+
+        try:
+            with st.spinner("Mencari jawaban..."):
+                modul_ai = importlib.import_module("ai_service")
+
+                st.session_state["ai_jawaban_home"] = (
+                    modul_ai.tanya_deepseek(pertanyaan_bersih)
+                )
+        except ModuleNotFoundError as error:
+            st.error(
+                "Modul AI belum ditemukan atau paketnya belum terpasang."
+            )
+            st.code(f"Detail: {error}", language="text")
+        except Exception as error:
+            st.error("Gagal menghubungi asisten AI.")
+            with st.expander("Lihat detail kesalahan"):
+                st.exception(error)
+
+    jawaban_ai = st.session_state.get("ai_jawaban_home")
+
+    if jawaban_ai:
+        st.markdown("### Jawaban")
+        st.markdown(jawaban_ai)
+
+        st.caption(
+            "Pertanyaan terakhir: "
+            f"{st.session_state.get('ai_pertanyaan_terakhir', '')}"
+        )
+
+
+
+
     st.markdown(
         """
         <div class="status-strip">
@@ -500,6 +569,27 @@ def home():
         </div>
         """,
         unsafe_allow_html=True
+    )
+
+# =========================================================
+# HALAMAN ASISTEN AI
+# =========================================================
+def halaman_ai():
+    col_back, _ = st.columns([1, 3])
+
+    with col_back:
+        if st.button(
+            "← Kembali ke Home",
+            use_container_width=True,
+            key="ai_nav_home",
+        ):
+            pindah_halaman("home")
+
+    st.markdown("---")
+
+    jalankan_modul(
+        "ai_service",
+        "render_chat",
     )
 
 
@@ -600,6 +690,9 @@ def main():
             "pages.dashboard_tera_ulang",
             "run"
         )
+    
+    elif halaman_aktif == "ai":
+        halaman_ai()
 
     else:
         st.session_state.halaman = "home"
