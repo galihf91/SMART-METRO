@@ -343,6 +343,9 @@ def tool_cari_pengujian(argumen, supabase):
 
 def jalankan_tool(nama, argumen, supabase):
     try:
+        if nama == "hitung_spbu":
+            return tool_hitung_spbu(argumen, supabase)
+
         if nama == "hitung_aset":
             return tool_hitung_aset(argumen, supabase)
 
