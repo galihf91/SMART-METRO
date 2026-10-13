@@ -13,6 +13,47 @@ import re
 from pathlib import Path
 
 OPSI_MEDIA_MANUAL = "✍️ Input Media Manual"
+TIPE_SPBU = [
+    "SPBU",
+    "SPBUN",
+    "PERTASHOP",
+    "BP AKR",
+    "SHELL",
+    "VIVO",
+    "LAINNYA",
+]
+
+CONTOH_IDENTITAS_SPBU = {
+    "SPBU": {
+        "contoh": "34-15717",
+        "catatan": "Gunakan tanda hubung '-'.",
+    },
+    "SPBUN": {
+        "contoh": "34-15717",
+        "catatan": "Gunakan tanda hubung '-'.",
+    },
+    "PERTASHOP": {
+        "contoh": "3P.15902",
+        "catatan": "Gunakan tanda hubung '.'",
+    },
+    "BP AKR": {
+        "contoh": "ASTERA",
+        "catatan": "Gunakan lokasi uniq.",
+    },
+    "SHELL": {
+        "contoh": "SUVARNA",
+        "catatan": "Gunakan lokasi uniq.",
+    },
+    "VIVO": {
+        "contoh": "",
+        "catatan": "Gunakan lokasi uniq.",
+    },
+    "LAINNYA": {
+        "contoh": "",
+        "catatan": "Sesuaikan dengan penulisan resmi.",
+    },
+}
+
 # =========================================================
 # SUPABASE PUBBM
 # =========================================================
@@ -199,6 +240,12 @@ def simpan_atau_update_spbu_pubbm(
             nilai_lama_compare = str(
                 nilai_lama
             ).strip()
+            
+            if (
+                nilai_baru_compare == ""
+                and nilai_lama_compare != ""
+            ):
+                continue
 
             if (
                 nilai_baru_compare
@@ -2833,6 +2880,152 @@ def ambil_riwayat_kegiatan_pubbm(
     )
 
     return daftar_kegiatan
+    
+# =========================================================
+# NOMOR DOKUMEN PUBBM
+# =========================================================
+ROMAWI_BULAN = {
+    1: "I",
+    2: "II",
+    3: "III",
+    4: "IV",
+    5: "V",
+    6: "VI",
+    7: "VII",
+    8: "VIII",
+    9: "IX",
+    10: "X",
+    11: "XI",
+    12: "XII",
+}
+
+
+def _tanggal_pubbm(value):
+    if isinstance(value, datetime):
+        return value
+
+    if isinstance(value, date):
+        return datetime(value.year, value.month, value.day)
+
+    if value:
+        try:
+            return datetime.strptime(str(value)[:10], "%Y-%m-%d")
+        except ValueError:
+            pass
+
+    return datetime.today()
+
+
+def ambil_nomor_order_berikutnya(tanggal, supabase=None):
+    """
+    Nomor order berikutnya: NNNN/SCD/{ROMAWI}/{TAHUN}
+    Bulan Romawi dari tanggal PENGUJIAN.
+    Counter per bulan + tahun, dibaca dari kolom nomor_order.
+    """
+    if supabase is None:
+        supabase = get_supabase_pubbm()
+
+    tanggal = _tanggal_pubbm(tanggal)
+    romawi = ROMAWI_BULAN.get(tanggal.month, "")
+    tahun = tanggal.year
+
+    pola = re.compile(
+        r"^\s*(\d{1,6})\s*/\s*SCD\s*/\s*"
+        + romawi
+        + r"\s*/\s*"
+        + str(tahun)
+        + r"\s*$",
+        re.IGNORECASE,
+    )
+
+    response = (
+        supabase
+        .table("pengujian")
+        .select("nomor_order")
+        .ilike("nomor_order", f"%/SCD/{romawi}/{tahun}")
+        .execute()
+    )
+
+    terbesar = 0
+
+    for row in (response.data or []):
+        cocok = pola.match(str(row.get("nomor_order") or ""))
+
+        if cocok:
+            terbesar = max(terbesar, int(cocok.group(1)))
+
+    return f"{terbesar + 1:04d}/SCD/{romawi}/{tahun}"
+
+
+def ambil_nomor_sertifikat_berikutnya(tanggal, supabase=None):
+    """
+    Nomor sertifikat berikutnya:
+    500.2.3.15/NNNN/BID-K/{ROMAWI}/{TAHUN}
+    Bulan Romawi dari tanggal SERTIFIKAT (tanggal tanda tangan).
+    """
+    if supabase is None:
+        supabase = get_supabase_pubbm()
+
+    tanggal = _tanggal_pubbm(tanggal)
+    romawi = ROMAWI_BULAN.get(tanggal.month, "")
+    tahun = tanggal.year
+
+    pola = re.compile(
+        r"^\s*500\.2\.3\.15\s*/\s*(\d{1,6})\s*/\s*BID-K\s*/\s*"
+        + romawi
+        + r"\s*/\s*"
+        + str(tahun)
+        + r"\s*$",
+        re.IGNORECASE,
+    )
+
+    response = (
+        supabase
+        .table("pengujian")
+        .select("nomor_sertifikat")
+        .ilike(
+            "nomor_sertifikat",
+            f"500.2.3.15/%/BID-K/{romawi}/{tahun}",
+        )
+        .execute()
+    )
+
+    terbesar = 0
+
+    for row in (response.data or []):
+        cocok = pola.match(str(row.get("nomor_sertifikat") or ""))
+
+        if cocok:
+            terbesar = max(terbesar, int(cocok.group(1)))
+
+    return f"500.2.3.15/{terbesar + 1:04d}/BID-K/{romawi}/{tahun}"
+
+
+def nomor_sertifikat_sudah_dipakai(nomor, kecuali_id=None, supabase=None):
+    if supabase is None:
+        supabase = get_supabase_pubbm()
+
+    nomor = str(nomor or "").strip()
+
+    if not nomor:
+        return False
+
+    response = (
+        supabase
+        .table("pengujian")
+        .select("id")
+        .eq("nomor_sertifikat", nomor)
+        .execute()
+    )
+
+    for row in (response.data or []):
+        if kecuali_id is not None and str(row.get("id")) == str(kecuali_id):
+            continue
+
+        return True
+
+    return False
+
 def run():
     col_nav1, col_nav2 = st.columns(2)
 
@@ -3265,31 +3458,50 @@ def run():
         return f"0000/SCD/{bulan_ke_romawi(t.month)}/{t.year}"
     
     def update_nomor_dokumen_pubbm():
-        tanggal = st.session_state.get(
+        """
+        Dipanggil saat Tanggal Pengujian / Tanggal Tanda Tangan berubah.
+
+        Hanya menyegarkan TEMPLATE 0000 agar bulan Romawi & tahunnya
+        mengikuti tanggal:
+        - Nomor Order      : bulan Romawi = Tanggal Pengujian
+        - Nomor Sertifikat : bulan Romawi = Tanggal Tanda Tangan
+
+        Nomor nyata HANYA diisi lewat tombol Generate Nomor.
+        Nomor yang sudah diedit manual TIDAK ditimpa.
+        """
+        tanggal_uji = st.session_state.get(
             "tanggal_pengujian_pubbm",
             date.today()
         )
 
-        if isinstance(tanggal, str):
-            try:
-                tanggal = datetime.strptime(
-                    tanggal,
-                    "%Y-%m-%d"
-                ).date()
-            except ValueError:
-                tanggal = date.today()
-
-        st.session_state[
-            "nomor_sertifikat_pubbm"
-        ] = generate_nomor_sertifikat(
-            tanggal
+        tanggal_tti = st.session_state.get(
+            "tanggal_cetak_pubbm",
+            tanggal_uji
         )
 
-        st.session_state[
-            "nomor_order_pubbm"
-        ] = generate_nomor_order(
-            tanggal
-        )
+        nomor_order_skrg = str(
+            st.session_state.get("nomor_order_pubbm", "") or ""
+        ).strip()
+
+        if (
+            not nomor_order_skrg
+            or nomor_order_skrg.startswith("0000/SCD/")
+        ):
+            st.session_state["nomor_order_pubbm"] = (
+                generate_nomor_order(tanggal_uji)
+            )
+
+        nomor_sert_skrg = str(
+            st.session_state.get("nomor_sertifikat_pubbm", "") or ""
+        ).strip()
+
+        if (
+            not nomor_sert_skrg
+            or nomor_sert_skrg.startswith("500.2.3.15/0000/BID-K/")
+        ):
+            st.session_state["nomor_sertifikat_pubbm"] = (
+                generate_nomor_sertifikat(tanggal_tti)
+            )
         
     def update_penera_1_pubbm():
         selected = str(
@@ -5967,8 +6179,8 @@ def run():
                 ] = "📝 Input Data Pengujian"
         
                 st.rerun()
-        # ======================== KOLOM 1-2 ========================
-        col1, col2= st.columns(2)
+
+        col1 = st.container()
     
         # ======================== KOLOM 1 ========================
         with col1:
@@ -6016,46 +6228,90 @@ def run():
                     ),
                 )
 
-                st.text_area(
-                    "Alamat",
-                    height=90,
-                    key="alamat_input_pubbm",
-                    help=(
-                        "Alamat otomatis muncul dan tetap dapat diedit. "
-                        "Jika terdapat kata 'Kecamatan', nama kecamatan "
-                        "akan terisi otomatis."
-                    ),
-                    on_change=update_kecamatan_dari_alamat_pubbm,
-                )
+                if not st.session_state.get(
+                    "input_manual_spbu",
+                    False
+                ):
+                    st.text_area(
+                        "Alamat",
+                        height=90,
+                        key="alamat_input_pubbm",
+                        help=(
+                            "Alamat otomatis muncul dan tetap dapat "
+                            "diedit. Jika terdapat kata 'Kecamatan', "
+                            "nama kecamatan akan terisi otomatis."
+                        ),
+                        on_change=update_kecamatan_dari_alamat_pubbm,
+                    )
+
                 st.checkbox(
                     "Input manual nama SPBU / perusahaan",
                     key="input_manual_spbu",
                     on_change=update_mode_manual_spbu,
                 )
-                if st.session_state.input_manual_spbu:
 
-                    st.text_input(
-                        "Nama Pemilik / SPBU / Perusahaan",
-                        key="nama_perusahaan",
-                    )
-                
-                    st.selectbox(
-                        "Jenis Lokasi",
-                        [
-                            "SPBU",
-                            "SPBUN",
-                            "BP AKR",
-                            "SHELL",
-                            "VIVO",
-                            "PERTASHOP",
-                        ],
+                if st.session_state.input_manual_spbu:
+                    if st.session_state.get(
+                        "jenis_lokasi_pubbm"
+                    ) not in TIPE_SPBU:
+                        st.session_state[
+                            "jenis_lokasi_pubbm"
+                        ] = TIPE_SPBU[0]
+
+                    tipe_spbu = st.selectbox(
+                        "Tipe SPBU",
+                        TIPE_SPBU,
                         key="jenis_lokasi_pubbm",
                     )
-                
-                    st.text_input(
-                        "Kecamatan",
-                        key="kecamatan_spbu_pubbm",
-                        placeholder="Contoh: Tigaraksa",
+
+                    contoh_identitas = (
+                        CONTOH_IDENTITAS_SPBU.get(
+                            tipe_spbu,
+                            CONTOH_IDENTITAS_SPBU["LAINNYA"],
+                        )
+                    )
+
+                    nomor_identitas = st.text_input(
+                        "Nomor Identitas",
+                        key="nomor_spbu_pubbm",
+                        placeholder=(
+                            f"Contoh: {contoh_identitas['contoh']}"
+                        ),
+                        help=contoh_identitas["catatan"],
+                    )
+
+                    st.caption(
+                        f"Contoh penulisan {tipe_spbu}: "
+                        f"{contoh_identitas['contoh']} "
+                        f"({contoh_identitas['catatan']})"
+                    )
+
+                    nomor_identitas_bersih = str(
+                        nomor_identitas or ""
+                    ).strip()
+
+                    if nomor_identitas_bersih:
+                        st.session_state[
+                            "nama_perusahaan"
+                        ] = (
+                            f"{tipe_spbu} "
+                            f"{nomor_identitas_bersih}"
+                        )
+                    else:
+                        st.session_state[
+                            "nama_perusahaan"
+                        ] = ""
+
+                    st.text_area(
+                        "Alamat",
+                        height=90,
+                        key="alamat_input_pubbm",
+                        help=(
+                            "Isi alamat lengkap. Jika terdapat kata "
+                            "'Kecamatan', nama kecamatan akan terisi "
+                            "otomatis."
+                        ),
+                        on_change=update_kecamatan_dari_alamat_pubbm,
                     )
 
             else:
@@ -6117,12 +6373,6 @@ def run():
                     ] = ""
             
             
-            st.text_input(
-                "Nomor SPBU",
-                key="nomor_spbu_pubbm",
-                placeholder="Contoh: 34-15717",
-                help="Nomor SPBU tetap dapat diedit.",
-            )
             pemilik = str(
                 st.session_state.get(
                     "nama_perusahaan",
@@ -6171,118 +6421,143 @@ def run():
                 )
                 or ""
             ).strip()
-    
-        # ======================== KOLOM 2 ========================
-        with col2:
-            st.subheader("Data Sertifikat")
 
-            # ==========================================
-            # NILAI AWAL DARI DATA TERSIMPAN
-            # ==========================================
-            if "jenis_pengujian_pubbm" not in st.session_state:
-                st.session_state.jenis_pengujian_pubbm = (
-                    st.session_state.saved_data.get(
-                        "jenis_pengujian",
-                        "Tera Ulang"
-                    )
+        # =====================================================
+        # NILAI AWAL DARI DATA TERSIMPAN
+        # =====================================================
+        if "jenis_pengujian_pubbm" not in st.session_state:
+            st.session_state.jenis_pengujian_pubbm = (
+                st.session_state.saved_data.get(
+                    "jenis_pengujian",
+                    "Tera Ulang"
                 )
-
-            if "tanggal_pengujian_pubbm" not in st.session_state:
-                tanggal_awal = st.session_state.saved_data.get(
-                    "tanggal_pengujian",
-                    date.today()
-                )
-
-                if isinstance(tanggal_awal, str):
-                    try:
-                        tanggal_awal = datetime.strptime(
-                            tanggal_awal,
-                            "%Y-%m-%d"
-                        ).date()
-                    except ValueError:
-                        tanggal_awal = date.today()
-
-                st.session_state.tanggal_pengujian_pubbm = (
-                    tanggal_awal
-                )
-
-            if "tanggal_cetak_pubbm" not in st.session_state:
-                tanggal_cetak_awal = st.session_state.saved_data.get(
-                    "tanggal_cetak",
-                    date.today()
-                )
-
-                if isinstance(tanggal_cetak_awal, str):
-                    try:
-                        tanggal_cetak_awal = datetime.strptime(
-                            tanggal_cetak_awal,
-                            "%Y-%m-%d"
-                        ).date()
-                    except ValueError:
-                        tanggal_cetak_awal = date.today()
-
-                st.session_state.tanggal_cetak_pubbm = (
-                    tanggal_cetak_awal
-                )
-
-            # ==========================================
-            # INPUT JENIS PENGUJIAN
-            # ==========================================
-            jenis_pengujian = st.selectbox(
-                "Jenis Pengujian",
-                ["Tera", "Tera Ulang"],
-                key="jenis_pengujian_pubbm"
             )
 
-            # ==========================================
-            # INPUT TANGGAL PENGUJIAN
-            # ==========================================
+        if "tanggal_pengujian_pubbm" not in st.session_state:
+            tanggal_awal = st.session_state.saved_data.get(
+                "tanggal_pengujian",
+                date.today()
+            )
+
+            if isinstance(tanggal_awal, str):
+                try:
+                    tanggal_awal = datetime.strptime(
+                        tanggal_awal,
+                        "%Y-%m-%d"
+                    ).date()
+                except ValueError:
+                    tanggal_awal = date.today()
+
+            st.session_state.tanggal_pengujian_pubbm = (
+                tanggal_awal
+            )
+
+        if "tanggal_cetak_pubbm" not in st.session_state:
+            tanggal_cetak_awal = st.session_state.saved_data.get(
+                "tanggal_cetak",
+                date.today()
+            )
+
+            if isinstance(tanggal_cetak_awal, str):
+                try:
+                    tanggal_cetak_awal = datetime.strptime(
+                        tanggal_cetak_awal,
+                        "%Y-%m-%d"
+                    ).date()
+                except ValueError:
+                    tanggal_cetak_awal = date.today()
+
+            st.session_state.tanggal_cetak_pubbm = (
+                tanggal_cetak_awal
+            )
+
+        # =====================================================
+        # NOMOR DOKUMEN
+        # =====================================================
+        st.markdown("---")
+        st.subheader("📊 Nomor Dokumen")
+
+        col_tgl1, col_tgl2 = st.columns(2)
+
+        with col_tgl1:
             tanggal_pengujian = st.date_input(
                 "Tanggal Pengujian",
                 key="tanggal_pengujian_pubbm",
                 on_change=update_nomor_dokumen_pubbm,
             )
 
-            # ==========================================
-            # INPUT TANGGAL TANDA TANGAN
-            # ==========================================
+        with col_tgl2:
             tanggal_tanda_tangan = st.date_input(
                 "Tanggal Tanda Tangan",
-                key="tanggal_cetak_pubbm"
+                key="tanggal_cetak_pubbm",
+                on_change=update_nomor_dokumen_pubbm,
             )
 
-            # ==========================================
-            # NOMOR SERTIFIKAT & ORDER
-            # ==========================================
-            default_sertifikat = generate_nomor_sertifikat(
-                tanggal_pengujian
-            )
-
-            default_order = generate_nomor_order(
-                tanggal_pengujian
-            )
-
-            if "nomor_sertifikat_pubbm" not in st.session_state:
-                st.session_state.nomor_sertifikat_pubbm = (
-                    st.session_state.get(
-                        "data_pubbm",
-                        {}
-                    ).get(
-                        "nomor_sertifikat"
+        if st.button(
+            "🔢 Generate Nomor Order & Sertifikat",
+            type="primary",
+            use_container_width=True,
+            key="pubbm_btn_generate_nomor",
+        ):
+            try:
+                st.session_state["nomor_order_pubbm"] = (
+                    ambil_nomor_order_berikutnya(
+                        tanggal_pengujian
                     )
-                    or default_sertifikat
                 )
-            
-            if "nomor_order_pubbm" not in st.session_state:
-                st.session_state.nomor_order_pubbm = (
-                    st.session_state.get(
-                        "data_pubbm",
-                        {}
-                    ).get(
-                        "nomor_order"
+            except Exception as exc_order:
+                st.error(
+                    f"❌ Gagal membuat nomor order: {exc_order}"
+                )
+
+            try:
+                st.session_state["nomor_sertifikat_pubbm"] = (
+                    ambil_nomor_sertifikat_berikutnya(
+                        tanggal_tanda_tangan
                     )
-                    or default_order
                 )
+            except Exception as exc_sert:
+                st.error(
+                    f"❌ Gagal membuat nomor sertifikat: {exc_sert}"
+                )
+
+        if "nomor_sertifikat_pubbm" not in st.session_state:
+            st.session_state.nomor_sertifikat_pubbm = (
+                st.session_state.get(
+                    "data_pubbm",
+                    {}
+                ).get(
+                    "nomor_sertifikat"
+                )
+                or generate_nomor_sertifikat(
+                    tanggal_tanda_tangan
+                )
+            )
+
+        if "nomor_order_pubbm" not in st.session_state:
+            st.session_state.nomor_order_pubbm = (
+                st.session_state.get(
+                    "data_pubbm",
+                    {}
+                ).get(
+                    "nomor_order"
+                )
+                or generate_nomor_order(
+                    tanggal_pengujian
+                )
+            )
+
+
+        col_nomor1, col_nomor2 = st.columns(2)
+
+        with col_nomor1:
+            nomor_order = st.text_input(
+                "Nomor Order",
+                key="nomor_order_pubbm",
+                placeholder="Format nomor order"
+            )
+
+        with col_nomor2:
             nomor_sertifikat = st.text_input(
                 "Nomor Sertifikat",
                 key="nomor_sertifikat_pubbm",
@@ -6291,34 +6566,41 @@ def run():
                 )
             )
 
-            nomor_order = st.text_input(
-                "Nomor Order",
-                key="nomor_order_pubbm",
-                placeholder="Format nomor order"
-            )
+        # =====================================================
+        # DATA PENGUJIAN
+        # =====================================================
+        st.markdown("---")
+        st.subheader("🗂️ Data Pengujian")
 
-            # ==========================================
-            # SIMPAN SEMENTARA
-            # ==========================================
-            st.session_state.saved_data[
-                "jenis_pengujian"
-            ] = jenis_pengujian
+        jenis_pengujian = st.selectbox(
+            "Jenis Pengujian",
+            ["Tera", "Tera Ulang"],
+            key="jenis_pengujian_pubbm"
+        )
 
-            st.session_state.saved_data[
-                "tanggal_pengujian"
-            ] = tanggal_pengujian
+        # =====================================================
+        # SIMPAN SEMENTARA
+        # =====================================================
+        st.session_state.saved_data[
+            "jenis_pengujian"
+        ] = jenis_pengujian
 
-            st.session_state.saved_data[
-                "tanggal_cetak"
-            ] = tanggal_tanda_tangan
+        st.session_state.saved_data[
+            "tanggal_pengujian"
+        ] = tanggal_pengujian
 
-            st.session_state.saved_data[
-                "nomor_sertifikat"
-            ] = nomor_sertifikat
+        st.session_state.saved_data[
+            "tanggal_cetak"
+        ] = tanggal_tanda_tangan
 
-            st.session_state.saved_data[
-                "nomor_order"
-            ] = nomor_order
+        st.session_state.saved_data[
+            "nomor_sertifikat"
+        ] = nomor_sertifikat
+
+        st.session_state.saved_data[
+            "nomor_order"
+        ] = nomor_order
+
     
         st.markdown("---")
     
@@ -7692,12 +7974,6 @@ def run():
                                 .copy()
                             )
                         
-                        
-                        generate_sertifikat_pubbm(
-                            data_sertifikat_pubbm,
-                            str(output_file),
-                        )
-                
                         # =================================================
                         # 4. SIMPAN KE SUPABASE
                         # =================================================
@@ -7732,6 +8008,15 @@ def run():
                             "sertifikat"
                         ] = str(
                             output_file
+                        )
+
+                        # =================================================
+                        # 6. CETAK PDF
+                        # Dilakukan SETELAH data berhasil disimpan
+                        # =================================================
+                        generate_sertifikat_pubbm(
+                            data_sertifikat_pubbm,
+                            str(output_file),
                         )
                 
                         if sedang_edit:
