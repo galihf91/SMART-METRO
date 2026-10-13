@@ -2,7 +2,6 @@ import streamlit as st
 from pathlib import Path
 import importlib
 import hmac
-from ai_service import tanya_deepseek
 
 
 # =========================================================
@@ -22,12 +21,8 @@ st.set_page_config(
 # =========================================================
 BASE_DIR = Path(__file__).resolve().parent
 ASSETS_DIR = BASE_DIR / "assets"
-LOGO_PATH = ASSETS_DIR / "logo.png"
+LOGO_PATH = ASSETS_DIR / "logo_smartmetro.png"
 
-# =========================================================
-# SECURITY
-# =========================================================
-SECURITY_ENABLED = False
 # =========================================================
 # AUTENTIKASI / LOGIN
 # =========================================================
@@ -66,9 +61,16 @@ def cek_login():
             [data-testid="collapsedControl"] {
                 display: none !important;
             }
+            [data-testid="stImage"] {
+                margin-bottom: -40px;
+            }
+
+            [data-testid="stMarkdownContainer"] h1 {
+                margin-top: 0 !important;
+            }
 
             .block-container {
-                max-width: 520px;
+                max-width: 640px;
                 padding-top: 6rem;
             }
         </style>
@@ -80,7 +82,7 @@ def cek_login():
     # LOGO
     # =====================================================
     col_logo1, col_logo2, col_logo3 = st.columns(
-        [1, 1.2, 1]
+        [1, 2, 1]
     )
 
     with col_logo2:
@@ -89,26 +91,6 @@ def cek_login():
                 str(LOGO_PATH),
                 use_container_width=True
             )
-
-    # =====================================================
-    # JUDUL LOGIN
-    # =====================================================
-    st.markdown(
-        """
-        <div style="
-            text-align:center;
-            margin-bottom:25px;
-        ">
-            <h1 style="
-                color:#312e81;
-                margin-bottom:5px;
-            ">
-                SMART METRO
-            </h1>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
 
     # =====================================================
     # INPUT LOGIN
@@ -176,7 +158,6 @@ def cek_login():
             )
 
     return False
-
 # =========================================================
 # SEMBUNYIKAN NAVIGASI OTOMATIS STREAMLIT
 # =========================================================
@@ -386,11 +367,11 @@ def render_home_css():
 def home():
     render_home_css()
 
-    col_logo, col_hero = st.columns([1, 6], vertical_alignment="center")
+    col_logo, col_hero = st.columns([3, 6], vertical_alignment="center")
 
     with col_logo:
         if LOGO_PATH.exists():
-            st.image(str(LOGO_PATH), width=145)
+            st.image(str(LOGO_PATH), width=250)
         else:
             st.markdown(
                 """
@@ -416,14 +397,10 @@ def home():
             """
             <div class="smart-hero">
                 <h1>SMART METRO</h1>
-                <h3>Smart Metrology Digital Service</h3>
+                <h3>Sistem Manajemen dan Aplikasi Tera Metrologi</h3>
                 <p>
-                    Digitalisasi Pelayanan Tera dan Tera Ulang
-                    Berbasis Dashboard dan Generative AI
-                    dalam Mewujudkan Pelayanan Kemetrologian
-                    Modern, Cepat, Akurat dan Berintegritas
-                    pada Dinas Perindustrian dan Perdagangan
-                    Kabupaten Tangerang
+                    Aplikasi terintegrasi untuk pengujian UTTP serta penyajian
+                    informasi pelayanan tera ulang di Kabupaten Tangerang.
                 </p>
             </div>
             """,
@@ -463,7 +440,6 @@ def home():
                     <li>UTTP Umum</li>
                     <li>Meter air</li>
                     <li>Tangki Ukur Mobil</li>
-                    <li>Pasar</li>
                 </ul>
                 <p>
                     <b>Output:</b> Cerapan dan/atau sertifikat PDF
@@ -498,7 +474,6 @@ def home():
                 <ul class="menu-list">
                     <li>Dashboard Pasar</li>
                     <li>Dashboard SPBU</li>
-                    <li>Dashboard UTTP</li>
                 </ul>
                 <p>
                     <b>Informasi:</b> Peta lokasi, data kecamatan,
@@ -517,37 +492,6 @@ def home():
         ):
             pindah_halaman("dashboard_tera_ulang")
 
-    # =====================================================
-    # ASISTEN AI - DEEPSEEK
-    # =====================================================
-    if st.secrets.get("FITUR_AI_AKTIF") == "ya":
-        st.markdown(
-            """
-            <div class="section-title" style="margin-top:30px;">
-                🤖 Tanya Asisten SMART METRO
-            </div>
-            <div class="section-subtitle">
-                Ajukan pertanyaan seputar pelayanan tera, UTTP,
-                atau informasi SMART METRO lainnya.
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-    
-        pertanyaan = st.text_input(
-            "Pertanyaan Anda:",
-            placeholder="Contoh: Apa saja jenis UTTP yang diuji?",
-            key="input_tanya_ai"
-        )
-    
-        if pertanyaan:
-            with st.spinner("Asisten sedang berpikir..."):
-                try:
-                    jawaban = tanya_deepseek(pertanyaan)
-                    st.success("Jawaban Asisten:")
-                    st.write(jawaban)
-                except Exception as e:
-                    st.error(f"Terjadi kesalahan: {e}")
     st.markdown(
         """
         <div class="status-strip">
@@ -630,14 +574,13 @@ def main():
     sembunyikan_navigasi_otomatis()
 
     # =====================================================
-    # SECURITY / LOGIN
+    # LOGIN WAJIB SEBELUM MASUK APLIKASI
     # =====================================================
-    if SECURITY_ENABLED:
-        if not cek_login():
-            return
+    if not cek_login():
+        return
 
     # =====================================================
-    # APLIKASI UTAMA
+    # USER SUDAH LOGIN
     # =====================================================
     init_session_state()
 
@@ -661,7 +604,6 @@ def main():
     else:
         st.session_state.halaman = "home"
         st.rerun()
-
 
 # =========================================================
 # MENJALANKAN APLIKASI
