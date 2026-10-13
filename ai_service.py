@@ -46,6 +46,14 @@ def init_client():
 # =========================================================
 # TOOLS
 # =========================================================
+SPBU = {
+    "tabel": "spbu",
+    "kolom_nomor": "nomor_spbu",
+    "kolom_nama": "nama",
+    "kolom_alamat": "alamat",
+    "kolom_kecamatan": "kecamatan",
+}
+
 SUMBER_HITUNG = {
     "perusahaan": {
         "tabel": "perusahaan",
@@ -58,11 +66,31 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "hitung_spbu",
+            "description": (
+                "Menghitung jumlah SPBU dari tabel spbu, bisa difilter "
+                "per kecamatan. WAJIB dipakai untuk SEMUA pertanyaan "
+                "jumlah SPBU. Jangan pakai hitung_aset untuk SPBU."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "kecamatan": {
+                        "type": "string",
+                        "description": "Kosongkan untuk seluruh kabupaten.",
+                    },
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "hitung_aset",
             "description": (
-                "Menghitung JUMLAH aset/pelaku usaha dari database, "
-                "mis. SPBU, perusahaan. WAJIB dipakai untuk semua "
-                "pertanyaan 'berapa jumlah ...'. Jangan menghitung sendiri."
+                "Menghitung JUMLAH perusahaan/pelaku usaha pada tabel "
+                "perusahaan. JANGAN dipakai untuk SPBU "
+                "(gunakan hitung_spbu)."
             ),
             "parameters": {
                 "type": "object",
@@ -70,7 +98,7 @@ TOOLS = [
                     "kata_kunci": {
                         "type": "string",
                         "description": (
-                            "Kata kunci nama, mis. 'spbu', 'pertamina'."
+                            "Kata kunci nama perusahaan, mis. 'pertamina'."
                         ),
                     },
                     "sumber": {
@@ -125,6 +153,7 @@ TOOLS = [
         },
     },
 ]
+
 
 
 # =========================================================
