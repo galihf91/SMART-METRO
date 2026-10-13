@@ -222,7 +222,6 @@ JARAK_LANJUTAN_LAMPIRAN = 0.8 * cm
 
 def _style_tabel_lampiran():
     return TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#D9EAF7")),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
         ("FONTSIZE", (0, 0), (-1, -1), 10),
