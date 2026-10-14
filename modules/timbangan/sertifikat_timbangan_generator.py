@@ -7,6 +7,8 @@ from pathlib import Path
 import textwrap
 import os
 from reportlab.lib.utils import ImageReader
+import re
+
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 ASSETS_DIR = BASE_DIR / "assets"
@@ -17,33 +19,52 @@ logo_path = ASSETS_DIR / "logo.png"
 def format_tanggal_indonesia(tanggal_str):
     if not tanggal_str:
         return ""
+
+    bulan = [
+        "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+        "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+    ]
+
+    # Objek datetime / date langsung
+    if (
+        hasattr(tanggal_str, "year")
+        and hasattr(tanggal_str, "month")
+        and hasattr(tanggal_str, "day")
+    ):
+        return (
+            f"{tanggal_str.day} "
+            f"{bulan[tanggal_str.month - 1]} "
+            f"{tanggal_str.year}"
+        )
+
+    teks = str(tanggal_str).strip()
+
+    # Format YYYY-MM-DD
+    try:
+        t = datetime.strptime(teks, "%Y-%m-%d")
+        return f"{t.day} {bulan[t.month - 1]} {t.year}"
+    except ValueError:
+        pass
+
+    # Format DD Month YYYY
     bulan_map = {
         "January": "Januari", "February": "Februari", "March": "Maret",
         "April": "April", "May": "Mei", "June": "Juni",
         "July": "Juli", "August": "Agustus", "September": "September",
-        "October": "Oktober", "November": "November", "December": "Desember"
+        "October": "Oktober", "November": "November", "December": "Desember",
     }
-    # Coba parse format YYYY-MM-DD
-    try:
-        t = datetime.strptime(tanggal_str, '%Y-%m-%d')
-        bulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni",
-                 "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
-        return f"{t.day} {bulan[t.month-1]} {t.year}"
-    except:
-        pass
-    # Coba format DD Month YYYY (misal: 30 June 2026)
-    try:
-        parts = tanggal_str.split()
-        if len(parts) == 3:
-            day = parts[0]
-            month_en = parts[1]
-            year = parts[2]
-            month_id = bulan_map.get(month_en, month_en)
-            return f"{day} {month_id} {year}"
-    except:
-        pass
-    # Jika gagal, kembalikan string asli
-    return tanggal_str
+
+    bagian = teks.split()
+
+    if len(bagian) == 3:
+        return (
+            f"{bagian[0]} "
+            f"{bulan_map.get(bagian[1], bagian[1])} "
+            f"{bagian[2]}"
+        )
+
+    return teks
+
         
 def ambil_nilai_angka(value, default=0.0):
     """
@@ -1042,7 +1063,9 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     else:
         y -= 0.9 * cm
 
-    # Penera
+    # =====================================================
+    # PENERA
+    # =====================================================
     c.setFont("Helvetica", 12)
     c.drawString(left_col_x, y, "Penera")
     bold_width_penera = c.stringWidth("Penera", "Helvetica", 12)
@@ -1051,9 +1074,100 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     c.drawString(left_col_x, y - line_spacing, "Calibration Technician")
     c.setFont("Helvetica", 12)
     c.drawString(colon_fixed_shifted, y, ":")
-    penera_text = f"{data.get('nama_penera', '')} / NIP. {data.get('nip_penera', '')}"
-    c.drawString(colon_fixed_shifted + 0.3*cm, y, penera_text)
-    y -= 1.0*cm
+
+    def nilai_penera(*kunci):
+        for kunci_item in kunci:
+            nilai = data.get(kunci_item)
+            if nilai:
+                return str(nilai).strip()
+        return ""
+
+    def pisah_nama_nip(teks):
+        """
+        Memisahkan 'Nama / NIP. 12345' menjadi (nama, nip).
+        Kalau tidak ada pola NIP, teks dikembalikan apa adanya.
+        """
+        teks = str(teks or "").strip()
+
+        if not teks:
+            return "", ""
+
+        pola = re.search(
+            r"(?:NIP\.?|NIP)\s*[:.]?\s*([0-9][0-9\s\.\-]*)",
+            teks,
+            re.IGNORECASE,
+        )
+
+        if not pola:
+            return teks, ""
+
+        nip = pola.group(1).strip(" .-")
+        nama = teks[: pola.start()].strip(" /,-")
+
+        return nama, nip
+
+    def teks_penera(nama, nip):
+        if not nama:
+            return ""
+        if nip:
+            return f"{nama} / NIP. {nip}"
+        return nama
+
+    # ---------------- PENERA 1 ----------------
+    mentah_penera_1 = nilai_penera(
+        "nama_penera",
+        "penera_1",
+        "nama_penera_1",
+    )
+
+    nama_penera_1, nip_dari_teks_1 = pisah_nama_nip(
+        mentah_penera_1
+    )
+
+    nip_penera_1 = nilai_penera(
+        "nip_penera",
+        "nip_penera_1",
+        "nip_1",
+    ) or nip_dari_teks_1
+
+    # ---------------- PENERA 2 ----------------
+    mentah_penera_2 = nilai_penera(
+        "nama_penera_2",
+        "penera_2",
+    )
+
+    nama_penera_2, nip_dari_teks_2 = pisah_nama_nip(
+        mentah_penera_2
+    )
+
+    nip_penera_2 = nilai_penera(
+        "nip_penera_2",
+        "nip_penera2",
+        "nip_2",
+    ) or nip_dari_teks_2
+
+    teks_penera_1 = teks_penera(nama_penera_1, nip_penera_1)
+    teks_penera_2 = teks_penera(nama_penera_2, nip_penera_2)
+
+
+    x_nilai_penera = colon_fixed_shifted + 0.3*cm
+
+    if teks_penera_1:
+        c.drawString(x_nilai_penera, y, teks_penera_1)
+
+    if teks_penera_2:
+        if teks_penera_1:
+            y_baris_kedua = y - 0.5*cm
+        else:
+            y_baris_kedua = y
+
+        c.drawString(x_nilai_penera, y_baris_kedua, teks_penera_2)
+
+    if teks_penera_2 and teks_penera_1:
+        y -= 1.5*cm
+    else:
+        y -= 1.0*cm
+
     
     # ============================================================
     # JENIS PENGUJIAN DAN TAHUN TANDA
@@ -1067,10 +1181,12 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     ).strip()
 
     tanggal_pengujian_raw = (
-        data.get("tanggal")
+        data.get("tanggal_pengujian")
+        or data.get("tanggal")
         or data.get("tanggal_penera")
         or ""
     )
+
 
     try:
         if isinstance(tanggal_pengujian_raw, str):
@@ -1856,18 +1972,33 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     y -= 1.8 * cm
 
     # ======================== TANDA TANGAN PENERA (HALAMAN 2) ========================
-    # Gunakan margin lama agar posisi tidak berubah
+    # Tanda tangan hanya untuk PENERA 1
+    golongan_penera_1 = nilai_penera(
+        "golongan_penera",
+        "golongan_penera_1",
+        "golongan_1",
+    )
+
     x_right_align = width - margin_old - 10*cm
+
     c.setFont("Helvetica", 12)
     c.drawString(x_right_align, y, "Pegawai Berhak,")
     y -= 2.0*cm
-    c.drawString(x_right_align, y, data.get('nama_penera', ''))
+
+    c.drawString(x_right_align, y, nama_penera_1 or "")
+
     y -= 0.45*cm
-    golongan = data.get('golongan_penera', '')
-    c.drawString(x_right_align, y, golongan if golongan else "Penata Muda Tk. I (III/b)")
+
+    if golongan_penera_1:
+        c.drawString(x_right_align, y, golongan_penera_1)
+
     y -= 0.45*cm
-    c.drawString(x_right_align, y, f"NIP. {data.get('nip_penera', '')}")
+
+    if nip_penera_1:
+        c.drawString(x_right_align, y, f"NIP. {nip_penera_1}")
+
     y -= 0.8*cm
+
 
     # ======================== FOOTER HALAMAN 2 ========================
     c.setLineWidth(0.5)
