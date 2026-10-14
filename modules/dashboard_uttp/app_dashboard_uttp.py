@@ -52,7 +52,8 @@ MAPPING_JENIS_LAPORAN = {
     # MASSA TIMBANGAN
     "Timbangan Jembatan": ("MT", "TJE"),
     "Timbangan Elektronik": ("MT", "TE"),
-    "Timbangan Meja": ("MT", "TE"),
+    "Timbangan Elektronik Batching Plant": ("MT", "BP"),
+    "Timbangan Meja": ("MT", "TM"),
     "Timbangan Sentisimal": ("MT", "SENTISIMAL"),
     "Timbangan Bobot Insut": ("MT", "TBI"),
     "Timbangan Pegas": ("MT", "PEGAS"),
