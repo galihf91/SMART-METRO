@@ -520,6 +520,13 @@ def build_data_pengujian_timbangan(data):
     nama_alat = str(
         data.get("nama_alat", "")
     ).strip()
+    nama_alat = str(
+        data.get("nama_alat", "")
+    ).strip()
+
+    sub_jenis_elektronik = str(
+        data.get("sub_jenis_elektronik", "") or ""
+    ).strip()
 
     # =====================================================
     # HASIL PENGUJIAN KEBENARAN
@@ -599,7 +606,7 @@ def build_data_pengujian_timbangan(data):
     # =====================================================
     detail_pengujian = {
         "nama_alat": nama_alat,
-
+        "sub_jenis_elektronik": sub_jenis_elektronik,
         "model": str(
             data.get(
                 "model",
@@ -874,7 +881,10 @@ def simpan_pengujian_timbangan_ke_supabase(data):
     uttp_id = get_or_create_uttp_timbangan(
         supabase=supabase,
         perusahaan_id=perusahaan_id,
-        nama_alat=nama_alat,
+        nama_alat=nama_alat_untuk_database(
+            nama_alat,
+            data.get("sub_jenis_elektronik", ""),
+        ),
         merek=data.get(
             "merek",
             ""
@@ -1194,16 +1204,22 @@ def gunakan_data_lama_untuk_pengujian_baru_timbangan(
         or ""
     ).strip()
 
+    nama_alat_riwayat, sub_jenis_riwayat = nama_alat_dasar(
+        alat.get("jenis_uttp")
+        or detail.get("nama_alat")
+        or ""
+    )
+
+    st.session_state["tb_sub_jenis_elektronik"] = sub_jenis_riwayat
+
     st.session_state.tb_saved_data = {
 
         "pemilik": nama_perusahaan,
         "alamat": alamat,
 
-        "nama_alat": (
-            alat.get("jenis_uttp")
-            or detail.get("nama_alat")
-            or ""
-        ),
+        "nama_alat": nama_alat_riwayat,
+        "sub_jenis_elektronik": sub_jenis_riwayat,
+
 
         "merek": (
             alat.get("merk")
@@ -2034,16 +2050,22 @@ def gunakan_data_lama_untuk_edit_timbangan(
     # =====================================================
     # SAVED DATA
     # =====================================================
+    nama_alat_riwayat, sub_jenis_riwayat = nama_alat_dasar(
+        alat.get("jenis_uttp")
+        or detail.get("nama_alat")
+        or ""
+    )
+
+    st.session_state["tb_sub_jenis_elektronik"] = sub_jenis_riwayat
+
     st.session_state.tb_saved_data = {
 
         "pemilik": nama_perusahaan,
         "alamat": alamat,
 
-        "nama_alat": (
-            alat.get("jenis_uttp")
-            or detail.get("nama_alat")
-            or ""
-        ),
+        "nama_alat": nama_alat_riwayat,
+        "sub_jenis_elektronik": sub_jenis_riwayat,
+
 
         "merek": (
             alat.get("merk")
@@ -2125,9 +2147,11 @@ def gunakan_data_lama_untuk_edit_timbangan(
         ),
 
         "nama_penera": nama_penera,
-        "nip_penera": nip_penera,
-        "golongan_penera": golongan_penera,
+        "nip_penera": nip_penera or ambil_nip_penera(nama_penera),
+        "golongan_penera": golongan_penera or ambil_golongan_penera(nama_penera),
         "nama_penera_2": nama_penera_2,
+        "nip_penera_2": ambil_nip_penera(nama_penera_2),
+
         "jumlah_titik_uji": detail.get(
             "jumlah_titik_uji"
         ),
@@ -2216,15 +2240,17 @@ def gunakan_data_lama_untuk_edit_timbangan(
     if satuan not in ["kg", "g"]:
         satuan = "kg"
 
-    nama_alat = str(
+    nama_alat_riwayat, sub_jenis_riwayat = nama_alat_dasar(
         alat.get("jenis_uttp")
         or detail.get("nama_alat")
         or "Timbangan Elektronik"
-    ).strip()
+    )
 
-    st.session_state[
-        "tb_nama_alat"
-    ] = nama_alat
+    nama_alat = nama_alat_riwayat
+
+    st.session_state["tb_nama_alat"] = nama_alat_riwayat
+    st.session_state["tb_sub_jenis_elektronik"] = sub_jenis_riwayat
+
     st.session_state[
         "tb_merek"
     ] = str(
@@ -2657,6 +2683,36 @@ def bersihkan_nama_file(value):
     text = re.sub(r"\s+", " ", text)
 
     return text
+
+def nama_alat_untuk_database(nama_alat, sub_jenis=""):
+    """
+    Mengubah nama alat dasar menjadi nilai yang disimpan ke database.
+    Timbangan Elektronik + Batching Plant
+    -> Timbangan Elektronik Batching Plant
+    """
+    nama = str(nama_alat or "").strip()
+    sub = str(sub_jenis or "").strip()
+
+    if (
+        nama.lower() == "timbangan elektronik"
+        and sub == "Batching Plant"
+    ):
+        return "Timbangan Elektronik Batching Plant"
+
+    return nama
+
+
+def nama_alat_dasar(nama_alat_tersimpan):
+    """
+    Kebalikannya: mengubah nilai database menjadi
+    (nama alat dasar, sub jenis).
+    """
+    nama = str(nama_alat_tersimpan or "").strip()
+
+    if nama.lower() == "timbangan elektronik batching plant":
+        return "Timbangan Elektronik", "Batching Plant"
+
+    return nama, "Biasa"
 
 
 def format_nama_file_dokumen(data, jenis_dokumen):
@@ -5124,6 +5180,140 @@ def reset_form_timbangan():
     for key in list(st.session_state.keys()):
         if key.startswith("tb_"):
             del st.session_state[key]
+            
+def ambil_data_penera(nama_penera, kolom_target, supabase=None):
+    """
+    Mengambil satu kolom master penera (mis. 'nip' atau 'golongan')
+    berdasarkan nama.
+
+    Urutan sumber:
+    1. DataFrame master di session: st.session_state["tb_data_penera"]
+       (kolom "Nama", "NIP", "Golongan", ...)
+    2. Tabel `penera` di Supabase (kolom: nama, nip, golongan)
+    """
+    nama = str(nama_penera or "").strip()
+
+    if not nama:
+        return ""
+
+    def cari_kolom(kolom, kandidat):
+        for kandidat_item in kandidat:
+            for nama_kolom in kolom:
+                if str(nama_kolom).strip().lower() == kandidat_item:
+                    return nama_kolom
+
+        for kandidat_item in kandidat:
+            for nama_kolom in kolom:
+                if kandidat_item in str(nama_kolom).strip().lower():
+                    return nama_kolom
+
+        return None
+
+    # ---------- 1. Dari master di session ----------
+    df = st.session_state.get("tb_data_penera")
+
+    if df is not None and not getattr(df, "empty", True):
+        kolom_df = list(df.columns)
+
+        kolom_nama = cari_kolom(
+            kolom_df,
+            ["nama", "nama penera", "nama_penera"],
+        )
+        kolom_nilai = cari_kolom(kolom_df, [kolom_target])
+
+        if kolom_nama and kolom_nilai:
+            seri_nama = (
+                df[kolom_nama]
+                .fillna("")
+                .astype(str)
+                .str.strip()
+            )
+
+            cocok = df[seri_nama.str.lower() == nama.lower()]
+
+            if cocok.empty:
+                cocok = df[
+                    seri_nama.str.lower().str.startswith(nama.lower())
+                ]
+
+            if not cocok.empty:
+                return str(cocok.iloc[0][kolom_nilai] or "").strip()
+
+    # ---------- 2. Cadangan: tabel penera di Supabase ----------
+    if supabase is None:
+        supabase = create_client(
+            st.secrets["SUPABASE_URL"],
+            st.secrets["SUPABASE_KEY"],
+        )
+
+    response = (
+        supabase
+        .table("penera")
+        .select(kolom_target)
+        .ilike("nama", nama)
+        .limit(1)
+        .execute()
+    )
+
+    if not response.data:
+        response = (
+            supabase
+            .table("penera")
+            .select(kolom_target)
+            .ilike("nama", f"{nama}%")
+            .limit(1)
+            .execute()
+        )
+
+    if not response.data:
+        return ""
+
+    return str(response.data[0].get(kolom_target) or "").strip()
+
+
+def ambil_nip_penera(nama_penera, supabase=None):
+    return ambil_data_penera(nama_penera, "nip", supabase)
+
+
+def ambil_golongan_penera(nama_penera, supabase=None):
+    return ambil_data_penera(nama_penera, "golongan", supabase)
+
+def lengkapi_data_penera(data_sertifikat):
+    """
+    Melengkapi NIP dan golongan penera pada dict yang akan dicetak.
+    Dipanggil tepat sebelum generate_sertifikat_pdf().
+    Nama yang diketik manual / dari input selalu menang;
+    kalau kosong, diambil dari master penera.
+    """
+    if data_sertifikat is None:
+        return data_sertifikat
+
+    nama_1 = str(
+        data_sertifikat.get("nama_penera", "") or ""
+    ).strip()
+
+    nama_2 = str(
+        data_sertifikat.get("nama_penera_2", "") or ""
+    ).strip()
+
+    if not str(
+        data_sertifikat.get("nip_penera", "") or ""
+    ).strip():
+        data_sertifikat["nip_penera"] = ambil_nip_penera(nama_1)
+
+    if not str(
+        data_sertifikat.get("golongan_penera", "") or ""
+    ).strip():
+        data_sertifikat["golongan_penera"] = ambil_golongan_penera(
+            nama_1
+        )
+
+    if not str(
+        data_sertifikat.get("nip_penera_2", "") or ""
+    ).strip():
+        data_sertifikat["nip_penera_2"] = ambil_nip_penera(nama_2)
+
+    return data_sertifikat
 
 
 def run():
@@ -5692,6 +5882,15 @@ def run():
                 key="tb_nama_alat",
                 on_change=update_class
             )
+            if nama_alat == "Timbangan Elektronik":
+                sub_jenis_elektronik = st.radio(
+                    "Jenis Timbangan Elektronik",
+                    ["Biasa", "Batching Plant"],
+                    key="tb_sub_jenis_elektronik",
+                    horizontal=True,
+                )
+            else:
+                sub_jenis_elektronik = "Biasa"
 
             is_neraca = is_neraca_name(
                 nama_alat
@@ -9231,6 +9430,7 @@ def run():
                 'pemilik': pemilik_final,
                 'alamat': alamat_final,
                 'nama_alat': nama_alat,
+                'sub_jenis_elektronik': sub_jenis_elektronik,
                 'is_neraca': is_neraca,
                 'is_timbangan_meja': is_timbangan_meja,
                 'merek': merek,
@@ -9579,6 +9779,9 @@ def run():
                         # 2) BARU BUAT PDF
                         # =====================================
                         if berhasil_simpan:
+                            lengkapi_data_penera(
+                                st.session_state.tb_saved_data
+                            )
                             generate_sertifikat_pdf(
                                 st.session_state.tb_saved_data,
                                 str(filename),
@@ -9948,6 +10151,7 @@ def run():
             # =====================================================
             jenis_timbangan = {
                 "Timbangan Elektronik",
+                "Timbangan Elektronik Batching Plant",
                 "Timbangan Pegas",
                 "Timbangan Bobot Ingsut",
                 "Timbangan Sentisimal",
