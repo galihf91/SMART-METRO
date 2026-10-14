@@ -6,6 +6,10 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+from nomor_order_bersama import (
+    ambil_nama_perusahaan_form,
+    pilih_nomor_order,
+)
 from supabase import create_client
 from modules.timbangan.cerapan_timbangan_generator import (
     generate_cerapan_pdf
@@ -2684,100 +2688,6 @@ def bersihkan_nama_file(value):
 
     return text
 
-# =====================================================================
-# NOMOR ORDER: PAKAI ULANG JIKA PERUSAHAAN + TANGGAL PENGUJIAN SAMA
-# =====================================================================
-
-def _nomor_order_siap_pakai(nomor):
-    """True kalau nomor order sudah terisi dan bukan template 0000."""
-    if not nomor:
-        return False
-
-    teks = str(nomor).strip()
-    if not teks:
-        return False
-
-    # ambil angka paling depan, contoh "0012" dari "0012/SCD/X/2026"
-    depan = teks.split("/")[0].strip()
-    if not depan.isdigit():
-        return False
-
-    return int(depan) > 0
-
-
-def _ke_iso_tanggal(nilai_tanggal):
-    """Ubah date / datetime / string menjadi format YYYY-MM-DD."""
-    if nilai_tanggal is None:
-        return None
-
-    if hasattr(nilai_tanggal, "strftime"):
-        return nilai_tanggal.strftime("%Y-%m-%d")
-
-    teks = str(nilai_tanggal).strip()
-    for pola in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%Y/%m/%d"):
-        try:
-            return datetime.strptime(teks, pola).strftime("%Y-%m-%d")
-        except ValueError:
-            continue
-
-    return teks
-
-
-def cari_nomor_order_sebelumnya(nama_perusahaan, tanggal_pengujian):
-    """
-    Cari nomor order yang sudah pernah dipakai untuk perusahaan dan
-    tanggal pengujian yang sama.
-
-    Ketemu  : kembalikan nomor order itu (dipakai ulang)
-    Tidak ada: kembalikan None (nanti digenerate nomor baru)
-    """
-    try:
-        nama = (nama_perusahaan or "").strip()
-        tanggal_iso = _ke_iso_tanggal(tanggal_pengujian)
-
-        if not nama or not tanggal_iso:
-            return None
-
-        supabase = create_client(
-            st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"]
-        )
-
-        # 1. cari id perusahaan berdasarkan nama
-        res_perusahaan = (
-            supabase.table("perusahaan")
-            .select("id")
-            .eq("nama_perusahaan", nama)
-            .limit(1)
-            .execute()
-        )
-
-        if not res_perusahaan.data:
-            return None
-
-        perusahaan_id = res_perusahaan.data[0]["id"]
-
-        # 2. cari pengujian dengan tanggal pengujian sama,
-        #    urut dari yang paling awal dibuat supaya hasilnya stabil
-        res_pengujian = (
-            supabase.table("pengujian")
-            .select("nomor_order")
-            .eq("perusahaan_id", perusahaan_id)
-            .eq("tanggal_pengujian", tanggal_iso)
-            .order("id", desc=False)
-            .limit(20)
-            .execute()
-        )
-
-        for baris in (res_pengujian.data or []):
-            nomor = baris.get("nomor_order")
-            if _nomor_order_siap_pakai(nomor):
-                return str(nomor).strip()
-
-    except Exception as e:
-        st.warning(f"Gagal mengecek nomor order sebelumnya: {e}")
-
-    return None
-
 
 def nama_alat_untuk_database(nama_alat, sub_jenis=""):
     """
@@ -5410,119 +5320,6 @@ def lengkapi_data_penera(data_sertifikat):
 
     return data_sertifikat
 
-# =====================================================================
-# NOMOR ORDER: PAKAI ULANG JIKA PERUSAHAAN + TANGGAL PENGUJIAN SAMA
-# =====================================================================
-
-def _nomor_order_siap_pakai(nomor):
-    """True kalau nomor order sudah terisi dan bukan template 0000."""
-    if not nomor:
-        return False
-
-    teks = str(nomor).strip()
-    if not teks:
-        return False
-
-    # ambil angka paling depan, contoh "0012" dari "0012/SCD/X/2026"
-    depan = teks.split("/")[0].strip()
-    if not depan.isdigit():
-        return False
-
-    return int(depan) > 0
-
-
-def _ke_iso_tanggal(nilai_tanggal):
-    """Ubah date / datetime / string menjadi format YYYY-MM-DD."""
-    if nilai_tanggal is None:
-        return None
-
-    if hasattr(nilai_tanggal, "strftime"):
-        return nilai_tanggal.strftime("%Y-%m-%d")
-
-    teks = str(nilai_tanggal).strip()
-    for pola in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%Y/%m/%d"):
-        try:
-            return datetime.strptime(teks, pola).strftime("%Y-%m-%d")
-        except ValueError:
-            continue
-
-    return teks
-
-
-def _ambil_nama_perusahaan_form_timbangan():
-    """
-    Ambil nama perusahaan yang sedang aktif di form Timbangan
-    dari session_state (dibaca dari kunci widget, bukan variabel lokal).
-    """
-    for kunci in (
-        "tb_pemilik",
-        "tb_nama_perusahaan",
-        "tb_nama_pemilik",
-        "tb_pemilik_final",
-    ):
-        nilai = st.session_state.get(kunci)
-        if nilai and str(nilai).strip():
-            return str(nilai).strip()
-
-    return ""
-
-
-def cari_nomor_order_sebelumnya(nama_perusahaan, tanggal_pengujian):
-    """
-    Cari nomor order yang sudah pernah dipakai untuk perusahaan dan
-    tanggal pengujian yang sama.
-
-    Ketemu  : kembalikan nomor order itu (dipakai ulang)
-    Tidak ada: kembalikan None (nanti digenerate nomor baru)
-    """
-    try:
-        nama = (nama_perusahaan or "").strip()
-        tanggal_iso = _ke_iso_tanggal(tanggal_pengujian)
-
-        if not nama or not tanggal_iso:
-            return None
-
-        supabase = create_client(
-            st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"]
-        )
-
-        # 1. cari id perusahaan berdasarkan nama
-        res_perusahaan = (
-            supabase.table("perusahaan")
-            .select("id")
-            .eq("nama_perusahaan", nama)
-            .limit(1)
-            .execute()
-        )
-
-        if not res_perusahaan.data:
-            return None
-
-        perusahaan_id = res_perusahaan.data[0]["id"]
-
-        # 2. cari pengujian dengan tanggal pengujian sama,
-        #    urut dari yang paling awal dibuat supaya hasilnya stabil
-        res_pengujian = (
-            supabase.table("pengujian")
-            .select("nomor_order")
-            .eq("perusahaan_id", perusahaan_id)
-            .eq("tanggal_pengujian", tanggal_iso)
-            .order("id", desc=False)
-            .limit(20)
-            .execute()
-        )
-
-        for baris in (res_pengujian.data or []):
-            nomor = baris.get("nomor_order")
-            if _nomor_order_siap_pakai(nomor):
-                return str(nomor).strip()
-
-    except Exception as e:
-        st.warning(f"Gagal mengecek nomor order sebelumnya: {e}")
-
-    return None
-
-
 def run():
     init_timbangan_state()
 
@@ -6024,26 +5821,27 @@ def run():
             key="tb_btn_generate_nomor_dokumen",
         ):
             # ---- NOMOR ORDER: pakai ulang kalau perusahaan + tanggal sama ----
-            nama_perusahaan_form = _ambil_nama_perusahaan_form_timbangan()
-
-            nomor_order_dipakai_ulang = cari_nomor_order_sebelumnya(
-                nama_perusahaan_form,
-                tanggal,
+            supabase_nomor = create_client(
+                st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"]
             )
 
-            if nomor_order_dipakai_ulang:
-                st.session_state["tb_nomor_order"] = nomor_order_dipakai_ulang
+            nama_perusahaan_form = ambil_nama_perusahaan_form(
+                ["tb_pemilik", "tb_nama_perusahaan", "tb_nama_pemilik"]
+            )
+
+            nomor_order_baru, dipakai_ulang = pilih_nomor_order(
+                nama_perusahaan_form,
+                tanggal,
+                supabase_nomor,
+                ambil_nomor_order_berikutnya,
+            )
+            st.session_state["tb_nomor_order"] = nomor_order_baru
+
+            if dipakai_ulang:
                 st.info(
-                    f"♻️ Nomor order {nomor_order_dipakai_ulang} dipakai ulang "
+                    f"♻️ Nomor order {nomor_order_baru} dipakai ulang "
                     "(nama perusahaan dan tanggal pengujian sama)."
                 )
-            else:
-                try:
-                    st.session_state["tb_nomor_order"] = (
-                        ambil_nomor_order_berikutnya(tanggal)
-                    )
-                except Exception as exc_order:
-                    st.error(f"❌ Gagal membuat nomor order: {exc_order}")
 
             # ---- NOMOR SERTIFIKAT: tetap seperti semula ----
             try:
@@ -6052,7 +5850,6 @@ def run():
                 )
             except Exception as exc_sert:
                 st.error(f"❌ Gagal membuat nomor sertifikat: {exc_sert}")
-
 
         col_no1, col_no2 = st.columns(2)
 
