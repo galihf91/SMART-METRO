@@ -600,7 +600,7 @@ def draw_bullet_notes(
             continue
 
         if not line.startswith("•"):
-            c.setFont("Helvetica-Bold", font_size)
+            c.setFont("Helvetica", font_size)
             c.drawString(x, y, line)
             y -= leading
             continue
