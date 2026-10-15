@@ -945,7 +945,7 @@ def draw_halaman_1(c, width, height, data, total_pages):
     c.setFont("Helvetica", 12)
     c.drawString(colon_x, y, ":")
 
-    c.setFont("Helvetica-Bold", 12)
+    c.setFont("Helvetica", 12)
     c.drawString(value_x, y, hasil)
 
     c.setFont("Helvetica", 12)
