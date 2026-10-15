@@ -3026,6 +3026,177 @@ def nomor_sertifikat_sudah_dipakai(nomor, kecuali_id=None, supabase=None):
 
     return False
 
+# =====================================================================
+# NOMOR ORDER PUBBM: PAKAI ULANG JIKA PERUSAHAAN/SPBU + TANGGAL SAMA
+# =====================================================================
+
+def _pubbm_nomor_order_siap_pakai(nomor):
+    """True kalau nomor order sudah terisi dan bukan template 0000."""
+    if not nomor:
+        return False
+
+    teks = str(nomor).strip()
+    if not teks:
+        return False
+
+    depan = teks.split("/")[0].strip()
+    if not depan.isdigit():
+        return False
+
+    return int(depan) > 0
+
+
+def _pubbm_ke_iso_tanggal(nilai_tanggal):
+    """Ubah date / datetime / string menjadi format YYYY-MM-DD."""
+    from datetime import datetime
+
+    if nilai_tanggal is None:
+        return None
+
+    if hasattr(nilai_tanggal, "strftime"):
+        return nilai_tanggal.strftime("%Y-%m-%d")
+
+    teks = str(nilai_tanggal).strip()
+    for pola in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(teks, pola).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+
+    return teks
+
+
+def _pubbm_nama_normal(nama):
+    """Rapikan nama untuk perbandingan: huruf besar, spasi ganda dibuang."""
+    return " ".join(str(nama or "").upper().split())
+
+
+def _ambil_nama_perusahaan_form_pubbm():
+    """
+    Ambil identitas perusahaan / SPBU dari session_state form PUBBM.
+
+    Blok Identitas SPBU menyimpan hasil gabungan
+    "Tipe SPBU" + "Nomor Identitas" ke st.session_state["nama_perusahaan"].
+    """
+    daftar_kunci = (
+        "nama_perusahaan",
+        "perusahaan_pubbm",
+        "nama_perusahaan_pubbm",
+        "pemilik_pubbm",
+    )
+
+    for kunci in daftar_kunci:
+        nilai = st.session_state.get(kunci)
+        if nilai and str(nilai).strip():
+            return str(nilai).strip()
+
+    return ""
+
+def _pubbm_cari_spbu_id(supabase, nama_spbu="", nomor_spbu=""):
+    """
+    Cari id master SPBU.
+    Urutan: nama_spbu persis, nomor_spbu persis, lalu nama_spbu mirip
+    (dibandingkan setelah dinormalisasi).
+    """
+    nama_spbu = str(nama_spbu or "").strip()
+    nomor_spbu = str(nomor_spbu or "").strip()
+
+    if nama_spbu:
+        res_nama = (
+            supabase.table("spbu")
+            .select("id, nama_spbu")
+            .eq("nama_spbu", nama_spbu)
+            .limit(5)
+            .execute()
+        )
+        if res_nama.data:
+            return res_nama.data[0]["id"]
+
+    if nomor_spbu:
+        res_nomor = (
+            supabase.table("spbu")
+            .select("id, nomor_spbu")
+            .eq("nomor_spbu", nomor_spbu)
+            .limit(5)
+            .execute()
+        )
+        if res_nomor.data:
+            return res_nomor.data[0]["id"]
+
+    if nama_spbu:
+        target = _pubbm_nama_normal(nama_spbu)
+        res_mirip = (
+            supabase.table("spbu")
+            .select("id, nama_spbu")
+            .ilike("nama_spbu", f"%{nama_spbu}%")
+            .limit(50)
+            .execute()
+        )
+        for baris in (res_mirip.data or []):
+            if _pubbm_nama_normal(baris.get("nama_spbu")) == target:
+                return baris["id"]
+
+    return None
+
+def cari_nomor_order_sebelumnya_pubbm(
+    tanggal_pengujian,
+    nama_spbu="",
+    nomor_spbu="",
+    spbu_id=None,
+):
+    """
+    Cari nomor order PUBBM yang sudah ada untuk SPBU + tanggal pengujian sama.
+
+    Kunci pencocokan: pengujian.spbu_id (selalu terisi untuk PUBBM),
+    dengan cadangan mencari master SPBU lewat nomor / nama.
+
+    Ketemu  : kembalikan nomor order (dipakai ulang)
+    Tidak ada: kembalikan None
+    """
+    from supabase import create_client
+
+    try:
+        tanggal_iso = _pubbm_ke_iso_tanggal(tanggal_pengujian)
+        if not tanggal_iso:
+            return None
+
+        supabase = create_client(
+            st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"]
+        )
+
+        # 1. tentukan spbu_id
+        if not spbu_id:
+            spbu_id = st.session_state.get("spbu_id_pubbm")
+
+        if not spbu_id:
+            spbu_id = _pubbm_cari_spbu_id(
+                supabase, nama_spbu, nomor_spbu
+            )
+
+        if not spbu_id:
+            return None
+
+        # 2. semua pengujian SPBU ini pada tanggal tersebut
+        res_pengujian = (
+            supabase.table("pengujian")
+            .select("id, nomor_order, spbu_id")
+            .eq("spbu_id", spbu_id)
+            .eq("tanggal_pengujian", tanggal_iso)
+            .order("id", desc=False)
+            .limit(100)
+            .execute()
+        )
+
+        for baris in (res_pengujian.data or []):
+            nomor = baris.get("nomor_order")
+            if _pubbm_nomor_order_siap_pakai(nomor):
+                return str(nomor).strip()
+
+    except Exception as e:
+        st.warning(f"Gagal mengecek nomor order sebelumnya: {e}")
+
+    return None
+
 def run():
     col_nav1, col_nav2 = st.columns(2)
 
@@ -6499,17 +6670,47 @@ def run():
             use_container_width=True,
             key="pubbm_btn_generate_nomor",
         ):
-            try:
-                st.session_state["nomor_order_pubbm"] = (
-                    ambil_nomor_order_berikutnya(
-                        tanggal_pengujian
-                    )
-                )
-            except Exception as exc_order:
-                st.error(
-                    f"❌ Gagal membuat nomor order: {exc_order}"
+            # ---- NOMOR ORDER: pakai ulang kalau perusahaan/SPBU + tanggal sama ----
+            perusahaan_untuk_nomor = _ambil_nama_perusahaan_form_pubbm()
+
+            if not perusahaan_untuk_nomor:
+                st.warning(
+                    "Nama perusahaan/SPBU belum terbaca dari form, jadi nomor "
+                    "order tidak bisa dipakai ulang. Cek key kolom identitas SPBU."
                 )
 
+            nomor_spbu_form = str(
+                st.session_state.get("nomor_spbu_pubbm", "") or ""
+            ).strip()
+
+            nomor_order_dipakai_ulang = cari_nomor_order_sebelumnya_pubbm(
+                tanggal_pengujian,
+                nama_spbu=perusahaan_untuk_nomor,
+                nomor_spbu=nomor_spbu_form,
+            )
+
+
+            if nomor_order_dipakai_ulang:
+                st.session_state["nomor_order_pubbm"] = (
+                    nomor_order_dipakai_ulang
+                )
+                st.info(
+                    f"♻️ Nomor order {nomor_order_dipakai_ulang} dipakai ulang "
+                    "(perusahaan/SPBU dan tanggal pengujian sama)."
+                )
+            else:
+                try:
+                    st.session_state["nomor_order_pubbm"] = (
+                        ambil_nomor_order_berikutnya(
+                            tanggal_pengujian
+                        )
+                    )
+                except Exception as exc_order:
+                    st.error(
+                        f"❌ Gagal membuat nomor order: {exc_order}"
+                    )
+
+            # ---- NOMOR SERTIFIKAT: tetap seperti semula ----
             try:
                 st.session_state["nomor_sertifikat_pubbm"] = (
                     ambil_nomor_sertifikat_berikutnya(
@@ -6520,6 +6721,7 @@ def run():
                 st.error(
                     f"❌ Gagal membuat nomor sertifikat: {exc_sert}"
                 )
+
 
         if "nomor_sertifikat_pubbm" not in st.session_state:
             st.session_state.nomor_sertifikat_pubbm = (
