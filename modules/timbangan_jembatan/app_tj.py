@@ -1787,6 +1787,143 @@ def gunakan_data_lama_untuk_pengujian_baru(
     st.session_state[
         "next_mode_tj"
     ] = "📝 Input Data Pengujian"
+    
+# =====================================================================
+# NOMOR ORDER JEMBATAN: PAKAI ULANG JIKA PERUSAHAAN + TANGGAL SAMA
+# =====================================================================
+
+def _tj_nomor_order_siap_pakai(nomor):
+    """True kalau nomor order sudah terisi dan bukan template 0000."""
+    if not nomor:
+        return False
+
+    teks = str(nomor).strip()
+    if not teks:
+        return False
+
+    depan = teks.split("/")[0].strip()
+    if not depan.isdigit():
+        return False
+
+    return int(depan) > 0
+
+
+def _tj_ke_iso_tanggal(nilai_tanggal):
+    """Ubah date / datetime / string menjadi format YYYY-MM-DD."""
+    from datetime import datetime
+
+    if nilai_tanggal is None:
+        return None
+
+    if hasattr(nilai_tanggal, "strftime"):
+        return nilai_tanggal.strftime("%Y-%m-%d")
+
+    teks = str(nilai_tanggal).strip()
+    for pola in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(teks, pola).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+
+    return teks
+
+
+def _ambil_nama_perusahaan_form_tj():
+    """Ambil nama perusahaan dari session_state form Jembatan."""
+    for kunci in (
+        "pemilik_tj",
+        "nama_perusahaan_tj",
+        "nama_pemilik_tj",
+        "tj_pemilik",
+        "tj_nama_perusahaan",
+    ):
+        nilai = st.session_state.get(kunci)
+        if nilai and str(nilai).strip():
+            return str(nilai).strip()
+
+    return ""
+
+def cari_nomor_order_sebelumnya_tj(nama_perusahaan, tanggal_pengujian):
+    """
+    Cari nomor order yang sudah ada untuk perusahaan + tanggal pengujian sama.
+    Membaca tabel `pengujian`, jadi berlaku lintas modul
+    (Timbangan biasa, Jembatan, PUBBM, UTTP Umum).
+
+    Ketemu  : kembalikan nomor order (dipakai ulang)
+    Tidak ada: kembalikan None
+    """
+    from supabase import create_client
+
+    try:
+        nama = (nama_perusahaan or "").strip()
+        tanggal_iso = _tj_ke_iso_tanggal(tanggal_pengujian)
+
+        if not nama or not tanggal_iso:
+            return None
+
+        supabase = create_client(
+            st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"]
+        )
+
+        # 1. id perusahaan
+        res_perusahaan = (
+            supabase.table("perusahaan")
+            .select("id")
+            .eq("nama_perusahaan", nama)
+            .limit(1)
+            .execute()
+        )
+        if not res_perusahaan.data:
+            return None
+
+        perusahaan_id = res_perusahaan.data[0]["id"]
+
+        # 2. daftar uttp milik perusahaan ini (jalur cadangan)
+        res_uttp = (
+            supabase.table("uttp")
+            .select("id")
+            .eq("perusahaan_id", perusahaan_id)
+            .limit(500)
+            .execute()
+        )
+        uttp_ids = {
+            baris.get("id")
+            for baris in (res_uttp.data or [])
+            if baris.get("id") is not None
+        }
+
+        # 3. semua pengujian pada tanggal itu
+        res_pengujian = (
+            supabase.table("pengujian")
+            .select("id, nomor_order, perusahaan_id, uttp_id")
+            .eq("tanggal_pengujian", tanggal_iso)
+            .order("id", desc=False)
+            .limit(500)
+            .execute()
+        )
+
+        for baris in (res_pengujian.data or []):
+            nomor = baris.get("nomor_order")
+            if not _tj_nomor_order_siap_pakai(nomor):
+                continue
+
+            id_perusahaan_baris = baris.get("perusahaan_id")
+            id_uttp_baris = baris.get("uttp_id")
+
+            milik_perusahaan = (
+                id_perusahaan_baris == perusahaan_id
+                or (not id_perusahaan_baris and id_uttp_baris in uttp_ids)
+            )
+
+            if milik_perusahaan:
+                return str(nomor).strip()
+
+    except Exception as e:
+        st.warning(f"Gagal mengecek nomor order sebelumnya: {e}")
+
+    return None
+
+    
 def run():
     st.title("Pengujian Timbangan Jembatan")
 
@@ -3188,12 +3325,28 @@ def run():
             use_container_width=True,
             key="tj_btn_generate_nomor_dokumen",
         ):
-            try:
-                st.session_state["nomor_order_tj"] = (
-                    ambil_nomor_order_berikutnya(tanggal)
+            # ---- NOMOR ORDER: pakai ulang kalau perusahaan + tanggal sama ----
+            nama_perusahaan_form = _ambil_nama_perusahaan_form_tj()
+
+            nomor_order_dipakai_ulang = cari_nomor_order_sebelumnya_tj(
+                nama_perusahaan_form,
+                tanggal,
+            )
+
+            if nomor_order_dipakai_ulang:
+                st.session_state["nomor_order_tj"] = nomor_order_dipakai_ulang
+                st.info(
+                    f"♻️ Nomor order {nomor_order_dipakai_ulang} dipakai ulang "
+                    "(nama perusahaan dan tanggal pengujian sama)."
                 )
-            except Exception as exc_order:
-                st.error(f"❌ Gagal membuat nomor order: {exc_order}")
+            else:
+                try:
+                    st.session_state["nomor_order_tj"] = (
+                        ambil_nomor_order_berikutnya(tanggal)
+                    )
+                except Exception as exc_order:
+                    st.error(f"❌ Gagal membuat nomor order: {exc_order}")
+
 
             try:
                 st.session_state["nomor_sertifikat_tj"] = (
