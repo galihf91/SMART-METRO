@@ -970,7 +970,7 @@ def rakit_data_cerapan_uttp(data, rincian):
             angka_numeric_uttp(rincian.get("kapasitas")) or 0.0
         ),
         "kapasitas_min": 0.0,
-         daya_baca,
+        "daya_baca": daya_baca,
         "interval_skala": daya_baca,
         "kelas": rincian.get("kelas", ""),
         "satuan": satuan,
