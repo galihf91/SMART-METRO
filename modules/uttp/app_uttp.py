@@ -1192,23 +1192,6 @@ def rakit_data_cerapan_uttp(data, rincian):
     
     return hasil
 
-def rapikan_teks_angka_uttp(nilai):
-    """Teks angka untuk UI: 1.0 menjadi "1", 0.50 menjadi "0.5"."""
-    if nilai is None:
-        return ""
-    if isinstance(nilai, str):
-        return nilai.strip()
-    try:
-        angka = float(nilai)
-    except (TypeError, ValueError):
-        return str(nilai)
-    if angka != angka:
-        return ""
-    teks = f"{angka:.6f}".rstrip("0").rstrip(".")
-    if teks in ("", "-0"):
-        teks = "0"
-    return teks
-
 # =========================================================
 # SUPABASE UTTP UMUM
 # =========================================================
@@ -1615,7 +1598,7 @@ def get_or_create_master_uttp_umum(
             else None
         ),
 
-         daya_baca,
+        "daya_baca": daya_baca,
 
         "satuan_daya_baca": (
             satuan_daya_baca
@@ -2862,7 +2845,9 @@ def ambil_riwayat_uttp_umum():
                 data_detail_riwayat.get("alamat", "") or ""
             ).strip()
 
-            "daya_baca": rapikan_teks_angka_uttp(alat.get("daya_baca")),
+            daya_baca = alat.get(
+                "daya_baca"
+            )
 
             tanpa_daya_baca = (
                 daya_baca is None
@@ -4753,17 +4738,6 @@ def gunakan_riwayat_untuk_pengujian_baru_uttp(
     st.session_state[
         "uttp_mode"
     ] = "📝 Input Data Pengujian"
-
-    for _kunci in list(st.session_state.keys()):
-        _nama_kunci = str(_kunci)
-        if not _nama_kunci.startswith("uttp_rincian_"):
-            continue
-        if "daya_baca" not in _nama_kunci:
-            continue
-        st.session_state[_kunci] = rapikan_teks_angka_uttp(
-            st.session_state[_kunci]
-        )
-
 def run():
     init_uttp_state()
 
