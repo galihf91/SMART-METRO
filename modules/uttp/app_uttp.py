@@ -11,6 +11,10 @@ from modules.uttp.sertifikat_uttp_generator import (
     generate_sertifikat_uttp_pdf,
 )
 
+from modules.timbangan.cerapan_timbangan_generator import (
+    generate_cerapan_pdf,
+)
+
 
 def find_project_root():
     current = Path(__file__).resolve()
@@ -24,6 +28,1170 @@ def find_project_root():
 
 PROJECT_ROOT = find_project_root()
 OUTPUT_DIR = PROJECT_ROOT / "output" / "uttp"
+
+# =====================================================================
+# NOMOR ORDER UTTP: PAKAI ULANG JIKA PERUSAHAAN + TANGGAL SAMA
+# =====================================================================
+
+def _uttp_nomor_order_siap_pakai(nomor):
+    """True kalau nomor order sudah terisi dan bukan template 0000."""
+    if not nomor:
+        return False
+
+    teks = str(nomor).strip()
+    if not teks:
+        return False
+
+    depan = teks.split("/")[0].strip()
+    if not depan.isdigit():
+        return False
+
+    return int(depan) > 0
+
+
+def _uttp_ke_iso_tanggal(nilai_tanggal):
+    """Ubah date / datetime / string menjadi format YYYY-MM-DD."""
+    from datetime import datetime
+
+    if nilai_tanggal is None:
+        return None
+
+    if hasattr(nilai_tanggal, "strftime"):
+        return nilai_tanggal.strftime("%Y-%m-%d")
+
+    teks = str(nilai_tanggal).strip()
+    for pola in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(teks, pola).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+
+    return teks
+
+
+def _uttp_nama_normal(nama):
+    """Rapikan nama untuk perbandingan: huruf besar, spasi ganda dibuang."""
+    return " ".join(str(nama or "").upper().split())
+
+
+def _ambil_nama_perusahaan_form_uttp():
+    """Ambil nama perusahaan dari session_state form UTTP."""
+    daftar_kunci = (
+        "uttp_nama_perusahaan",
+        "nama_perusahaan",
+        "uttp_perusahaan_manual",
+    )
+
+    for kunci in daftar_kunci:
+        nilai = st.session_state.get(kunci)
+        if nilai and str(nilai).strip():
+            return str(nilai).strip()
+
+    for kunci, nilai in st.session_state.items():
+        if not isinstance(kunci, str) or not isinstance(nilai, str):
+            continue
+        if not nilai.strip():
+            continue
+
+        kunci_kecil = kunci.lower()
+        cocok = "nama" in kunci_kecil and (
+            "perusahaan" in kunci_kecil or "pemilik" in kunci_kecil
+        )
+        if cocok:
+            return nilai.strip()
+
+    return ""
+
+
+def _uttp_cari_perusahaan_id(supabase, nama):
+    """
+    Cari id perusahaan dari nama.
+    Cara 1: cocok persis.
+    Cara 2: cocok setelah dinormalisasi (spasi ganda / huruf besar-kecil),
+    menyesuaikan cara kerja simpan_atau_update_perusahaan_uttp yang
+    mencocokkan nama dengan ilike.
+    """
+    nama = str(nama or "").strip()
+    if not nama:
+        return None
+
+    res_persis = (
+        supabase.table("perusahaan")
+        .select("id, nama_perusahaan")
+        .eq("nama_perusahaan", nama)
+        .limit(1)
+        .execute()
+    )
+    if res_persis.data:
+        return res_persis.data[0]["id"]
+
+    target = _uttp_nama_normal(nama)
+    res_mirip = (
+        supabase.table("perusahaan")
+        .select("id, nama_perusahaan")
+        .ilike("nama_perusahaan", f"%{nama}%")
+        .limit(50)
+        .execute()
+    )
+    for baris in (res_mirip.data or []):
+        if _uttp_nama_normal(baris.get("nama_perusahaan")) == target:
+            return baris["id"]
+
+    return None
+
+
+def cari_nomor_order_sebelumnya_uttp(
+    nama_perusahaan,
+    tanggal_pengujian,
+    perusahaan_id=None,
+):
+    """
+    Cari nomor order yang sudah ada untuk perusahaan + tanggal pengujian sama.
+    Membaca tabel `pengujian`, jadi berlaku lintas modul
+    (Timbangan biasa, Jembatan, PUBBM, UTTP Umum).
+
+    Ketemu  : kembalikan nomor order (dipakai ulang)
+    Tidak ada: kembalikan None
+    """
+    from supabase import create_client
+
+    try:
+        tanggal_iso = _uttp_ke_iso_tanggal(tanggal_pengujian)
+        if not tanggal_iso:
+            return None
+
+        supabase = create_client(
+            st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"]
+        )
+
+        # 1. tentukan perusahaan_id
+        if not perusahaan_id:
+            if not str(nama_perusahaan or "").strip():
+                return None
+
+            perusahaan_id = _uttp_cari_perusahaan_id(
+                supabase, nama_perusahaan
+            )
+            if not perusahaan_id:
+                return None
+
+        # 2. daftar uttp milik perusahaan ini (jalur cadangan)
+        res_uttp = (
+            supabase.table("uttp")
+            .select("id")
+            .eq("perusahaan_id", perusahaan_id)
+            .limit(500)
+            .execute()
+        )
+        uttp_ids = {
+            baris.get("id")
+            for baris in (res_uttp.data or [])
+            if baris.get("id") is not None
+        }
+
+        # 3. semua pengujian pada tanggal itu
+        res_pengujian = (
+            supabase.table("pengujian")
+            .select("id, nomor_order, perusahaan_id, uttp_id")
+            .eq("tanggal_pengujian", tanggal_iso)
+            .order("id", desc=False)
+            .limit(500)
+            .execute()
+        )
+
+        for baris in (res_pengujian.data or []):
+            nomor = baris.get("nomor_order")
+            if not _uttp_nomor_order_siap_pakai(nomor):
+                continue
+
+            id_perusahaan_baris = baris.get("perusahaan_id")
+            id_uttp_baris = baris.get("uttp_id")
+
+            milik_perusahaan = (
+                id_perusahaan_baris == perusahaan_id
+                or (not id_perusahaan_baris and id_uttp_baris in uttp_ids)
+            )
+
+            if milik_perusahaan:
+                return str(nomor).strip()
+
+    except Exception as e:
+        st.warning(f"Gagal mengecek nomor order sebelumnya: {e}")
+
+    return None
+
+# =========================================================
+# CERAPAN UTTP - INPUT PENGUKURAN PER ALAT (SAMPLE)
+# =========================================================
+
+VISUAL_ITEMS_CERAPAN_UTTP = [
+    "Timbangan bersih, kering dan tidak berkarat",
+    "Bahan & Konstruksi Sesuai (Tera)",
+    "Posisi timbangan datar",
+    "Telah dilakukan pemanasan timbangan",
+]
+
+
+def teks_bkd_cerapan_uttp(koef):
+    if koef == 0.5:
+        return "±0.5e"
+    if koef == 1.0:
+        return "±1e"
+    if koef == 1.5:
+        return "±1.5e"
+    if koef == 2.0:
+        return "±2e"
+    if koef == 3.0:
+        return "±3e"
+    if koef > 0:
+        return f"±{koef:g}e"
+    return ""
+
+def _desimal_dari_angka_uttp(nilai):
+    """Jumlah angka desimal sebuah nilai (0.005 menjadi 3, 5 menjadi 0)."""
+    try:
+        teks = f"{float(nilai):.10f}".rstrip("0")
+    except (TypeError, ValueError):
+        return 0
+
+    if "." not in teks:
+        return 0
+
+    return len(teks.split(".")[1])
+
+
+def hitung_muatan_uji_cerapan_uttp(
+    kelas,
+    e_kg,
+    kapasitas_max_kg,
+    jumlah_titik,
+):
+    """
+    Titik muatan uji (kg), disalin dari aturan aplikasi Timbangan.
+    3 titik : Minimum, 50% Maksimum, Maksimum.
+    5 titik : Minimum, tiga titik tengah, Maksimum.
+    """
+    kelas = str(kelas or "III").strip()
+    e_kg = float(e_kg or 0)
+    kapasitas_max_kg = float(kapasitas_max_kg or 0)
+
+    if e_kg <= 0 or kapasitas_max_kg <= 0:
+        return [0.0] * int(jumlah_titik)
+
+    if kelas == "II":
+        faktor_min = 50 if e_kg >= 0.0001 else 20
+    else:
+        faktor_min = {
+            "I": 100,
+            "III": 20,
+            "IIII": 10,
+        }.get(kelas, 20)
+
+    minimum_kg = min(faktor_min * e_kg, kapasitas_max_kg)
+
+    if int(jumlah_titik) == 3:
+        return [
+            minimum_kg,
+            kapasitas_max_kg * 0.5,
+            kapasitas_max_kg,
+        ]
+
+    if abs(minimum_kg - kapasitas_max_kg) < 1e-12:
+        return [kapasitas_max_kg] * 5
+
+    def valid_middle(nilai):
+        return minimum_kg < nilai < kapasitas_max_kg
+
+    def finalize(kandidat):
+        tengah = []
+
+        for nilai in kandidat:
+            nilai = round(float(nilai), 12)
+            if valid_middle(nilai) and nilai not in tengah:
+                tengah.append(nilai)
+
+        if len(tengah) < 3:
+            for pecahan in (0.25, 0.50, 0.75):
+                nilai = round(kapasitas_max_kg * pecahan, 12)
+                if valid_middle(nilai) and nilai not in tengah:
+                    tengah.append(nilai)
+                if len(tengah) >= 3:
+                    break
+
+        if len(tengah) < 3:
+            rentang = kapasitas_max_kg - minimum_kg
+            for pecahan in (0.20, 0.40, 0.60, 0.80):
+                nilai = round(minimum_kg + rentang * pecahan, 12)
+                if valid_middle(nilai) and nilai not in tengah:
+                    tengah.append(nilai)
+                if len(tengah) >= 3:
+                    break
+
+        tengah = sorted(tengah)
+
+        if len(tengah) > 3:
+            pilihan = [
+                tengah[0],
+                tengah[len(tengah) // 2],
+                tengah[-1],
+            ]
+            tengah = sorted(set(pilihan))
+
+        while len(tengah) < 3:
+            tengah.append(tengah[-1] if tengah else minimum_kg)
+
+        return [
+            minimum_kg,
+            tengah[0],
+            tengah[1],
+            tengah[2],
+            kapasitas_max_kg,
+        ]
+
+    if kelas == "II":
+        titik_5000e = 5000 * e_kg
+        titik_20000e = 20000 * e_kg
+        titik_100000e = 100000 * e_kg
+
+        if valid_middle(titik_100000e):
+            return finalize([
+                titik_5000e,
+                titik_20000e,
+                titik_100000e,
+            ])
+
+        if valid_middle(titik_20000e):
+            titik_sebelum = titik_20000e * 0.5
+            if not (titik_5000e < titik_sebelum < titik_20000e):
+                titik_sebelum = (titik_5000e + titik_20000e) / 2.0
+            return finalize([
+                titik_5000e,
+                titik_sebelum,
+                titik_20000e,
+            ])
+
+        if valid_middle(titik_5000e):
+            return finalize([
+                titik_5000e,
+                0.50 * kapasitas_max_kg,
+                0.75 * kapasitas_max_kg,
+            ])
+
+        return finalize([
+            0.25 * kapasitas_max_kg,
+            0.50 * kapasitas_max_kg,
+            0.75 * kapasitas_max_kg,
+        ])
+
+    faktor_tengah = {
+        "I": [50000, 200000, 1000000],
+        "III": [500, 1000, 2000],
+        "IIII": [50, 200, 1000],
+    }.get(kelas, [500, 1000, 2000])
+
+    kandidat = [
+        faktor * e_kg
+        for faktor in faktor_tengah
+        if valid_middle(faktor * e_kg)
+    ]
+
+    return finalize(kandidat)
+
+
+def render_input_cerapan_uttp(
+    index,
+    nama_alat,
+    data_lama,
+    tampilkan_checkbox=True,
+):
+    """
+    Input pengukuran cerapan versi LITE.
+    - e = daya baca, kelas mengikuti isian user di form input data.
+    - Visual: default tercentang semua, kecuali "Bahan & Konstruksi
+      Sesuai (Tera)" yang hanya tercentang untuk jenis pengujian Tera.
+    - Penunjukan selalu sama dengan Muatan Uji (disabled), jadi hasil SAH.
+    - BKD dihitung otomatis dari muatan uji (kebenaran, eksentrisitas,
+      repetability) mengikuti aturan aplikasi Timbangan.
+    """
+    data_lama = data_lama or {}
+    cerapan_lama = data_lama.get("data_cerapan") or {}
+
+    nama_alat_kecil = str(nama_alat or "").strip().lower()
+    is_neraca_obat = nama_alat_kecil in {
+        "neraca obat",
+        "timbangan neraca obat",
+    }
+    is_timbangan_meja = nama_alat_kecil in {
+        "timbangan meja",
+        "meja",
+    }
+
+    cukup_satu_baris = is_neraca_obat or is_timbangan_meja
+
+    satuan = str(data_lama.get("satuan", "kg") or "kg").strip()
+
+    data_uttp = st.session_state.get("uttp_saved_data", {}) or {}
+    jenis_pengujian = str(
+        data_uttp.get("jenis_pengujian", "Tera Ulang") or "Tera Ulang"
+    ).strip()
+
+    kapasitas_kg = angka_numeric_uttp(data_lama.get("kapasitas")) or 0.0
+    daya_baca_kg = angka_numeric_uttp(data_lama.get("daya_baca")) or 0.0
+    kelas_uttp = str(data_lama.get("kelas", "") or "III").strip()
+
+    if daya_baca_kg <= 0:
+        daya_baca_kg = 0.0
+
+    # ---- interval skala verifikasi (e) ----
+    if is_neraca_obat:
+        interval_skala_kg = kapasitas_kg / 10000.0
+    elif is_timbangan_meja:
+        interval_skala_kg = kapasitas_kg / 1000.0
+    else:
+        interval_skala_kg = daya_baca_kg
+
+    desimal_tampil = _desimal_dari_angka_uttp(interval_skala_kg)
+    step_tampil = interval_skala_kg if interval_skala_kg > 0 else 0.001
+    format_tampil = f"%.{desimal_tampil}f"
+
+
+    if tampilkan_checkbox:
+        kunci_sample = f"uttp_rincian_sample_{index}"
+        if kunci_sample not in st.session_state:
+            st.session_state[kunci_sample] = bool(
+                data_lama.get("sample_cerapan", False)
+            )
+
+        sample_cerapan = st.checkbox(
+            "Jadikan sample cerapan",
+            key=kunci_sample,
+        )
+
+        if not sample_cerapan:
+            return False, {}
+
+    # ---- kapasitas minimum ----
+    if is_neraca_obat:
+        kapasitas_min_awal_kg = float(
+            cerapan_lama.get("kapasitas_min") or kapasitas_kg
+        )
+
+        st.markdown("---")
+        st.subheader("Spesifikasi Alat")
+        st.caption(
+            "Neraca obat tidak memiliki daya baca. Interval skala "
+            "verifikasi dihitung Maksimum / 10.000."
+        )
+
+        kapasitas_min_kg = st.number_input(
+            f"Minimum Menimbang ({satuan})",
+            value=float(kapasitas_min_awal_kg),
+            step=float(step_tampil),
+            format="%g",
+            key=f"uttp_cerapan_kapasitas_min_{index}",
+        )
+    elif is_timbangan_meja:
+        kapasitas_min_kg = 20.0 * interval_skala_kg
+    else:
+        kapasitas_min_kg = 0.0
+
+    # ======================== PEMERIKSAAN VISUAL ========================
+    st.markdown("---")
+    st.subheader("Pemeriksaan Visual")
+
+    visual_lama = cerapan_lama.get("visual", {}) or {}
+    visual = {}
+
+    kolom_visual = st.columns(4)
+
+    for nomor_visual, item_visual in enumerate(
+        VISUAL_ITEMS_CERAPAN_UTTP
+    ):
+        with kolom_visual[nomor_visual % 4]:
+            is_bahan_konstruksi = (
+                item_visual == "Bahan & Konstruksi Sesuai (Tera)"
+            )
+
+            if item_visual in visual_lama:
+                default_visual = bool(visual_lama.get(item_visual))
+            elif is_bahan_konstruksi:
+                default_visual = (jenis_pengujian == "Tera")
+            else:
+                default_visual = True
+
+            visual[item_visual] = st.checkbox(
+                item_visual,
+                value=default_visual,
+                key=f"uttp_cerapan_visual_{index}_{nomor_visual}",
+            )
+
+    # ======================== PENGUJIAN KEBENARAN ========================
+    st.markdown("---")
+    st.subheader("Pengujian Kebenaran")
+
+    benar_lama = list(cerapan_lama.get("hasil_pengujian", []) or [])
+
+    if cukup_satu_baris:
+        jumlah_titik = 1
+
+    else:
+        default_titik = 3 if len(benar_lama) == 3 else 5
+
+        kunci_titik = f"uttp_cerapan_jumlah_titik_{index}"
+        if kunci_titik not in st.session_state:
+            st.session_state[kunci_titik] = default_titik
+
+        jumlah_titik = st.radio(
+            "Jumlah Titik Uji",
+            options=[5, 3],
+            horizontal=True,
+            key=kunci_titik,
+            format_func=lambda x: f"{x} Titik Uji",
+            help=(
+                "5 titik menggunakan susunan muatan uji standar. "
+                "3 titik menggunakan Minimum Menimbang, 50% Maksimum, "
+                "dan Maksimum."
+            ),
+        )
+
+    if not is_neraca_obat:
+        st.caption("e = d")
+
+    if cukup_satu_baris:
+        # Neraca Obat & Timbangan Meja: satu titik, muatan maksimum
+        daftar_muatan_auto = [kapasitas_kg]
+    else:
+        daftar_muatan_auto = hitung_muatan_uji_cerapan_uttp(
+            kelas_uttp,
+            daya_baca_kg,
+            kapasitas_kg,
+            jumlah_titik,
+        )
+
+
+    st.write("**Masukkan Hasil Pengujian**")
+    st.caption(
+        "Penunjukan otomatis sama dengan Muatan Uji. "
+        "BKD mengikuti nilai Muatan Uji."
+    )
+
+    kolom_header_benar = st.columns(
+        [0.5, 2.1, 2.3, 1.4, 3.6, 1.2, 1.4]
+    )
+
+    for kolom_header, label_header in zip(
+        kolom_header_benar,
+        [
+            "**No**",
+            "**Muatan Uji**",
+            "**Penunjukan**",
+            "**BKD**",
+            "**Pengamatan Penunjukan**",
+            "**Hasil**",
+            "**Cek**",
+        ],
+    ):
+        kolom_header.write(label_header)
+
+    hasil_pengujian = []
+
+    for nomor_titik in range(1, int(jumlah_titik) + 1):
+        item_lama = {}
+
+        if (nomor_titik - 1) < len(benar_lama):
+            calon_item = benar_lama[nomor_titik - 1]
+            if isinstance(calon_item, dict):
+                item_lama = calon_item
+
+        muatan_auto_kg = 0.0
+        if (nomor_titik - 1) < len(daftar_muatan_auto):
+            muatan_auto_kg = float(
+                daftar_muatan_auto[nomor_titik - 1]
+            )
+
+        try:
+            muatan_lama_kg = float(
+                item_lama.get("muatan_uji", 0.0) or 0.0
+            )
+        except (TypeError, ValueError):
+            muatan_lama_kg = 0.0
+
+        if muatan_lama_kg <= 0:
+            muatan_lama_kg = muatan_auto_kg
+
+        kolom_baris = st.columns([0.5, 2.1, 2.3, 1.4, 3.6, 1.2, 1.4])
+
+        with kolom_baris[0]:
+            st.text_input(
+                f"No {nomor_titik}",
+                value=str(nomor_titik),
+                disabled=True,
+                key=f"uttp_cerapan_benar_no_{index}_{nomor_titik}",
+                label_visibility="collapsed",
+            )
+
+        with kolom_baris[1]:
+            muatan_tampil = st.number_input(
+                f"Muatan Uji {nomor_titik}",
+                value=float(muatan_lama_kg),
+                step=float(step_tampil),
+                format="%g",
+                key=f"uttp_cerapan_benar_muatan_{index}_{nomor_titik}",
+                label_visibility="collapsed",
+            )
+
+
+        # Penunjukan selalu sama dengan Muatan Uji
+        penunjukan_tampil = float(muatan_tampil)
+        teks_penunjukan = format_tampil % penunjukan_tampil
+
+
+        kunci_penunjukan = (
+            f"uttp_cerapan_benar_penunjukan_{index}_{nomor_titik}"
+        )
+        st.session_state[kunci_penunjukan] = teks_penunjukan
+
+        with kolom_baris[2]:
+            st.text_input(
+                f"Penunjukan {nomor_titik}",
+                value=teks_penunjukan,
+                disabled=True,
+                key=kunci_penunjukan,
+                label_visibility="collapsed",
+            )
+
+        # BKD mengikuti Muatan Uji
+        koef_baris = hitung_koef_bkd_cerapan_uttp(
+            kelas_uttp,
+            muatan_tampil,
+            interval_skala_kg,
+            jenis_pengujian,
+        )
+
+        teks_bkd_baris = teks_bkd_cerapan_uttp(koef_baris)
+
+        with kolom_baris[3]:
+            st.write(teks_bkd_baris if teks_bkd_baris else "-")
+
+        with kolom_baris[4]:
+            st.write("penunjukan ≤ massa ATS ± BKD")
+
+        with kolom_baris[5]:
+            st.write("SAH")
+
+        with kolom_baris[6]:
+            st.write("✅")
+
+        hasil_pengujian.append({
+            "muatan_uji": float(muatan_tampil),
+            "penunjukan": penunjukan_tampil,
+        })
+
+    # ======================== EKSENTRISITAS ========================
+    eksentrisitas = []
+
+    if not is_neraca_obat:
+        st.markdown("---")
+        st.subheader("Eksentrisitas (1/3 Maks)")
+
+        muatan_eks_awal_kg = kapasitas_kg / 3.0
+
+        _muatan_eks_tersimpan = cerapan_lama.get("muatan_eksentrisitas")
+        if _muatan_eks_tersimpan:
+            try:
+                muatan_eks_awal_kg = float(_muatan_eks_tersimpan)
+            except (TypeError, ValueError):
+                pass
+
+        muatan_eks_kg = st.number_input(
+            f"Muatan Uji Eksentrisitas ({satuan})",
+            value=float(muatan_eks_awal_kg),
+            step=float(step_tampil),
+            format="%g",
+            key=f"uttp_cerapan_eksen_muatan_{index}",
+        )
+
+        koef_eksen = hitung_koef_bkd_cerapan_uttp(
+            kelas_uttp,
+            muatan_eks_kg,
+            interval_skala_kg,
+            jenis_pengujian,
+        )
+        teks_bkd_eksen = teks_bkd_cerapan_uttp(koef_eksen)
+
+
+        kolom_header_eks = st.columns([0.8, 2.2, 1.4, 3.4, 1.4, 1.2])
+
+        for kolom_header, label_header in zip(
+            kolom_header_eks,
+            [
+                "**Posisi**",
+                "**Penunjukan (I)**",
+                "**BKD**",
+                "**Pengamatan Penunjukan**",
+                "**Hasil**",
+                "**Cek**",
+            ],
+        ):
+            kolom_header.write(label_header)
+
+        eksen_lama = list(cerapan_lama.get("eksentrisitas", []) or [])
+
+        for posisi in range(1, 5):
+            teks_penunjukan_eksen = format_tampil % float(muatan_eks_kg)
+
+
+            kunci_penunjukan_eksen = (
+                f"uttp_cerapan_eksen_{index}_{posisi}"
+            )
+            st.session_state[kunci_penunjukan_eksen] = (
+                teks_penunjukan_eksen
+            )
+
+            kolom_baris = st.columns([0.8, 2.2, 1.4, 3.4, 1.4, 1.2])
+
+            with kolom_baris[0]:
+                st.text_input(
+                    f"Posisi {posisi}",
+                    value=str(posisi),
+                    disabled=True,
+                    key=f"uttp_cerapan_eksen_posisi_{index}_{posisi}",
+                    label_visibility="collapsed",
+                )
+
+            with kolom_baris[1]:
+                st.text_input(
+                    f"Penunjukan Eksentrisitas {posisi}",
+                    value=teks_penunjukan_eksen,
+                    disabled=True,
+                    key=kunci_penunjukan_eksen,
+                    label_visibility="collapsed",
+                )
+
+            with kolom_baris[2]:
+                st.write(teks_bkd_eksen if teks_bkd_eksen else "-")
+
+            with kolom_baris[3]:
+                st.write("penunjukan ≤ massa ATS ± BKD")
+
+            with kolom_baris[4]:
+                st.write("SAH")
+
+            with kolom_baris[5]:
+                st.write("✅")
+
+            eksentrisitas.append({
+                "posisi": posisi,
+                "penunjukan": float(muatan_eks_kg),
+            })
+
+
+        eksentrisitas_muatan_kg = float(muatan_eks_kg)
+    else:
+        eksentrisitas_muatan_kg = 0.0
+
+    # ======================== REPETABILITY ========================
+    st.markdown("---")
+    st.subheader("Repetability")
+
+    if not is_neraca_obat:
+        st.caption("e = d")
+
+    muatan_repet_awal_kg = kapasitas_kg * 0.5
+    if cukup_satu_baris:
+        muatan_repet_awal_kg = kapasitas_kg
+
+
+    _muatan_repet_tersimpan = cerapan_lama.get("muatan_repetability")
+    if _muatan_repet_tersimpan:
+        try:
+            muatan_repet_awal_kg = float(_muatan_repet_tersimpan)
+        except (TypeError, ValueError):
+            pass
+
+    muatan_repet_kg = st.number_input(
+        f"Muatan Uji Repetability ({satuan})",
+        value=float(muatan_repet_awal_kg),
+        step=float(step_tampil),
+        format="%g",
+        key=f"uttp_cerapan_repet_muatan_{index}",
+    )
+
+
+    koef_repet = hitung_koef_bkd_cerapan_uttp(
+        kelas_uttp,
+        muatan_repet_kg,
+        interval_skala_kg,
+        jenis_pengujian,
+    )
+
+    teks_bkd_repet = teks_bkd_cerapan_uttp(koef_repet)
+
+    kolom_header_repet = st.columns([3.5, 1.5, 1.5])
+
+    with kolom_header_repet[0]:
+        st.write("**Penunjukan Akhir**")
+
+    with kolom_header_repet[1]:
+        st.write("**BKD**")
+
+    with kolom_header_repet[2]:
+        st.write("**Hasil**")
+
+    repet_lama = list(cerapan_lama.get("repetability", []) or [])
+    repetability = []
+
+    for ulang in range(1, 4):
+        teks_penunjukan_repet = format_tampil % float(muatan_repet_kg)
+
+
+        kunci_penunjukan_repet = (
+            f"uttp_cerapan_repet_{index}_{ulang}"
+        )
+        st.session_state[kunci_penunjukan_repet] = (
+            teks_penunjukan_repet
+        )
+
+        kolom_baris = st.columns([3.5, 1.5, 1.5])
+
+        with kolom_baris[0]:
+            st.text_input(
+                f"Penunjukan Akhir {ulang}",
+                value=teks_penunjukan_repet,
+                disabled=True,
+                key=kunci_penunjukan_repet,
+                label_visibility="collapsed",
+            )
+
+        with kolom_baris[1]:
+            st.write(teks_bkd_repet if teks_bkd_repet else "-")
+
+        with kolom_baris[2]:
+            st.write("✅")
+
+        repetability.append({
+            "penunjukan": float(muatan_repet_kg),
+            "penunjukan_akhir": float(muatan_repet_kg),
+            "hasil": True,
+        })
+
+
+
+    data_cerapan = {
+        "visual": visual,
+        "hasil_pengujian": hasil_pengujian,
+        "eksentrisitas": eksentrisitas,
+        "repetability": repetability,
+        "muatan_eksentrisitas": eksentrisitas_muatan_kg,
+        "muatan_repetability": float(muatan_repet_kg),
+        "kapasitas_min": float(kapasitas_min_kg),
+        "interval_skala": float(interval_skala_kg),
+        "repetability_sederhana": bool(cukup_satu_baris),
+        "satu_baris_benar": bool(cukup_satu_baris),
+        "sembunyikan_daya_baca": bool(is_timbangan_meja),
+    }
+
+    return True, data_cerapan
+
+
+
+
+def hitung_koef_bkd_cerapan_uttp(
+    kelas,
+    muatan_kg,
+    interval_skala_kg,
+    jenis_pengujian,
+):
+    """Koefisien BKD (kali e), sama dengan aturan di cerapan_timbangan_generator."""
+    e_kg = float(interval_skala_kg or 0)
+
+    if e_kg <= 0:
+        return 0.0
+
+    m = float(muatan_kg or 0) / e_kg
+
+    batas = {
+        "I": [(50000, 0.5), (200000, 1.0), (float("inf"), 1.5)],
+        "II": [(5000, 0.5), (20000, 1.0), (100000, 1.5)],
+        "III": [(500, 0.5), (2000, 1.0), (10000, 1.5)],
+        "IIII": [(50, 0.5), (200, 1.0), (1000, 1.5)],
+    }
+
+    koef = 1.5
+
+    for batas_m, nilai_koef in batas.get(
+        str(kelas).strip(), batas["III"]
+    ):
+        if m <= batas_m:
+            koef = nilai_koef
+            break
+
+    if str(jenis_pengujian).strip() == "Tera Ulang":
+        koef *= 2.0
+
+    return koef
+
+def rakit_data_cerapan_uttp(data, rincian):
+    """
+    Menggabungkan identitas pengujian + spesifikasi alat + data pengukuran
+    menjadi satu dict untuk generate_cerapan_pdf().
+    """
+    data = data or {}
+    rincian = rincian or {}
+
+    satuan = str(rincian.get("satuan", "kg") or "kg").strip()
+
+    daya_baca = angka_numeric_uttp(rincian.get("daya_baca"))
+    if daya_baca is None:
+        daya_baca = 0.0
+
+    hasil = {
+        # ---------- identitas ----------
+        "pemilik": (
+            rincian.get("nama_pemilik")
+            or data.get("pemilik", "")
+        ),
+        "alamat": (
+            rincian.get("alamat")
+            or data.get("alamat", "")
+        ),
+
+
+        "nomor_order": data.get("nomor_order", ""),
+        "nomor_sertifikat": data.get("nomor_sertifikat", ""),
+
+        # ---------- spesifikasi alat ----------
+        "nama_alat": rincian.get("nama_alat", "Timbangan Elektronik"),
+        "merek": rincian.get("merek", ""),
+        "model": rincian.get("model_tipe", ""),
+        "no_seri": rincian.get("nomor_seri", ""),
+        "no_alat": "",
+        "kapasitas_max": (
+            angka_numeric_uttp(rincian.get("kapasitas")) or 0.0
+        ),
+        "kapasitas_min": 0.0,
+        "daya_baca": daya_baca,
+        "interval_skala": daya_baca,
+        "kelas": rincian.get("kelas", ""),
+        "satuan": satuan,
+
+        # ---------- data pengujian ----------
+        "tanggal": data.get("tanggal_pengujian"),
+        "tanggal_penera": data.get("tanggal_pengujian"),
+        "lokasi": data.get("lokasi", "") or "Perusahaan",
+        "suhu": data.get("suhu", "Ambient"),
+        "kelembaban": data.get("kelembaban", "Ambient"),
+        "metode": data.get("metode", "") or "Beban Substitusi Tunggal",
+        "at_standar": (
+            data.get("at_standar")
+            or ", ".join(data.get("alat_standar") or [])
+            or "M2"
+        ),
+
+        "keterangan": (
+            data.get("jenis_pengujian")
+            or data.get("keterangan")
+            or "Tera Ulang"
+        ),
+
+        # ---------- penera ----------
+        "nama_penera": data.get("penera_1", ""),
+        "nama_penera_2": data.get("penera_2", ""),
+    }
+
+    hasil.update(dict(rincian.get("data_cerapan") or {}))
+
+    # ---- format penunjukan mengikuti desimal daya baca ----
+    desimal_daya_baca = _desimal_dari_angka_uttp(daya_baca)
+
+    def _teks_penunjukan(nilai_kg):
+        try:
+            angka = float(nilai_kg)
+        except (TypeError, ValueError):
+            return ""
+
+        teks = f"{angka:.{desimal_daya_baca}f}".replace(".", ",")
+        return f"{teks} {satuan}"
+
+    # ---- pengujian kebenaran ----
+    benar_lengkap = []
+
+    for item_benar in list(hasil.get("hasil_pengujian") or []):
+        item_baru = dict(item_benar)
+        item_baru["penunjukan_text"] = _teks_penunjukan(
+            item_baru.get("penunjukan", 0.0)
+        )
+        benar_lengkap.append(item_baru)
+
+    hasil["hasil_pengujian"] = benar_lengkap
+    # ---- kapasitas minimum ----
+    kapasitas_min_eksplisit = float(
+        (rincian.get("data_cerapan") or {}).get("kapasitas_min") or 0.0
+    )
+
+    if kapasitas_min_eksplisit > 0:
+        hasil["kapasitas_min"] = kapasitas_min_eksplisit
+    elif benar_lengkap:
+        kapasitas_min_kg = float(
+            benar_lengkap[0].get(
+                "muatan_uji",
+                benar_lengkap[0].get("penunjukan", 0.0),
+            ) or 0.0
+        )
+
+        if kapasitas_min_kg > 0:
+            hasil["kapasitas_min"] = kapasitas_min_kg
+
+
+
+    # ---- eksentrisitas: kolom Penunjukan + BKD ----
+    kelas_cerapan = str(rincian.get("kelas", "") or "III").strip()
+    jenis_cerapan = str(
+        data.get("jenis_pengujian")
+        or data.get("keterangan")
+        or "Tera Ulang"
+    ).strip()
+
+    muatan_eks_kg = (
+        angka_numeric_uttp(rincian.get("kapasitas")) or 0.0
+    ) / 3.0
+
+    koef_eksen = hitung_koef_bkd_cerapan_uttp(
+        kelas_cerapan,
+        muatan_eks_kg,
+        hasil.get("interval_skala") or daya_baca,
+        jenis_cerapan,
+    )
+    teks_bkd_eksen = teks_bkd_cerapan_uttp(koef_eksen)
+
+
+    eksen_lengkap = []
+
+    for item_eksen in list(hasil.get("eksentrisitas") or []):
+        item_baru = dict(item_eksen)
+        nilai_eksen = item_baru.get("penunjukan", 0.0)
+
+        item_baru["penunjukan_tampil"] = nilai_eksen
+        item_baru["penunjukan_text"] = _teks_penunjukan(nilai_eksen)
+        item_baru["pengamatan_penunjukan"] = (
+            "penunjukan ≤ massa ATS ± BKD"
+        )
+        item_baru["bkd_text"] = teks_bkd_eksen
+        item_baru["hasil"] = True
+        item_baru["hasil_text"] = "SAH"
+
+        eksen_lengkap.append(item_baru)
+
+    hasil["eksentrisitas"] = eksen_lengkap
+
+    # ---- repetability: penunjukan pertama = penunjukan timbangan ----
+    repet_lengkap = []
+
+    for item_repet in list(hasil.get("repetability") or []):
+        item_baru = dict(item_repet)
+
+        nilai_repet = item_baru.get(
+            "penunjukan_akhir",
+            item_baru.get("penunjukan", 0.0),
+        )
+        teks_repet = _teks_penunjukan(nilai_repet)
+
+        item_baru["penunjukan"] = nilai_repet
+        item_baru["penunjukan_text"] = teks_repet
+        item_baru["penunjukan_akhir"] = nilai_repet
+        item_baru["penunjukan_akhir_text"] = teks_repet
+        item_baru["naik_05e"] = 0.5 * daya_baca
+        item_baru["naik_05e_text"] = (
+            f"{0.5 * daya_baca:g}".replace(".", ",") + f" {satuan}"
+        )
+
+        item_baru["hasil"] = True
+
+        repet_lengkap.append(item_baru)
+
+    hasil["repetability"] = repet_lengkap
+    
+    # ---- generator PDF memakai kg, sedangkan input rincian
+    #      memakai satuan alat. Faktor diambil dari fungsi generator
+    #      supaya cocok untuk satuan apa pun (g, gr, gram, kg, mg). ----
+    try:
+        from modules.timbangan.cerapan_timbangan_generator import (
+            nilai_dengan_satuan_dari_kg as _nilai_dalam_satuan,
+        )
+
+        teks_contoh_satuan = str(
+            _nilai_dalam_satuan(0.001, satuan)
+        )
+        angka_contoh_satuan = float(
+            teks_contoh_satuan.split()[0].replace(",", ".")
+        )
+
+        faktor_ke_kg = (
+            0.001 / angka_contoh_satuan
+            if angka_contoh_satuan > 0
+            else 1.0
+        )
+    except Exception:
+        faktor_ke_kg = {
+            "kg": 1.0,
+            "g": 0.001,
+            "gr": 0.001,
+            "gram": 0.001,
+            "mg": 0.000001,
+            "ton": 1000.0,
+        }.get(str(satuan).strip().lower(), 1.0)
+
+
+    if faktor_ke_kg != 1.0:
+
+        def _ke_kg(nilai):
+            try:
+                return float(nilai) * faktor_ke_kg
+            except (TypeError, ValueError):
+                return 0.0
+
+        hasil["kapasitas_max"] = _ke_kg(
+            hasil.get("kapasitas_max", 0)
+        )
+        hasil["kapasitas_min"] = _ke_kg(
+            hasil.get("kapasitas_min", 0)
+        )
+        hasil["daya_baca"] = _ke_kg(
+            hasil.get("daya_baca", 0)
+        )
+        hasil["interval_skala"] = _ke_kg(
+            hasil.get("interval_skala", 0)
+        )
+
+        for item_benar in list(hasil.get("hasil_pengujian") or []):
+            item_benar["penunjukan"] = _ke_kg(
+                item_benar.get("penunjukan", 0)
+            )
+            if "muatan_uji" in item_benar:
+                item_benar["muatan_uji"] = _ke_kg(
+                    item_benar.get("muatan_uji", 0)
+                )
+
+        for item_eksen in list(hasil.get("eksentrisitas") or []):
+            item_eksen["penunjukan"] = _ke_kg(
+                item_eksen.get("penunjukan", 0)
+            )
+            item_eksen["penunjukan_tampil"] = item_eksen["penunjukan"]
+
+        for item_repet in list(hasil.get("repetability") or []):
+            item_repet["penunjukan"] = _ke_kg(
+                item_repet.get("penunjukan", 0)
+            )
+            item_repet["penunjukan_akhir"] = _ke_kg(
+                item_repet.get("penunjukan_akhir", 0)
+            )
+            if "naik_05e" in item_repet:
+                item_repet["naik_05e"] = _ke_kg(
+                    item_repet.get("naik_05e", 0)
+                )
+    
+    return hasil
+
 # =========================================================
 # SUPABASE UTTP UMUM
 # =========================================================
@@ -840,6 +2008,11 @@ def simpan_pengujian_uttp_umum_ke_supabase(
     # =====================================================
     data_pengujian_header = {
         "schema_uttp_umum": 1,
+        "jenis_layanan": str(
+            data.get("jenis_layanan", "UTTP Umum")
+            or "UTTP Umum"
+        ).strip(),
+
 
         "lokasi_pengujian": (
             lokasi_pengujian
@@ -947,7 +2120,20 @@ def simpan_pengujian_uttp_umum_ke_supabase(
 
                 "hasil": "SAH",
 
-                "data_detail": {},
+                "data_detail": {
+                    "nama_pemilik": str(
+                        rincian.get("nama_pemilik", "") or ""
+                    ).strip(),
+                    "alamat": str(
+                        rincian.get("alamat", "") or ""
+                    ).strip(),
+                    "perusahaan_id": rincian.get("perusahaan_id"),
+                    "cerapan": (
+                        rincian.get("data_cerapan") or {}
+                    ),
+                },
+
+
             })
 
         # =================================================
@@ -1467,7 +2653,8 @@ def ambil_riwayat_uttp_umum():
         .table("pengujian_uttp")
         .select(
             "id, pengujian_id, "
-            "uttp_id, urutan, hasil"
+            "uttp_id, urutan, hasil, data_detail"
+
         )
         .in_(
             "pengujian_id",
@@ -1628,6 +2815,35 @@ def ambil_riwayat_uttp_umum():
                 uttp_id,
                 {}
             )
+            
+            data_detail_riwayat = relasi.get(
+                "data_detail"
+            ) or {}
+
+            if not isinstance(data_detail_riwayat, dict):
+                data_detail_riwayat = {}
+
+            cerapan_riwayat = (
+                data_detail_riwayat.get("cerapan") or {}
+            )
+
+            if not isinstance(cerapan_riwayat, dict):
+                cerapan_riwayat = {}
+
+            # dukungan data lama: cerapan tersimpan langsung tanpa pembungkus
+            if (
+                not cerapan_riwayat
+                and data_detail_riwayat.get("visual")
+            ):
+                cerapan_riwayat = data_detail_riwayat
+
+            nama_pemilik_riwayat = str(
+                data_detail_riwayat.get("nama_pemilik", "") or ""
+            ).strip()
+
+            alamat_pemilik_riwayat = str(
+                data_detail_riwayat.get("alamat", "") or ""
+            ).strip()
 
             daya_baca = alat.get(
                 "daya_baca"
@@ -1717,6 +2933,10 @@ def ambil_riwayat_uttp_umum():
                 ).strip(),
 
                 "nilai_n": None,
+                "nama_pemilik": nama_pemilik_riwayat,
+                "alamat": alamat_pemilik_riwayat,
+                "data_cerapan": cerapan_riwayat,
+
             })
 
         # =================================================
@@ -2261,12 +3481,24 @@ def update_nomor_dokumen_uttp():
     ).strip()
 
     if (not nomor_order_skrg) or nomor_order_skrg.startswith("0000/SCD/"):
-        try:
-            st.session_state["uttp_nomor_order"] = (
-                ambil_nomor_order_berikutnya(tanggal_uji)
-            )
-        except Exception:
-            pass
+        # ---- pakai ulang kalau perusahaan + tanggal pengujian sama ----
+        nama_perusahaan_form = _ambil_nama_perusahaan_form_uttp()
+
+        nomor_order_lama = cari_nomor_order_sebelumnya_uttp(
+            nama_perusahaan_form,
+            tanggal_uji,
+        )
+
+        if nomor_order_lama:
+            st.session_state["uttp_nomor_order"] = nomor_order_lama
+        else:
+            try:
+                st.session_state["uttp_nomor_order"] = (
+                    ambil_nomor_order_berikutnya(tanggal_uji)
+                )
+            except Exception:
+                pass
+
 
     nomor_sert_skrg = str(
         st.session_state.get("uttp_nomor_sertifikat", "") or ""
@@ -3099,6 +4331,12 @@ def gunakan_data_lama_untuk_edit_uttp(
                 "Perusahaan"
             )
         ),
+        "jenis_layanan": (
+            detail.get(
+                "jenis_layanan",
+                "UTTP Umum"
+            )
+        ),
 
         "tanggal_pengujian": (
             pengujian.get(
@@ -3373,6 +4611,12 @@ def gunakan_riwayat_untuk_pengujian_baru_uttp(
                 "Perusahaan"
             )
         ),
+        "jenis_layanan": (
+            detail.get(
+                "jenis_layanan",
+                "UTTP Umum"
+            )
+        ),
 
         "tanggal_pengujian": (
             tanggal_baru.isoformat()
@@ -3526,6 +4770,7 @@ def run():
             "Menu",
             [
                 "📝 Input Data Pengujian",
+                "📐 Cerapan",
                 "📄 Preview & Generate Data",
                 "📚 Riwayat UTTP",
             ],
@@ -3678,19 +4923,44 @@ def run():
             use_container_width=True,
             key="uttp_btn_generate_nomor",
         ):
-            try:
-                st.session_state["uttp_nomor_order"] = (
-                    ambil_nomor_order_berikutnya(tanggal_pengujian)
-                )
-            except Exception as exc_order:
-                st.error(f"❌ Gagal membuat nomor order: {exc_order}")
+            # ---- NOMOR ORDER: pakai ulang kalau perusahaan + tanggal sama ----
+            nama_perusahaan_form = _ambil_nama_perusahaan_form_uttp()
 
+            if not nama_perusahaan_form:
+                st.warning(
+                    "Nama perusahaan belum terbaca dari form, jadi nomor "
+                    "order tidak bisa dipakai ulang."
+                )
+
+            nomor_order_dipakai_ulang = cari_nomor_order_sebelumnya_uttp(
+                nama_perusahaan_form,
+                tanggal_pengujian,
+            )
+
+            if nomor_order_dipakai_ulang:
+                st.session_state["uttp_nomor_order"] = (
+                    nomor_order_dipakai_ulang
+                )
+                st.info(
+                    f"♻️ Nomor order {nomor_order_dipakai_ulang} dipakai ulang "
+                    "(nama perusahaan dan tanggal pengujian sama)."
+                )
+            else:
+                try:
+                    st.session_state["uttp_nomor_order"] = (
+                        ambil_nomor_order_berikutnya(tanggal_pengujian)
+                    )
+                except Exception as exc_order:
+                    st.error(f"❌ Gagal membuat nomor order: {exc_order}")
+
+            # ---- NOMOR SERTIFIKAT: tetap seperti semula ----
             try:
                 st.session_state["uttp_nomor_sertifikat"] = (
                     ambil_nomor_sertifikat_berikutnya(tanggal_sertifikat)
                 )
             except Exception as exc_sert:
                 st.error(f"❌ Gagal membuat nomor sertifikat: {exc_sert}")
+
 
         col_nomor1, col_nomor2 = st.columns(2)
 
@@ -3711,6 +4981,40 @@ def run():
         # =====================================================
         st.markdown("---")
         st.subheader("🗂️ Data Pengujian")
+        opsi_jenis_layanan = [
+            "UTTP Umum",
+            "UTTP Pangkalan GAS LPG",
+        ]
+
+        if (
+            st.session_state.get("uttp_jenis_layanan")
+            not in opsi_jenis_layanan
+        ):
+            jenis_layanan_tersimpan = str(
+                st.session_state.uttp_saved_data.get(
+                    "jenis_layanan",
+                    "",
+                ) or ""
+            ).strip()
+
+            st.session_state["uttp_jenis_layanan"] = (
+                jenis_layanan_tersimpan
+                if jenis_layanan_tersimpan in opsi_jenis_layanan
+                else "UTTP Umum"
+            )
+
+        jenis_layanan_uttp = st.selectbox(
+            "Jenis Layanan",
+            options=opsi_jenis_layanan,
+            key="uttp_jenis_layanan",
+            help=(
+                "UTTP Umum: pengujian alat seperti biasa. "
+                "UTTP Pangkalan GAS LPG: setiap rincian memiliki "
+                "nama pemilik dan alamat sendiri."
+            ),
+        )
+
+        is_lpg = (jenis_layanan_uttp == "UTTP Pangkalan GAS LPG")
 
         col_jenis, col_lokasi = st.columns(2)
 
@@ -3749,9 +5053,9 @@ def run():
 
         opsi_nama_alat = [
             "Timbangan Elektronik",
-            "Timbangan Mekanik",
             "Timbangan",
         ]
+
 
         daftar_tersimpan = (
             st.session_state.uttp_saved_data.get(
@@ -3902,8 +5206,13 @@ def run():
                     # ==========================================
                     opsi_nama_alat_rincian = [
                         "Timbangan Elektronik",
-                        "Timbangan Mekanik",
+                        "Timbangan Pegas",
+                        "Timbangan Bobot Ingsut",
+                        "Timbangan Sentisimal",
+                        "Timbangan Meja",
+                        "Timbangan Neraca Obat",
                     ]
+
 
                     if nama_alat == "Timbangan":
                         nama_alat_rincian_lama = str(
@@ -4031,6 +5340,28 @@ def run():
                     # ==============================
                     # DAYA BACA
                     # ==============================
+                    nama_alat_rincian_kecil = str(
+                        nama_alat_rincian or ""
+                    ).strip().lower()
+
+                    daya_baca_wajib_kosong = (
+                        nama_alat_rincian_kecil
+                        in {
+                            "timbangan meja",
+                            "timbangan neraca obat",
+                        }
+                    )
+
+                    kunci_tanpa_daya_baca = (
+                        f"uttp_tanpa_daya_baca_{index}"
+                    )
+
+                    if daya_baca_wajib_kosong:
+                        st.session_state[kunci_tanpa_daya_baca] = True
+                        st.session_state[
+                            f"uttp_rincian_daya_baca_{index}"
+                        ] = ""
+
                     tanpa_daya_baca = st.checkbox(
                         "Tidak ada daya baca",
                         value=bool(
@@ -4039,8 +5370,10 @@ def run():
                                 False
                             )
                         ),
-                        key=f"uttp_tanpa_daya_baca_{index}",
+                        disabled=daya_baca_wajib_kosong,
+                        key=kunci_tanpa_daya_baca,
                     )
+
                     
                     daya_baca_input = st.text_input(
                         f"Daya Baca ({satuan_rincian})",
@@ -4081,42 +5414,57 @@ def run():
                     kelas_signature_key = (
                         f"uttp_rincian_kelas_signature_{index}"
                     )
-                    
+
+                    opsi_kelas = ["I", "II", "III", "IIII"]
+
                     signature_baru = (
                         str(kapasitas_rincian),
                         str(daya_baca_rincian),
                         str(satuan_rincian),
                     )
-                    
-                    # Jika Max/e/satuan berubah, gunakan kelas hasil
-                    # perhitungan sebagai rekomendasi awal.
-                    if (
-                        st.session_state.get(
-                            kelas_signature_key
-                        ) != signature_baru
+
+                    kelas_tersimpan = str(
+                        data_lama.get("kelas", "") or ""
+                    ).strip()
+
+                    kelas_sekarang = st.session_state.get(kelas_key)
+
+                    # Pastikan kunci kelas SELALU terisi sebelum selectbox
+                    # dibuat, supaya tidak jatuh ke opsi pertama (kelas I).
+                    if kelas_sekarang not in opsi_kelas:
+                        if kelas_tersimpan in opsi_kelas:
+                            st.session_state[kelas_key] = kelas_tersimpan
+                        elif kelas_otomatis:
+                            st.session_state[kelas_key] = kelas_otomatis
+                        else:
+                            st.session_state[kelas_key] = "III"
+
+                        st.session_state[kelas_signature_key] = (
+                            signature_baru
+                        )
+
+                    # Rekomendasi otomatis hanya jalan kalau
+                    # Max / e / satuan berubah.
+                    elif (
+                        st.session_state.get(kelas_signature_key)
+                        != signature_baru
                     ):
-                        st.session_state[
-                            kelas_key
-                        ] = (
+                        st.session_state[kelas_key] = (
                             kelas_otomatis
                             if kelas_otomatis
                             else "III"
                         )
-                    
-                        st.session_state[
-                            kelas_signature_key
-                        ] = signature_baru
-                    
+
+                        st.session_state[kelas_signature_key] = (
+                            signature_baru
+                        )
+
                     kelas_rincian = st.selectbox(
                         "Kelas Timbangan",
-                        options=[
-                            "I",
-                            "II",
-                            "III",
-                            "IIII",
-                        ],
+                        options=opsi_kelas,
                         key=kelas_key,
                     )
+
                     if nilai_n is not None:
                         st.caption(
                             f"Jumlah skala verifikasi (n): "
@@ -4132,6 +5480,139 @@ def run():
                             "Kombinasi kapasitas dan daya baca "
                             "tidak sesuai klasifikasi kelas timbangan."
                         )
+                
+                nama_pemilik_lpg = ""
+                alamat_lpg = ""
+
+                if is_lpg:
+                    st.markdown("**Pemilik Pangkalan LPG**")
+
+                    df_pemilik_lpg = load_data_perusahaan()
+
+                    daftar_pemilik_lpg = []
+                    peta_alamat_lpg = {}
+
+                    if not df_pemilik_lpg.empty:
+                        for _, baris_pemilik in df_pemilik_lpg.iterrows():
+                            nama_baris = str(
+                                baris_pemilik.get(
+                                    "Nama Perusahaan", ""
+                                ) or ""
+                            ).strip()
+
+                            alamat_baris = str(
+                                baris_pemilik.get("Alamat", "") or ""
+                            ).strip()
+
+                            if nama_baris:
+                                daftar_pemilik_lpg.append(nama_baris)
+                                peta_alamat_lpg[nama_baris] = alamat_baris
+
+                    opsi_pemilik_lpg = [
+                        "➕ Tambah pemilik baru"
+                    ] + daftar_pemilik_lpg
+
+                    pemilik_tersimpan = str(
+                        data_lama.get("nama_pemilik", "") or ""
+                    ).strip()
+
+                    alamat_tersimpan = str(
+                        data_lama.get("alamat", "") or ""
+                    ).strip()
+
+                    kunci_pilih_pemilik = (
+                        f"uttp_rincian_pemilik_pilih_{index}"
+                    )
+
+                    if kunci_pilih_pemilik not in st.session_state:
+                        st.session_state[kunci_pilih_pemilik] = (
+                            pemilik_tersimpan
+                            if pemilik_tersimpan in daftar_pemilik_lpg
+                            else "➕ Tambah pemilik baru"
+                        )
+
+                    pilihan_pemilik_lpg = st.selectbox(
+                        "Nama Pemilik",
+                        options=opsi_pemilik_lpg,
+                        key=kunci_pilih_pemilik,
+                        help=(
+                            "Pilih pemilik yang sudah terdaftar, atau "
+                            "'Tambah pemilik baru' untuk mengisi manual. "
+                            "Data baru otomatis disimpan ke tabel "
+                            "perusahaan saat klik Simpan Data."
+                        ),
+                    )
+
+                    kolom_lpg1, kolom_lpg2 = st.columns(2)
+
+                    if pilihan_pemilik_lpg == "➕ Tambah pemilik baru":
+                        with kolom_lpg1:
+                            nama_pemilik_lpg = st.text_input(
+                                "Nama Pemilik Baru",
+                                value=pemilik_tersimpan,
+                                key=f"uttp_rincian_pemilik_{index}",
+                            )
+
+                        with kolom_lpg2:
+                            alamat_lpg = st.text_input(
+                                "Alamat Pemilik",
+                                value=alamat_tersimpan,
+                                key=f"uttp_rincian_alamat_{index}",
+                            )
+                    else:
+                        nama_pemilik_lpg = pilihan_pemilik_lpg
+
+                        alamat_master = peta_alamat_lpg.get(
+                            pilihan_pemilik_lpg, ""
+                        )
+
+                        kunci_nama_tampil = (
+                            f"uttp_rincian_pemilik_tampil_{index}"
+                        )
+                        st.session_state[kunci_nama_tampil] = (
+                            nama_pemilik_lpg
+                        )
+
+                        kunci_alamat_pemilik = (
+                            f"uttp_rincian_alamat_{index}"
+                        )
+                        kunci_pemilik_terakhir = (
+                            f"uttp_rincian_pemilik_terakhir_{index}"
+                        )
+
+                        if (
+                            st.session_state.get(
+                                kunci_pemilik_terakhir
+                            )
+                            != nama_pemilik_lpg
+                        ):
+                            st.session_state[
+                                kunci_pemilik_terakhir
+                            ] = nama_pemilik_lpg
+
+                            st.session_state[
+                                kunci_alamat_pemilik
+                            ] = (
+                                alamat_master or alamat_tersimpan
+                            )
+
+                        with kolom_lpg1:
+                            st.text_input(
+                                "Nama Pemilik",
+                                value=nama_pemilik_lpg,
+                                disabled=True,
+                                key=kunci_nama_tampil,
+                            )
+
+                        with kolom_lpg2:
+                            alamat_lpg = st.text_input(
+                                "Alamat Pemilik",
+                                key=kunci_alamat_pemilik,
+                            )
+
+
+
+                
                 daftar_rincian_uttp.append({
                     "_uttp_id": data_lama.get(
                         "_uttp_id"
@@ -4148,6 +5629,10 @@ def run():
                     "satuan": satuan_rincian,
                     "kelas": kelas_rincian,
                     "nilai_n": nilai_n,
+                    "nama_pemilik": nama_pemilik_lpg,
+                    "alamat": alamat_lpg,
+
+
                 })
 
         col_tambah, col_copy, col_hapus, _ = st.columns(
@@ -4418,7 +5903,53 @@ def run():
                     )
 
                 st.stop()
+            
+                # ---- simpan pemilik LPG ke master perusahaan ----
+                if is_lpg:
+                    try:
+                        supabase_pemilik_lpg = get_supabase_uttp()
+                        ada_pemilik_diproses = False
 
+                        for rincian_lpg in daftar_rincian_uttp:
+                            nama_pemilik_simpan = str(
+                                rincian_lpg.get(
+                                    "nama_pemilik", ""
+                                ) or ""
+                            ).strip()
+
+                            alamat_pemilik_simpan = str(
+                                rincian_lpg.get("alamat", "") or ""
+                            ).strip()
+
+                            if (
+                                nama_pemilik_simpan
+                                and alamat_pemilik_simpan
+                            ):
+                                perusahaan_id_lpg = (
+                                    simpan_atau_update_perusahaan_uttp(
+                                        supabase_pemilik_lpg,
+                                        nama_pemilik_simpan,
+                                        alamat_pemilik_simpan,
+                                    )
+                                )
+
+                                rincian_lpg["perusahaan_id"] = (
+                                    perusahaan_id_lpg
+                                )
+                                ada_pemilik_diproses = True
+
+                        if ada_pemilik_diproses:
+                            st.session_state.pop(
+                                "uttp_cache_data_perusahaan",
+                                None,
+                            )
+                    except Exception as exc_pemilik_lpg:
+                        st.warning(
+                            "Gagal menyimpan pemilik ke master "
+                            "perusahaan: "
+                            f"{exc_pemilik_lpg}"
+                        )
+            
             # =================================================
             # SIMPAN DATA FORM KE SESSION STATE
             # =================================================
@@ -4552,6 +6083,9 @@ def run():
                 "jumlah_alat": daftar_alat_uttp[0]["jumlah"],
                 "jenis_pengujian": jenis_pengujian,
                 "lokasi_pengujian": lokasi_pengujian,
+                "jenis_layanan": (
+                    jenis_layanan_uttp
+                ),
                 "tanggal_pengujian": (
                     tanggal_pengujian.strftime("%Y-%m-%d")
                 ),
@@ -4920,6 +6454,364 @@ def run():
                     reset_form_uttp()
                     st.rerun()
 
+        # =====================================================
+        # CERAPAN (SAMPLE)
+        # =====================================================
+        st.markdown("---")
+        st.subheader("📝 Cerapan")
+
+        daftar_rincian_cerapan = list(
+            data.get("daftar_rincian_uttp", []) or []
+        )
+
+        opsi_cerapan = []
+
+        for nomor_rincian, rincian_cerapan in enumerate(
+            daftar_rincian_cerapan
+        ):
+            if not (rincian_cerapan.get("data_cerapan") or {}):
+                continue
+
+            label_cerapan = (
+                f"{nomor_rincian + 1}. "
+                f"{rincian_cerapan.get('nama_alat', 'Timbangan')}"
+                f" - {rincian_cerapan.get('merek', '')}"
+                f" - {rincian_cerapan.get('nomor_seri', '')}"
+            )
+            opsi_cerapan.append((nomor_rincian, label_cerapan))
+
+        if not opsi_cerapan:
+            st.info(
+                "Belum ada alat yang ditandai sample cerapan. "
+                "Buka mode input data, centang 'Jadikan sample cerapan' "
+                "pada alat yang akan dicerap, lalu simpan."
+            )
+        else:
+            peta_label_ke_index = {
+                label: index_alat
+                for index_alat, label in opsi_cerapan
+            }
+
+            pilihan_label = st.multiselect(
+                "Alat yang dicerapkan (sample)",
+                options=[label for _, label in opsi_cerapan],
+                default=[label for _, label in opsi_cerapan],
+                key="uttp_cerapan_pilih_alat",
+            )
+
+            pilihan_index = [
+                peta_label_ke_index[label]
+                for label in pilihan_label
+            ]
+
+            if st.button(
+                "🖨️ Buat Cerapan",
+                use_container_width=True,
+                key="uttp_buat_cerapan",
+            ):
+                try:
+                    output_cerapan_dir = OUTPUT_DIR
+                    output_cerapan_dir.mkdir(
+                        parents=True, exist_ok=True
+                    )
+
+                    nama_dasar = format_nama_file_uttp(
+                        data, "CERAPAN"
+                    )
+                    if nama_dasar.endswith(".pdf"):
+                        nama_dasar = nama_dasar[:-4]
+
+                    for index_alat in pilihan_index:
+                        rincian_terpilih = (
+                            daftar_rincian_cerapan[index_alat]
+                        )
+
+                        data_alat_cerapan = rakit_data_cerapan_uttp(
+                            data, rincian_terpilih
+                        )
+
+                        nama_file_cerapan = (
+                            f"{nama_dasar}_Alat{index_alat + 1}.pdf"
+                        )
+                        path_cerapan = (
+                            output_cerapan_dir / nama_file_cerapan
+                        )
+                        st.write(
+                            "CEK PEMILIK RINCIAN:",
+                            rincian_terpilih.get("nama_pemilik"),
+                            "|",
+                            rincian_terpilih.get("alamat"),
+                        )
+
+                        generate_cerapan_pdf(
+                            data_alat_cerapan,
+                            str(path_cerapan),
+                        )
+
+                        st.session_state.uttp_generated_files[
+                            f"cerapan_{index_alat}"
+                        ] = str(path_cerapan)
+
+                        st.success(
+                            f"✅ Cerapan alat {index_alat + 1} "
+                            f"({rincian_terpilih.get('nama_alat', '')}) "
+                            "berhasil dibuat."
+                        )
+
+                except Exception as exc:
+                    st.error(f"❌ Error membuat cerapan: {exc}")
+                    st.code(traceback.format_exc())
+
+            if pilihan_index:
+                kolom_download_cerapan = st.columns(
+                    len(pilihan_index)
+                )
+
+                for urutan, index_alat in enumerate(pilihan_index):
+                    with kolom_download_cerapan[urutan]:
+                        path_cerapan = (
+                            st.session_state.uttp_generated_files.get(
+                                f"cerapan_{index_alat}"
+                            )
+                        )
+
+                        if path_cerapan and Path(path_cerapan).exists():
+                            with open(path_cerapan, "rb") as berkas:
+                                st.download_button(
+                                    label=(
+                                        f"⬇️ Cerapan {index_alat + 1}"
+                                    ),
+                                    data=berkas.read(),
+                                    file_name=Path(path_cerapan).name,
+                                    mime="application/pdf",
+                                    use_container_width=True,
+                                    key=(
+                                        "uttp_download_cerapan_"
+                                        f"{index_alat}"
+                                    ),
+                                )
+                        else:
+                            st.caption(
+                                f"Cerapan {index_alat + 1} belum dibuat."
+                            )
+
+    elif mode == "📐 Cerapan":
+        st.header("📐 Cerapan UTTP")
+
+        data_cerapan_hal = st.session_state.get(
+            "uttp_saved_data",
+            {},
+        ) or {}
+
+        daftar_rincian_hal = list(
+            data_cerapan_hal.get("daftar_rincian_uttp", []) or []
+        )
+
+        # =====================================================
+        # PARAMETER PENGUJIAN (berlaku untuk semua sample)
+        # =====================================================
+        st.subheader("Parameter Pengujian")
+
+        kolom_param1, kolom_param2 = st.columns(2)
+
+        with kolom_param1:
+            lokasi_options = ["Perusahaan", "Dalam Kantor"]
+
+            lokasi_tersimpan = str(
+                data_cerapan_hal.get("lokasi", "") or ""
+            ).strip()
+
+            if lokasi_tersimpan not in lokasi_options:
+                if lokasi_tersimpan:
+                    st.session_state["uttp_cerapan_lokasi"] = "Perusahaan"
+                    st.session_state["uttp_cerapan_lokasi_beda"] = True
+                    st.session_state[
+                        "uttp_cerapan_lokasi_nama"
+                    ] = lokasi_tersimpan
+                else:
+                    st.session_state["uttp_cerapan_lokasi"] = "Perusahaan"
+
+            lokasi_pilihan = st.selectbox(
+                "Lokasi Pengujian",
+                options=lokasi_options,
+                key="uttp_cerapan_lokasi",
+                help="Pilih lokasi pelaksanaan pengujian.",
+            )
+
+            lokasi_final = lokasi_pilihan
+
+            if lokasi_pilihan == "Perusahaan":
+                beda_pemilik = st.checkbox(
+                    "Nama perusahaan lokasi berbeda dengan identitas pemilik",
+                    key="uttp_cerapan_lokasi_beda",
+                )
+
+                if beda_pemilik:
+                    nama_lokasi = st.text_input(
+                        "Nama perusahaan lokasi",
+                        key="uttp_cerapan_lokasi_nama",
+                    )
+                    if str(nama_lokasi or "").strip():
+                        lokasi_final = str(nama_lokasi).strip()
+
+        with kolom_param2:
+            opsi_metode = [
+                "Beban Substitusi Tunggal",
+                "Perbandingan Langsung",
+            ]
+
+            metode_tersimpan = str(
+                data_cerapan_hal.get("metode", "") or ""
+            ).strip()
+
+            if (
+                metode_tersimpan in opsi_metode
+                and "uttp_cerapan_metode" not in st.session_state
+            ):
+                st.session_state["uttp_cerapan_metode"] = metode_tersimpan
+
+            metode_pilihan = st.selectbox(
+                "Metode Pengujian",
+                options=opsi_metode,
+                key="uttp_cerapan_metode",
+                help="Pilih metode pengujian yang digunakan.",
+            )
+
+            opsi_standar = ["M2", "M1", "F2", "F1"]
+
+            standar_tersimpan = (
+                data_cerapan_hal.get("alat_standar", []) or []
+            )
+
+            if "uttp_cerapan_standar" not in st.session_state:
+                st.session_state["uttp_cerapan_standar"] = [
+                    item
+                    for item in standar_tersimpan
+                    if item in opsi_standar
+                ]
+
+            standar_pilihan = st.multiselect(
+                "Kelas Anak Timbangan Standar",
+                options=opsi_standar,
+                key="uttp_cerapan_standar",
+                placeholder="Pilih satu atau lebih kelas standar",
+            )
+
+        data_cerapan_hal["lokasi"] = lokasi_final
+        data_cerapan_hal["metode"] = metode_pilihan
+        data_cerapan_hal["alat_standar"] = list(standar_pilihan)
+        data_cerapan_hal["at_standar"] = ", ".join(standar_pilihan)
+
+        st.session_state.uttp_saved_data = data_cerapan_hal
+
+        st.markdown("---")
+
+        
+        if not daftar_rincian_hal:
+            st.info(
+                "Belum ada data pengujian. Isi dulu di menu "
+                "'📝 Input Data Pengujian', lalu simpan."
+            )
+        else:
+            opsi_alat_hal = []
+
+            for index_alat, rincian_alat in enumerate(daftar_rincian_hal):
+                label_alat_hal = (
+                    f"{index_alat + 1}. "
+                    f"{rincian_alat.get('nama_alat', 'Timbangan')}"
+                    f" - {rincian_alat.get('merek', '')}"
+                    f" - {rincian_alat.get('nomor_seri', '')}"
+                )
+                opsi_alat_hal.append((index_alat, label_alat_hal))
+
+            peta_label_hal = {
+                label: index_alat
+                for index_alat, label in opsi_alat_hal
+            }
+
+            default_alat_hal = [
+                label
+                for index_alat, label in opsi_alat_hal
+                if (
+                    daftar_rincian_hal[index_alat].get("data_cerapan")
+                    or {}
+                )
+            ]
+
+            pilihan_label_hal = st.multiselect(
+                "Pilih alat yang dicerapkan (sample)",
+                options=[label for _, label in opsi_alat_hal],
+                default=default_alat_hal,
+                key="uttp_cerapan_pilih_alat_hal",
+            )
+
+            pilihan_index_hal = [
+                peta_label_hal[label]
+                for label in pilihan_label_hal
+            ]
+
+            st.caption(
+                "Contoh: dari 10 timbangan, pilih 1, 2, 3 alat saja "
+                "sebagai sample cerapan."
+            )
+
+            hasil_input_cerapan = {}
+
+            for index_alat in pilihan_index_hal:
+                rincian_alat = daftar_rincian_hal[index_alat]
+
+                st.markdown("---")
+                st.subheader(
+                    f"Alat {index_alat + 1}: "
+                    f"{rincian_alat.get('nama_alat', 'Timbangan')}"
+                )
+                st.caption(
+                    f"Merek: {rincian_alat.get('merek', '-')} | "
+                    f"Model: {rincian_alat.get('model_tipe', '-')} | "
+                    f"No. Seri: {rincian_alat.get('nomor_seri', '-')} | "
+                    f"Kapasitas: {rincian_alat.get('kapasitas', '-')} | "
+                    f"Daya Baca: {rincian_alat.get('daya_baca', '-')} | "
+                    f"Kelas: {rincian_alat.get('kelas', '-')}"
+                )
+
+
+                _, isi_cerapan_alat = render_input_cerapan_uttp(
+                    index=index_alat,
+                    nama_alat=rincian_alat.get("nama_alat", ""),
+                    data_lama=rincian_alat,
+                    tampilkan_checkbox=False,
+                )
+
+                hasil_input_cerapan[index_alat] = isi_cerapan_alat
+
+            if st.button(
+                "💾 Simpan Data Cerapan",
+                type="primary",
+                use_container_width=True,
+                key="uttp_simpan_cerapan",
+            ):
+                for index_alat, isi_cerapan_alat in (
+                    hasil_input_cerapan.items()
+                ):
+                    daftar_rincian_hal[index_alat][
+                        "sample_cerapan"
+                    ] = True
+                    daftar_rincian_hal[index_alat][
+                        "data_cerapan"
+                    ] = isi_cerapan_alat
+
+                data_cerapan_hal[
+                    "daftar_rincian_uttp"
+                ] = daftar_rincian_hal
+
+                st.session_state.uttp_saved_data = data_cerapan_hal
+
+                st.success(
+                    "✅ Data cerapan disimpan. Lanjut ke menu "
+                    "'📄 Preview & Generate Data' untuk membuat PDF."
+                )
+
+    
     # =========================================================
     # MODE RIWAYAT UTTP UMUM
     # =========================================================
