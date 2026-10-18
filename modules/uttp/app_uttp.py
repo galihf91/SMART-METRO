@@ -538,6 +538,18 @@ def render_input_cerapan_uttp(
         default_titik = 3 if len(benar_lama) == 3 else 5
 
         kunci_titik = f"uttp_cerapan_jumlah_titik_{index}"
+        kunci_signature_titik = (
+            f"uttp_cerapan_titik_signature_{index}"
+        )
+        signature_titik = (
+            data_lama.get("_uttp_id"),
+            len(benar_lama),
+        )
+        if st.session_state.get(kunci_signature_titik) != signature_titik:
+            st.session_state[kunci_signature_titik] = signature_titik
+            if len(benar_lama) in (3, 5):
+                st.session_state[kunci_titik] = len(benar_lama)
+
         if kunci_titik not in st.session_state:
             st.session_state[kunci_titik] = default_titik
 
@@ -554,6 +566,7 @@ def render_input_cerapan_uttp(
             ),
         )
 
+
     if not is_neraca_obat:
         st.caption("e = d")
 
@@ -567,6 +580,7 @@ def render_input_cerapan_uttp(
             kapasitas_kg,
             jumlah_titik,
         )
+
 
 
     st.write("**Masukkan Hasil Pengujian**")
@@ -595,13 +609,18 @@ def render_input_cerapan_uttp(
 
     hasil_pengujian = []
 
+    titik_berubah = (
+        len(benar_lama) != int(jumlah_titik)
+    )
+
     for nomor_titik in range(1, int(jumlah_titik) + 1):
         item_lama = {}
 
-        if (nomor_titik - 1) < len(benar_lama):
-            calon_item = benar_lama[nomor_titik - 1]
-            if isinstance(calon_item, dict):
-                item_lama = calon_item
+        if len(benar_lama) == int(jumlah_titik):
+            if (nomor_titik - 1) < len(benar_lama):
+                calon_item = benar_lama[nomor_titik - 1]
+                if isinstance(calon_item, dict):
+                    item_lama = calon_item
 
         muatan_auto_kg = 0.0
         if (nomor_titik - 1) < len(daftar_muatan_auto):
@@ -619,6 +638,11 @@ def render_input_cerapan_uttp(
         if muatan_lama_kg <= 0:
             muatan_lama_kg = muatan_auto_kg
 
+        if titik_berubah:
+            muatan_lama_kg = muatan_auto_kg
+
+
+
         kolom_baris = st.columns([0.5, 2.1, 2.3, 1.4, 3.6, 1.2, 1.4])
 
         with kolom_baris[0]:
@@ -631,14 +655,22 @@ def render_input_cerapan_uttp(
             )
 
         with kolom_baris[1]:
+            kunci_muatan = (
+                f"uttp_cerapan_benar_muatan_{index}_{nomor_titik}"
+            )
+            if titik_berubah:
+                st.session_state[kunci_muatan] = float(
+                    muatan_auto_kg
+                )
             muatan_tampil = st.number_input(
                 f"Muatan Uji {nomor_titik}",
                 value=float(muatan_lama_kg),
                 step=float(step_tampil),
                 format="%g",
-                key=f"uttp_cerapan_benar_muatan_{index}_{nomor_titik}",
+                key=kunci_muatan,
                 label_visibility="collapsed",
             )
+
 
 
         # Penunjukan selalu sama dengan Muatan Uji
@@ -891,7 +923,14 @@ def render_input_cerapan_uttp(
         "sembunyikan_daya_baca": bool(is_timbangan_meja),
     }
 
+    simpan_cerapan_otomatis_uttp(
+        data_lama,
+        data_cerapan,
+        index,
+    )
+
     return True, data_cerapan
+
 
 
 
@@ -1191,6 +1230,130 @@ def rakit_data_cerapan_uttp(data, rincian):
                 )
     
     return hasil
+
+def rapikan_teks_angka_uttp(nilai):
+    """Teks angka untuk UI: 1.0 menjadi "1", 0.50 menjadi "0.5"."""
+    if nilai is None:
+        return ""
+    if isinstance(nilai, str):
+        return nilai.strip()
+    try:
+        angka = float(nilai)
+    except (TypeError, ValueError):
+        return str(nilai)
+    if angka != angka:
+        return ""
+    teks = f"{angka:.6f}".rstrip("0").rstrip(".")
+    if teks in ("", "-0"):
+        teks = "0"
+    return teks
+
+def simpan_cerapan_otomatis_uttp(data_lama, data_cerapan, index=None):
+    """Simpan cerapan terbaru ke pengujian_uttp.data_detail."""
+    if not isinstance(data_lama, dict):
+        return False
+    if not isinstance(data_cerapan, dict):
+        return False
+
+    try:
+        supabase = get_supabase_uttp()
+    except Exception:
+        return False
+
+    kandidat_id = []
+
+    for kunci in ("uttp_pengujian_id", "uttp_id_pengujian"):
+        nilai = st.session_state.get(kunci)
+        if nilai is not None:
+            kandidat_id.append(nilai)
+
+    data_edit = st.session_state.get("uttp_data_edit") or {}
+    if isinstance(data_edit, dict):
+        for kunci in ("pengujian_id", "id"):
+            nilai = data_edit.get(kunci)
+            if nilai is not None:
+                kandidat_id.append(nilai)
+
+    data_tersimpan = st.session_state.get("uttp_saved_data") or {}
+    if isinstance(data_tersimpan, dict):
+        for kunci in ("pengujian_id", "id"):
+            nilai = data_tersimpan.get(kunci)
+            if nilai is not None:
+                kandidat_id.append(nilai)
+
+    nilai_data = data_lama.get("pengujian_id")
+    if nilai_data is not None:
+        kandidat_id.append(nilai_data)
+
+    pengujian_id = None
+
+    for nilai in kandidat_id:
+        if isinstance(nilai, (dict, list, tuple, set)):
+            continue
+        try:
+            cek = (
+                supabase
+                .table("pengujian")
+                .select("id")
+                .eq("id", nilai)
+                .limit(1)
+                .execute()
+            )
+            if cek.data:
+                pengujian_id = nilai
+                break
+        except Exception:
+            continue
+
+    if pengujian_id is None:
+        return False
+
+    urutan = data_lama.get("no")
+    if urutan is None:
+        urutan = data_lama.get("urutan")
+    if urutan is None and index is not None:
+        urutan = int(index) + 1
+    if urutan is None:
+        return False
+
+    try:
+        cek_relasi = (
+            supabase
+            .table("pengujian_uttp")
+            .select("id, data_detail")
+            .eq("pengujian_id", pengujian_id)
+            .eq("urutan", int(urutan))
+            .limit(1)
+            .execute()
+        )
+        baris = cek_relasi.data or []
+        if not baris:
+            return False
+
+        detail = dict(baris[0].get("data_detail") or {})
+
+        if detail.get("cerapan") == data_cerapan:
+            data_lama["data_cerapan"] = data_cerapan
+            data_lama["cerapan"] = data_cerapan
+            return True
+
+        detail["cerapan"] = data_cerapan
+
+        (
+            supabase
+            .table("pengujian_uttp")
+            .update({"data_detail": detail})
+            .eq("id", baris[0].get("id"))
+            .execute()
+        )
+
+        data_lama["data_cerapan"] = data_cerapan
+        data_lama["cerapan"] = data_cerapan
+        return True
+    except Exception as e:
+        st.warning(f"Cerapan belum tersimpan: {e}")
+        return False
+
 
 # =========================================================
 # SUPABASE UTTP UMUM
@@ -2902,21 +3065,22 @@ def ambil_riwayat_uttp_umum():
                     or ""
                 ).strip(),
 
-                "kapasitas": str(
+                "kapasitas": rapikan_teks_angka_uttp(
                     alat.get(
                         "kapasitas",
                         ""
                     )
-                    or ""
-                ).strip(),
+                ),
+
 
                 "daya_baca": (
                     "-"
                     if tanpa_daya_baca
-                    else str(
+                    else rapikan_teks_angka_uttp(
                         daya_baca
                     )
                 ),
+
 
                 "tanpa_daya_baca": (
                     tanpa_daya_baca
@@ -4738,6 +4902,17 @@ def gunakan_riwayat_untuk_pengujian_baru_uttp(
     st.session_state[
         "uttp_mode"
     ] = "📝 Input Data Pengujian"
+    
+    for _kunci in list(st.session_state.keys()):
+        _nama_kunci = str(_kunci)
+        if not _nama_kunci.startswith("uttp_rincian_"):
+            continue
+        if "daya_baca" not in _nama_kunci:
+            continue
+        st.session_state[_kunci] = rapikan_teks_angka_uttp(
+            st.session_state[_kunci]
+        )
+
 def run():
     init_uttp_state()
 
