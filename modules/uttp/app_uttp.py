@@ -970,7 +970,7 @@ def rakit_data_cerapan_uttp(data, rincian):
             angka_numeric_uttp(rincian.get("kapasitas")) or 0.0
         ),
         "kapasitas_min": 0.0,
-        "daya_baca": daya_baca,
+         daya_baca,
         "interval_skala": daya_baca,
         "kelas": rincian.get("kelas", ""),
         "satuan": satuan,
@@ -1615,7 +1615,7 @@ def get_or_create_master_uttp_umum(
             else None
         ),
 
-        "daya_baca": daya_baca,
+         daya_baca,
 
         "satuan_daya_baca": (
             satuan_daya_baca
@@ -2862,9 +2862,7 @@ def ambil_riwayat_uttp_umum():
                 data_detail_riwayat.get("alamat", "") or ""
             ).strip()
 
-            daya_baca = alat.get(
-                "daya_baca"
-            )
+            "daya_baca": rapikan_teks_angka_uttp(alat.get("daya_baca")),
 
             tanpa_daya_baca = (
                 daya_baca is None
