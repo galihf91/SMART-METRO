@@ -6711,12 +6711,6 @@ def run():
                         path_cerapan = (
                             output_cerapan_dir / nama_file_cerapan
                         )
-                        st.write(
-                            "CEK PEMILIK RINCIAN:",
-                            rincian_terpilih.get("nama_pemilik"),
-                            "|",
-                            rincian_terpilih.get("alamat"),
-                        )
 
                         generate_cerapan_pdf(
                             data_alat_cerapan,
