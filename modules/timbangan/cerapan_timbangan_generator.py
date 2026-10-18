@@ -755,23 +755,8 @@ def generate_cerapan_pdf(data: dict[str, Any], filename: str) -> str:
         ),
     ]
 
-    # Model / Tipe ditampilkan untuk semua jenis alat,
-    # kecuali Neraca Obat yang memang tidak memilikinya.
-    if is_neraca_obat:
-        spesifikasi = [
-            item for item in spesifikasi
-            if item[0] != "Model / Tipe"
-        ]
-
-    # Neraca Obat tidak memiliki Daya Baca
-    if is_neraca_obat:
-        spesifikasi = [
-            item for item in spesifikasi
-            if item[0] != "Daya Baca"
-        ]
-
-    # Neraca Obat tidak memiliki Daya Baca terpisah.
-    if is_neraca_obat:
+    # Neraca Obat dan Timbangan Meja tidak memiliki Daya Baca
+    if is_neraca_obat or data.get("sembunyikan_daya_baca"):
         spesifikasi = [
             item for item in spesifikasi
             if item[0] != "Daya Baca"
@@ -974,10 +959,11 @@ def generate_cerapan_pdf(data: dict[str, Any], filename: str) -> str:
 
     # Neraca Obat hanya menampilkan pengujian aktif pada baris pertama.
     # Baris 2–5 yang disabled di aplikasi tidak dicetak pada cerapan.
-    if is_neraca_obat:
+    if is_neraca_obat or data.get("satu_baris_benar"):
         hasil_yang_dicetak = hasil_pengujian[:1]
     else:
         hasil_yang_dicetak = hasil_pengujian[:5]
+
 
     for idx, item in enumerate(
         hasil_yang_dicetak,
@@ -1238,7 +1224,12 @@ def generate_cerapan_pdf(data: dict[str, Any], filename: str) -> str:
             ),
         ])
 
-    jumlah_baris_benar = 1 if is_neraca_obat else 5
+    jumlah_baris_benar = (
+        1
+        if (is_neraca_obat or data.get("satu_baris_benar"))
+        else 5
+    )
+
 
     while len(benar_rows) < jumlah_baris_benar + 1:
         benar_rows.append([p("", P_CENTER) for _ in range(7)])
