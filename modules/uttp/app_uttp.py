@@ -4753,6 +4753,17 @@ def gunakan_riwayat_untuk_pengujian_baru_uttp(
     st.session_state[
         "uttp_mode"
     ] = "📝 Input Data Pengujian"
+
+    for _kunci in list(st.session_state.keys()):
+        _nama_kunci = str(_kunci)
+        if not _nama_kunci.startswith("uttp_rincian_"):
+            continue
+        if "daya_baca" not in _nama_kunci:
+            continue
+        st.session_state[_kunci] = rapikan_teks_angka_uttp(
+            st.session_state[_kunci]
+        )
+
 def run():
     init_uttp_state()
 
