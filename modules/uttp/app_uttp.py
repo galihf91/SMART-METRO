@@ -1192,6 +1192,23 @@ def rakit_data_cerapan_uttp(data, rincian):
     
     return hasil
 
+def rapikan_teks_angka_uttp(nilai):
+    """Teks angka untuk UI: 1.0 menjadi "1", 0.50 menjadi "0.5"."""
+    if nilai is None:
+        return ""
+    if isinstance(nilai, str):
+        return nilai.strip()
+    try:
+        angka = float(nilai)
+    except (TypeError, ValueError):
+        return str(nilai)
+    if angka != angka:
+        return ""
+    teks = f"{angka:.6f}".rstrip("0").rstrip(".")
+    if teks in ("", "-0"):
+        teks = "0"
+    return teks
+
 # =========================================================
 # SUPABASE UTTP UMUM
 # =========================================================
