@@ -220,20 +220,26 @@ JUDUL_HAL1_LAMPIRAN = 4.2 * cm
 JARAK_LANJUTAN_LAMPIRAN = 0.8 * cm
 
 
-def _style_tabel_lampiran():
+def _style_tabel_lampiran(is_lpg=False):
+    ukuran_header = 9 if is_lpg else 10
+    ukuran_isi = 9 if is_lpg else 10
+    padding = 3 if is_lpg else 6
+
     return TableStyle([
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
-        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("FONTSIZE", (0, 0), (-1, 0), ukuran_header),
+        ("FONTSIZE", (0, 1), (-1, -1), ukuran_isi),
         ("ALIGN", (0, 0), (0, -1), "CENTER"),
         ("ALIGN", (0, 0), (-1, 0), "CENTER"),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("GRID", (0, 0), (-1, -1), 0.7, colors.black),
-        ("LEFTPADDING", (0, 0), (-1, -1), 6),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-        ("TOPPADDING", (0, 0), (-1, -1), 6),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("LEFTPADDING", (0, 0), (-1, -1), padding),
+        ("RIGHTPADDING", (0, 0), (-1, -1), padding),
+        ("TOPPADDING", (0, 0), (-1, -1), padding),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), padding),
     ])
+
 
 
 def _cell_style_lampiran():
@@ -248,6 +254,30 @@ def _cell_style_lampiran():
         spaceAfter=0,
         spaceBefore=0,
     )
+
+# =========================================================
+# TABEL LAMPIRAN MODE PANGKALAN GAS LPG
+# =========================================================
+JENIS_LAYANAN_LPG = "UTTP Pangkalan GAS LPG"
+
+
+def _is_lampiran_lpg(data):
+    return (
+        str((data or {}).get("jenis_layanan", "")).strip()
+        == JENIS_LAYANAN_LPG
+    )
+
+
+def _lebar_kolom_lampiran_lpg():
+    return [
+        0.8 * cm,   # No.
+        2.2 * cm,   # Jenis UTTP
+        2.0 * cm,   # Merek
+        2.8 * cm,   # Tipe / No. Seri
+        3.8 * cm,   # Kapasitas / Daya Baca
+        2.8 * cm,   # Nama Pemilik
+        2.8 * cm,   # Alamat Pemilik
+    ]
 
 
 def _kolom_lampiran(data):
@@ -267,6 +297,9 @@ def _kolom_lampiran(data):
     if not nama_alat_uttp:
         nama_alat_uttp = "UTTP"
 
+    if _is_lampiran_lpg(data):
+        return _lebar_kolom_lampiran_lpg(), False, nama_alat_uttp
+
     pakai_kolom_nama_alat = nama_alat_uttp.strip().lower() == "timbangan"
 
     if pakai_kolom_nama_alat:
@@ -283,31 +316,83 @@ def _kolom_lampiran(data):
     return col_widths, pakai_kolom_nama_alat, nama_alat_uttp
 
 
-def _header_tabel_lampiran(pakai_kolom_nama_alat):
+def _header_tabel_lampiran(pakai_kolom_nama_alat, is_lpg=False):
+    if is_lpg:
+        return [
+            "No.",
+            "Jenis UTTP",
+            "Merek",
+            "Tipe / No. Seri",
+            "Kapasitas / Daya Baca",
+            "Nama Pemilik",
+            "Alamat Pemilik",
+        ]
+
     if pakai_kolom_nama_alat:
         return [
             "No.", "Nama Alat", "Merek", "Model / Tipe",
             "Nomor Seri", "Kapasitas", "Daya Baca", "Kelas",
         ]
+
     return [
         "No.", "Merek", "Model / Tipe",
         "Nomor Seri", "Kapasitas", "Daya Baca", "Kelas",
     ]
 
+def _angka_rapi_lampiran(nilai):
+    """Tampilkan angka tanpa nol desimal yang tidak perlu (1.0 menjadi 1)."""
+    teks = str(nilai).strip()
 
-def _baris_data_lampiran(item, nomor, pakai_kolom_nama_alat, cell_style):
+    if not teks:
+        return ""
+
+    try:
+        angka = float(teks.replace(",", "."))
+    except ValueError:
+        return teks
+
+    if angka == int(angka):
+        return str(int(angka))
+
+    hasil = f"{angka:.10f}".rstrip("0").rstrip(".")
+    return hasil.replace(".", ",")
+
+
+def _baris_data_lampiran(
+    item,
+    nomor,
+    pakai_kolom_nama_alat,
+    cell_style,
+    is_lpg=False,
+):
     if not isinstance(item, dict):
         return None
 
     satuan = str(item.get("satuan", "")).strip()
-    kapasitas = f"{item.get('kapasitas', '')} {satuan}".strip()
+
+    angka_kapasitas = _angka_rapi_lampiran(
+        item.get("kapasitas", "")
+    )
+    kapasitas = (
+        f"{angka_kapasitas} {satuan}".strip()
+        if angka_kapasitas
+        else ""
+    )
 
     nilai_daya_baca = str(item.get("daya_baca", "")).strip()
-    daya_baca = (
-        "-"
-        if nilai_daya_baca == "-"
-        else f"{nilai_daya_baca} {satuan}".strip()
-    )
+
+    if nilai_daya_baca == "-":
+        daya_baca = "-"
+    else:
+        angka_daya_baca = _angka_rapi_lampiran(
+            nilai_daya_baca
+        )
+        daya_baca = (
+            f"{angka_daya_baca} {satuan}".strip()
+            if angka_daya_baca
+            else ""
+        )
+
 
     model_tipe = str(
         item.get("model_tipe", item.get("tipe_no_seri", ""))
@@ -315,6 +400,26 @@ def _baris_data_lampiran(item, nomor, pakai_kolom_nama_alat, cell_style):
 
     nomor_seri = str(item.get("nomor_seri", "")).strip()
 
+    # ---------- MODE PANGKALAN GAS LPG ----------
+    if is_lpg:
+        bagian_tipe = [
+            nilai for nilai in (model_tipe, nomor_seri) if nilai
+        ]
+        tipe_no_seri = " / ".join(bagian_tipe)
+
+        kapasitas_daya_baca = f"{kapasitas} / {daya_baca}"
+
+        return [
+            str(nomor),
+            Paragraph(str(item.get("nama_alat", "")), cell_style),
+            Paragraph(str(item.get("merek", "")), cell_style),
+            Paragraph(tipe_no_seri, cell_style),
+            Paragraph(kapasitas_daya_baca, cell_style),
+            Paragraph(str(item.get("nama_pemilik", "")), cell_style),
+            Paragraph(str(item.get("alamat", "")), cell_style),
+        ]
+
+    # ---------- MODE UTTP UMUM (TIDAK BERUBAH) ----------
     if pakai_kolom_nama_alat:
         return [
             str(nomor),
@@ -338,9 +443,10 @@ def _baris_data_lampiran(item, nomor, pakai_kolom_nama_alat, cell_style):
     ]
 
 
-def _tinggi_baris_lampiran(baris, col_widths):
+
+def _tinggi_baris_lampiran(baris, col_widths, is_lpg=False):
     tabel = Table([baris], colWidths=col_widths)
-    tabel.setStyle(_style_tabel_lampiran())
+    tabel.setStyle(_style_tabel_lampiran(is_lpg))
     _, tinggi = tabel.wrap(sum(col_widths), 100000)
     return tinggi
 
@@ -353,10 +459,12 @@ def _bagi_daftar_lampiran(data, col_widths, pakai_kolom_nama_alat, height):
         daftar_rincian = []
 
     cell_style = _cell_style_lampiran()
+    is_lpg = _is_lampiran_lpg(data)
 
     tinggi_header = _tinggi_baris_lampiran(
-        _header_tabel_lampiran(pakai_kolom_nama_alat),
+        _header_tabel_lampiran(pakai_kolom_nama_alat, is_lpg),
         col_widths,
+        is_lpg=is_lpg,
     )
 
     tinggi_hal1 = (
@@ -381,13 +489,18 @@ def _bagi_daftar_lampiran(data, col_widths, pakai_kolom_nama_alat, height):
         nomor += 1
 
         baris = _baris_data_lampiran(
-            item, nomor, pakai_kolom_nama_alat, cell_style
+            item, nomor, pakai_kolom_nama_alat, cell_style, is_lpg=is_lpg
         )
+
 
         if baris is None:
             continue
 
-        tinggi_baris = _tinggi_baris_lampiran(baris, col_widths)
+        tinggi_baris = _tinggi_baris_lampiran(
+            baris,
+            col_widths,
+            is_lpg=is_lpg,
+        )
 
         if halaman_skrg and (tinggi_skrg + tinggi_baris > tinggi_maks):
             halaman.append(halaman_skrg)
@@ -1172,8 +1285,14 @@ def draw_halaman_2(
     tampilkan_kolom_nama_alat = (
         nama_alat_uttp.strip().lower() == "timbangan"
     )
-    if tampilkan_kolom_nama_alat:
-        # Tabel 7 kolom dibuat lebih lebar
+
+    is_lpg = _is_lampiran_lpg(data)
+
+    if is_lpg:
+        table_margin_left = margin_left_content
+        col_widths = _lebar_kolom_lampiran_lpg()
+    elif tampilkan_kolom_nama_alat:
+        # Tabel 8 kolom dibuat lebih lebar
         table_margin_left = 2.5 * cm
 
         col_widths = [
@@ -1198,6 +1317,7 @@ def draw_halaman_2(
             2.8 * cm,   # Daya Baca
             1.5 * cm,   # Kelas
         ]
+
 
     table_total_width = sum(col_widths)
     # Bagi daftar jadi halaman-halaman yang PASTI muat
@@ -1455,21 +1575,37 @@ def draw_halaman_2(
             # =============================================
             c.setFont("Helvetica-Bold", 12)
 
-            c.drawCentredString(
-                table_center_x,
-                y,
-                "DAFTAR UTTP"
-            )
+            if _is_lampiran_lpg(data):
+                c.drawCentredString(
+                    table_center_x,
+                    y,
+                    f"DAFTAR UTTP {nama_alat_uttp.upper()}",
+                )
 
-            y -= 0.45 * cm
+                y -= 0.45 * cm
 
-            c.drawCentredString(
-                table_center_x,
-                y,
-                nama_alat_uttp.upper()
-            )
+                c.drawCentredString(
+                    table_center_x,
+                    y,
+                    "PANGKALAN GAS LPG",
+                )
+            else:
+                c.drawCentredString(
+                    table_center_x,
+                    y,
+                    "DAFTAR UTTP",
+                )
+
+                y -= 0.45 * cm
+
+                c.drawCentredString(
+                    table_center_x,
+                    y,
+                    nama_alat_uttp.upper(),
+                )
 
             y -= 0.7 * cm
+
 
         # =================================================
         # HALAMAN LANJUTAN / HALAMAN 3 DAN SETERUSNYA
@@ -1481,27 +1617,12 @@ def draw_halaman_2(
         # =================================================
         # DATA TABEL
         # =================================================
-        if tampilkan_kolom_nama_alat:
-            table_data = [[
-                "No.",
-                "Nama Alat",
-                "Merek",
-                "Model / Tipe",
-                "Nomor Seri",
-                "Kapasitas",
-                "Daya Baca",
-                "Kelas",
-            ]]
-        else:
-            table_data = [[
-                "No.",
-                "Merek",
-                "Model / Tipe",
-                "Nomor Seri",
-                "Kapasitas",
-                "Daya Baca",
-                "Kelas",
-            ]]
+        table_data = [
+            _header_tabel_lampiran(
+                tampilkan_kolom_nama_alat,
+                is_lpg,
+            )
+        ]
 
         nomor_awal = sum(
             len(halaman)
@@ -1517,21 +1638,19 @@ def draw_halaman_2(
                 nomor,
                 tampilkan_kolom_nama_alat,
                 cell_style,
+                is_lpg=is_lpg,
             )
+
 
             if baris is not None:
                 table_data.append(baris)
 
 
         if len(table_data) == 1:
-            if tampilkan_kolom_nama_alat:
-                table_data.append([
-                    "1", "", "", "", "", "", "", ""
-                ])
-            else:
-                table_data.append([
-                    "1", "", "", "", "", "", ""
-                ])
+            jumlah_kolom = len(table_data[0])
+            table_data.append(
+                ["1"] + [""] * (jumlah_kolom - 1)
+            )
 
         table = Table(
             table_data,
@@ -1540,9 +1659,8 @@ def draw_halaman_2(
         )
 
         table.setStyle(
-            _style_tabel_lampiran()
+            _style_tabel_lampiran(is_lpg)
         )
-
 
         table_width, table_height = table.wrap(
             table_total_width,
