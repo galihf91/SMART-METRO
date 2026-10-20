@@ -515,55 +515,8 @@ def home():
         """,
         unsafe_allow_html=True
     )
-
-    pertanyaan_ai = st.text_input(
-        "Pertanyaan untuk Asisten AI",
-        key="ai_pertanyaan_home",
-        placeholder=(
-            "Tulis pertanyaan lalu tekan Enter. "
-            "Contoh: Berapa jumlah SPBU di Kabupaten Tangerang?"
-        ),
-    )
-
-    st.caption("Tekan Enter setelah menulis pertanyaan.")
-
-    pertanyaan_bersih = str(pertanyaan_ai or "").strip()
-
-    if (
-        pertanyaan_bersih
-        and pertanyaan_bersih
-        != st.session_state.get("ai_pertanyaan_terakhir")
-    ):
-        st.session_state["ai_pertanyaan_terakhir"] = pertanyaan_bersih
-
-        try:
-            with st.spinner("Mencari jawaban..."):
-                modul_ai = importlib.import_module("ai_service")
-
-                st.session_state["ai_jawaban_home"] = (
-                    modul_ai.tanya_deepseek(pertanyaan_bersih)
-                )
-        except ModuleNotFoundError as error:
-            st.error(
-                "Modul AI belum ditemukan atau paketnya belum terpasang."
-            )
-            st.code(f"Detail: {error}", language="text")
-        except Exception as error:
-            st.error("Gagal menghubungi asisten AI.")
-            with st.expander("Lihat detail kesalahan"):
-                st.exception(error)
-
-    jawaban_ai = st.session_state.get("ai_jawaban_home")
-
-    if jawaban_ai:
-        st.markdown("### Jawaban")
-        st.markdown(jawaban_ai)
-
-        st.caption(
-            "Pertanyaan terakhir: "
-            f"{st.session_state.get('ai_pertanyaan_terakhir', '')}"
-        )
-
+    modul_ai = importlib.import_module("ai_service")
+    modul_ai.render_chat(tampilkan_di_sidebar=False)
 
 
 
