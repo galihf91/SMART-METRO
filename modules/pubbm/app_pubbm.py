@@ -11,7 +11,7 @@ from modules.timbangan_jembatan.form_peminjaman_ctt_generator import (
 from datetime import date, datetime
 import re
 from pathlib import Path
-
+from modules.utils_perusahaan import ambil_kecamatan_dari_alamat
 OPSI_MEDIA_MANUAL = "✍️ Input Media Manual"
 TIPE_SPBU = [
     "SPBU",
