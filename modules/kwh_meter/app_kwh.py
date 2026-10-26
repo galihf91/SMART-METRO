@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import date, datetime
 from pathlib import Path
 from supabase import create_client
+from modules.utils_perusahaan import ambil_kecamatan_dari_alamat
 def find_project_root():
     current = Path(__file__).resolve()
 
