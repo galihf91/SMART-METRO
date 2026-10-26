@@ -27,7 +27,7 @@ from modules.timbangan.form_peminjaman_ctt_timbangan_generator import (
     generate_form_peminjaman_ctt_timbangan_pdf
 )
 
-
+from modules.utils_perusahaan import ambil_kecamatan_dari_alamat
 def find_project_root():
     current = Path(__file__).resolve()
 
