@@ -10,7 +10,7 @@ from modules.tangki_ukur_mobil.cerapan_tangki_ukur_mobil_generator import (
 from modules.tangki_ukur_mobil.sertifikat_tangki_ukur_mobil_generator import (
     generate_sertifikat_tangki_ukur_mobil_pdf
 )
-from modules.utils_perusahaan import ambil_kecamatan_dari_alamat
+
 
 # =========================================================
 # KONFIGURASI
