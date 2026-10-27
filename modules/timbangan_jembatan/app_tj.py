@@ -13,7 +13,7 @@ from modules.timbangan_jembatan.form_peminjaman_ctt_generator import (
 import os
 from pathlib import Path
 import re
-from modules.utils_perusahaan import ambil_kecamatan_dari_alamat
+
 # =========================================================
 # KONEKSI SUPABASE
 # =========================================================
