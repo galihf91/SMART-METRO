@@ -2697,32 +2697,52 @@ def get_saved_kompartemen(
 def format_isi_nominal_tum(
     value
 ):
-    text = str(
-        value
-        or ""
-    ).strip()
 
-    if not text:
-        return "-"
+    # =====================================================
+    # JIKA DATA BERUPA LIST
+    # Contoh:
+    # [5000.0, 5000.0]
+    # =====================================================
+    if isinstance(
+        value,
+        list
+    ):
 
-    bagian = [
-        item.strip()
-        for item in text.split("/")
-        if item.strip()
-    ]
+        bagian = value
+
+    else:
+
+        text = str(
+            value
+            or ""
+        ).strip()
+
+        if not text:
+            return "-"
+
+        bagian = [
+            item.strip()
+            for item in text.split("/")
+            if item.strip()
+        ]
 
     hasil = []
 
     for item in bagian:
 
         try:
-            angka = float(item)
+            angka = float(
+                item
+            )
 
             if angka.is_integer():
+
                 angka_teks = (
                     f"{angka:.0f}"
                 )
+
             else:
+
                 angka_teks = (
                     f"{angka:g}"
                 )
@@ -2731,11 +2751,16 @@ def format_isi_nominal_tum(
             TypeError,
             ValueError
         ):
-            angka_teks = item
 
-        hasil.append(
-            f"{angka_teks} L"
-        )
+            angka_teks = str(
+                item
+            ).strip()
+
+        if angka_teks:
+
+            hasil.append(
+                f"{angka_teks} L"
+            )
 
     return " / ".join(
         hasil
@@ -4162,9 +4187,24 @@ def run():
                     if (
                         len(saved_nominal_list) > i
                     ):
-                        nilai_default = str(
+
+                        nilai_saved = safe_float(
                             saved_nominal_list[i]
                         )
+
+                        if float(
+                            nilai_saved
+                        ).is_integer():
+
+                            nilai_default = (
+                                f"{nilai_saved:.0f}"
+                            )
+
+                        else:
+
+                            nilai_default = (
+                                f"{nilai_saved:g}"
+                            )
                 
                     elif (
                         len(nominal_lama_list) > i
@@ -5341,13 +5381,20 @@ def run():
                         )
                     )
     
+                    nilai_nominal_riwayat = (
+                        data_riwayat.get(
+                            "isi_nominal_list"
+                        )
+                        or data_riwayat.get(
+                            "isi_nominal",
+                            ""
+                        )
+                    )
+
                     st.write(
                         "**Isi Nominal:**",
                         format_isi_nominal_tum(
-                            data_riwayat.get(
-                                "isi_nominal",
-                                ""
-                            )
+                            nilai_nominal_riwayat
                         )
                     )
     
