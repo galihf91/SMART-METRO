@@ -580,12 +580,28 @@ def generate_sertifikat_tangki_ukur_mobil_pdf(
             else "Tangki Ukur"
         )
 
-    isi_nominal = _fmt_number(
-        data.get("isi_nominal", "")
-    )
-
-    if isi_nominal:
-        isi_nominal = f"{isi_nominal} L"
+    isi_nominal_raw = str(
+        data.get(
+            "isi_nominal",
+            ""
+        )
+    ).strip()
+    
+    if isi_nominal_raw:
+    
+        bagian_nominal = [
+            item.strip()
+            for item in isi_nominal_raw.split("/")
+            if item.strip()
+        ]
+    
+        isi_nominal = " / ".join(
+            f"{_fmt_number(item)} L"
+            for item in bagian_nominal
+        )
+    
+    else:
+        isi_nominal = ""
 
     nomor_chasis_mesin = str(
         data.get(
