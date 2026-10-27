@@ -3958,20 +3958,226 @@ def run():
             )
 
             with c_nominal:
-                isi_nominal_input = st.text_input(
-                    "Isi Nominal",
-                    value=str(
-                        saved.get(
-                            "isi_nominal",
-                            ""
-                        )
-                    ),
-                    placeholder="Contoh: 16000",
-                    key="tum_isi_nominal"
-                )
 
-                isi_nominal = safe_float(
-                    isi_nominal_input
+                # =====================================================
+                # DATA LAMA / DATA EDIT
+                # =====================================================
+                saved_nominal_list = saved.get(
+                    "isi_nominal_list",
+                    []
+                )
+            
+                if not isinstance(
+                    saved_nominal_list,
+                    list
+                ):
+                    saved_nominal_list = []
+            
+                # =====================================================
+                # JUMLAH INPUT ISI NOMINAL
+                # =====================================================
+                if (
+                    "tum_jumlah_isi_nominal"
+                    not in st.session_state
+                ):
+            
+                    if saved_nominal_list:
+            
+                        st.session_state[
+                            "tum_jumlah_isi_nominal"
+                        ] = len(
+                            saved_nominal_list
+                        )
+            
+                    else:
+            
+                        # Data lama masih berupa:
+                        # "5000"
+                        # atau
+                        # "5000 / 5000"
+                        isi_nominal_lama = str(
+                            saved.get(
+                                "isi_nominal",
+                                ""
+                            )
+                            or ""
+                        ).strip()
+            
+                        if "/" in isi_nominal_lama:
+            
+                            nominal_lama_list = [
+                                item.strip()
+                                for item in (
+                                    isi_nominal_lama.split(
+                                        "/"
+                                    )
+                                )
+                                if item.strip()
+                            ]
+            
+                            st.session_state[
+                                "tum_jumlah_isi_nominal"
+                            ] = max(
+                                1,
+                                len(
+                                    nominal_lama_list
+                                ),
+                            )
+            
+                        else:
+            
+                            st.session_state[
+                                "tum_jumlah_isi_nominal"
+                            ] = 1
+            
+                jumlah_isi_nominal = (
+                    st.session_state[
+                        "tum_jumlah_isi_nominal"
+                    ]
+                )
+            
+                # =====================================================
+                # SIAPKAN NILAI LAMA
+                # =====================================================
+                isi_nominal_lama = str(
+                    saved.get(
+                        "isi_nominal",
+                        ""
+                    )
+                    or ""
+                ).strip()
+            
+                nominal_lama_list = [
+                    item.strip()
+                    for item in (
+                        isi_nominal_lama.split(
+                            "/"
+                        )
+                    )
+                    if item.strip()
+                ]
+            
+                isi_nominal_list = []
+            
+                # =====================================================
+                # INPUT NOMINAL
+                # =====================================================
+                for i in range(
+                    jumlah_isi_nominal
+                ):
+            
+                    nilai_default = ""
+            
+                    if (
+                        len(
+                            saved_nominal_list
+                        )
+                        > i
+                    ):
+            
+                        nilai_default = str(
+                            saved_nominal_list[i]
+                        )
+            
+                    elif (
+                        len(
+                            nominal_lama_list
+                        )
+                        > i
+                    ):
+            
+                        nilai_default = str(
+                            nominal_lama_list[i]
+                        )
+            
+                    isi_nominal_input = (
+                        st.text_input(
+                            (
+                                "Isi Nominal"
+                                if i == 0
+                                else (
+                                    f"Isi Nominal "
+                                    f"{i + 1}"
+                                )
+                            ),
+                            value=(
+                                nilai_default
+                            ),
+                            placeholder=(
+                                "Contoh: 5000"
+                            ),
+                            key=(
+                                f"tum_isi_nominal_{i}"
+                            ),
+                        )
+                    )
+            
+                    isi_nominal_list.append(
+                        safe_float(
+                            isi_nominal_input
+                        )
+                    )
+            
+                # =====================================================
+                # TOMBOL TAMBAH / HAPUS
+                # =====================================================
+                col_tambah, col_hapus = (
+                    st.columns(2)
+                )
+            
+                with col_tambah:
+            
+                    if st.button(
+                        "➕ Tambah Isi Nominal",
+                        key=(
+                            "tum_tambah_isi_nominal"
+                        ),
+                        use_container_width=True,
+                    ):
+            
+                        st.session_state[
+                            "tum_jumlah_isi_nominal"
+                        ] += 1
+            
+                        st.rerun()
+            
+                with col_hapus:
+            
+                    if (
+                        jumlah_isi_nominal > 1
+                        and st.button(
+                            "➖ Hapus Terakhir",
+                            key=(
+                                "tum_hapus_isi_nominal"
+                            ),
+                            use_container_width=True,
+                        )
+                    ):
+            
+                        st.session_state[
+                            "tum_jumlah_isi_nominal"
+                        ] -= 1
+            
+                        st.rerun()
+            
+                # =====================================================
+                # FORMAT HASIL
+                # Contoh:
+                # 5000 / 5000
+                # =====================================================
+                isi_nominal_teks = " / ".join(
+                    (
+                        f"{nilai:.0f}"
+                        if float(nilai).is_integer()
+                        else str(nilai)
+                    )
+                    for nilai in isi_nominal_list
+                    if nilai > 0
+                )
+            
+                # Dipakai untuk kompatibilitas kode lama
+                isi_nominal = (
+                    isi_nominal_teks
                 )
 
             with c_satuan:
