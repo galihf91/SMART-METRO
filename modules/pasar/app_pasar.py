@@ -4,7 +4,6 @@ from datetime import datetime, timezone
 import pandas as pd
 import streamlit as st
 from supabase import create_client
-from modules.utils_perusahaan import ambil_kecamatan_dari_alamat
 
 # ============================================================
 # SMART METRO - MODUL DATA PASAR
