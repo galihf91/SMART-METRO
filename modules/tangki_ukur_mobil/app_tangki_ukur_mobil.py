@@ -293,12 +293,26 @@ def get_or_create_master_tum(
         tipe_no_seri
     )
 
-    kapasitas = safe_float(
-        data.get(
-            "isi_nominal",
-            0
-        )
+    isi_nominal_list = data.get(
+        "isi_nominal_list",
+        []
     )
+    
+    if isinstance(
+        isi_nominal_list,
+        list
+    ):
+        kapasitas = sum(
+            safe_float(nilai)
+            for nilai in isi_nominal_list
+        )
+    else:
+        kapasitas = safe_float(
+            data.get(
+                "isi_nominal",
+                0
+            )
+        )
     jumlah_kompartemen = int(
         data.get(
             "jumlah_kompartemen",
