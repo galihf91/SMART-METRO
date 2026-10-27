@@ -4065,53 +4065,64 @@ def run():
                 for i in range(
                     jumlah_isi_nominal
                 ):
-            
+                
                     nilai_default = ""
-            
+                
                     if (
-                        len(
-                            saved_nominal_list
-                        )
-                        > i
+                        len(saved_nominal_list) > i
                     ):
-            
                         nilai_default = str(
                             saved_nominal_list[i]
                         )
-            
+                
                     elif (
-                        len(
-                            nominal_lama_list
-                        )
-                        > i
+                        len(nominal_lama_list) > i
                     ):
-            
                         nilai_default = str(
                             nominal_lama_list[i]
                         )
-            
-                    isi_nominal_input = (
-                        st.text_input(
-                            (
-                                "Isi Nominal"
-                                if i == 0
-                                else (
-                                    f"Isi Nominal "
-                                    f"{i + 1}"
-                                )
-                            ),
-                            value=(
-                                nilai_default
-                            ),
-                            placeholder=(
-                                "Contoh: 5000"
-                            ),
-                            key=(
-                                f"tum_isi_nominal_{i}"
-                            ),
+                
+                    c_nominal_item, c_satuan_item = (
+                        st.columns(
+                            [4, 1]
                         )
                     )
-            
+                
+                    with c_nominal_item:
+                
+                        isi_nominal_input = (
+                            st.text_input(
+                                (
+                                    "Isi Nominal"
+                                    if i == 0
+                                    else (
+                                        f"Isi Nominal "
+                                        f"{i + 1}"
+                                    )
+                                ),
+                                value=(
+                                    nilai_default
+                                ),
+                                placeholder=(
+                                    "Contoh: 5000"
+                                ),
+                                key=(
+                                    f"tum_isi_nominal_{i}"
+                                ),
+                            )
+                        )
+                
+                    with c_satuan_item:
+                
+                        st.text_input(
+                            "Satuan",
+                            value="L",
+                            disabled=True,
+                            key=(
+                                f"tum_satuan_isi_nominal_{i}"
+                            ),
+                        )
+                
                     isi_nominal_list.append(
                         safe_float(
                             isi_nominal_input
@@ -4178,16 +4189,6 @@ def run():
                 # Dipakai untuk kompatibilitas kode lama
                 isi_nominal = (
                     isi_nominal_teks
-                )
-
-            with c_satuan:
-                st.text_input(
-                    "Satuan",
-                    value="L",
-                    disabled=True,
-                    key=(
-                        "tum_satuan_isi_nominal"
-                    )
                 )
 
             merek_tangki = st.text_input(
