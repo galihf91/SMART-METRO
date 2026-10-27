@@ -2601,23 +2601,26 @@ def validasi_data_tum(
                 pesan
             )
 
-   isi_nominal_list = data.get(
+    # =====================================================
+    # VALIDASI ISI NOMINAL
+    # =====================================================
+    isi_nominal_list = data.get(
         "isi_nominal_list",
         []
     )
-    
+
     if not isinstance(
         isi_nominal_list,
         list
     ):
         isi_nominal_list = []
-    
+
     isi_nominal_valid = [
         safe_float(nilai)
         for nilai in isi_nominal_list
         if safe_float(nilai) > 0
     ]
-    
+
     if not isi_nominal_valid:
         errors.append(
             "Isi nominal harus lebih besar dari 0."
