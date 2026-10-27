@@ -898,6 +898,19 @@ def simpan_pengujian_tum_ke_supabase(
                     ""
                 )
             ),
+            "isi_nominal": (
+                data.get(
+                    "isi_nominal",
+                    ""
+                )
+            ),
+
+            "isi_nominal_list": (
+                data.get(
+                    "isi_nominal_list",
+                    []
+                )
+            ),
 
             "nomor_chasis_no_mesin": (
                 data.get(
@@ -1737,14 +1750,22 @@ def ambil_riwayat_tum():
             "tipe_no_seri_tangki"
         ] = tipe_no_seri
 
-        detail_header[
-            "isi_nominal"
-        ] = (
-            alat.get(
-                "kapasitas",
-                0
+        if not str(
+            detail_header.get(
+                "isi_nominal",
+                ""
             )
-        )
+            or ""
+        ).strip():
+
+            detail_header[
+                "isi_nominal"
+            ] = (
+                alat.get(
+                    "kapasitas",
+                    0
+                )
+            )
 
         detail_header[
             "satuan_isi_nominal"
@@ -2673,7 +2694,52 @@ def get_saved_kompartemen(
 
     return {}
 
+def format_isi_nominal_tum(
+    value
+):
+    text = str(
+        value
+        or ""
+    ).strip()
 
+    if not text:
+        return "-"
+
+    bagian = [
+        item.strip()
+        for item in text.split("/")
+        if item.strip()
+    ]
+
+    hasil = []
+
+    for item in bagian:
+
+        try:
+            angka = float(item)
+
+            if angka.is_integer():
+                angka_teks = (
+                    f"{angka:.0f}"
+                )
+            else:
+                angka_teks = (
+                    f"{angka:g}"
+                )
+
+        except (
+            TypeError,
+            ValueError
+        ):
+            angka_teks = item
+
+        hasil.append(
+            f"{angka_teks} L"
+        )
+
+    return " / ".join(
+        hasil
+    )
 def safe_float(
     value,
     default=0.0
@@ -4821,8 +4887,13 @@ def run():
             )
 
             st.write(
-                f"**Isi Nominal:** "
-                f"{data.get('isi_nominal', '-')} L"
+                "**Isi Nominal:** "
+                + format_isi_nominal_tum(
+                    data.get(
+                        "isi_nominal",
+                        ""
+                    )
+                )
             )
 
             st.write(
@@ -5272,8 +5343,11 @@ def run():
     
                     st.write(
                         "**Isi Nominal:**",
-                        (
-                            f"{data_riwayat.get('isi_nominal', '-')} L"
+                        format_isi_nominal_tum(
+                            data_riwayat.get(
+                                "isi_nominal",
+                                ""
+                            )
                         )
                     )
     
