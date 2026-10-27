@@ -4578,10 +4578,12 @@ def run():
                 "jenis_cairan":
                     jenis_cairan,
 
-                "isi_nominal":
-                    float(
-                        isi_nominal
-                    ),
+                "isi_nominal": (
+                    isi_nominal
+                ),
+                "isi_nominal_list": (
+                    isi_nominal_list
+                ),
 
                 "satuan_isi_nominal":
                     "L",
