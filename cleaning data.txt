@@ -1,0 +1,52 @@
+Menurut saya, belum clean — atau paling banter partially clean. Data pasar relatif lebih rapi, tetapi data perusahaan masih banyak masalah kualitas data. Catatan: saya tidak mengakses Supabase secara langsung; analisis ini berdasarkan sampel konteks data yang diberikan.
+
+1. Completeness / kelengkapan
+
+Dari ±17 record perusahaan, kolom berikut 100% kosong/None:
+Kecamatan: None
+Telepon: None
+Jenis lokasi: None
+Media BBM: None
+Hanya nama dan alamat yang terisi. Completeness field perusahaan kira-kira hanya 2 dari 6 field (~33%).
+Ini membuat data perusahaan belum bisa dipakai untuk agregasi per kecamatan, analisis kontak, atau segmentasi jenis lokasi.
+2. Consistency / konsistensi
+
+Format alamat tidak seragam: ada yang pakai ;, ada yang pakai ,; ada Jalan, ada Jl.; penulisan RT/RW dan kecamatan campur.
+Kecamatan None padahal di alamat sering tertulis kecamatan, misalnya Cikupa, Kosambi, Pagedangan, Rajeg, Pasar Kemis, Curug, Legok, Cisauk. Artinya field kecamatan kemungkinan gagal terisi dari proses input/join.
+Ada inkonsistensi istilah: SPPBE vs SPBE, PT. vs PT, dan CO.;LTD yang formatnya tidak standar.
+3. Uniqueness / duplikasi
+
+PT SAKTI PRESISI INDONESIA (TERA) dan PT SAKTI PRESISI namanya sangat mirip. Alamatnya beda blok, jadi bisa jadi entitas berbeda, tapi tetap perlu dicek dengan fuzzy matching.
+Pasar 8 Suvarna Sutera muncul 3 kali untuk tahun 2024, 2025, 2026. Kalau tabel ini dimaksudkan sebagai master pasar, ini duplikasi. Sebaiknya dipisah: master pasar dan fact UTTP per tahun.
+Pasar 8 Suvarna Sutera juga muncul berulang, jadi butuh composite key seperti (pasar_id, tahun).
+4. Validity / outlier
+
+Data Pasar 8 Suvarna Sutera:
+2024: total UTTP 98, pedagang 90
+2025: total UTTP 68, pedagang 47
+2026: total UTTP 70, pedagang 49
+Ada perubahan besar: timbangan pegas turun dari 69 ke 1, timbangan elektronik naik dari 24 ke 67. Ini bisa valid karena migrasi alat, tapi tetap perlu verifikasi.
+Total pedagang turun dari 90 ke 47 lalu 49. Ini anomali yang perlu dicek: apakah cakupan pendataan berubah, ada pemisahan pasar, atau salah input.
+Kabar baiknya: total UTTP = jumlah rincian komponen. 2024 = 69+5+24 = 98; 2025 = 1+0+67 = 68; 2026 = 1+0+69 = 70. Secara aritmatika konsisten.
+5. Normalisasi skema
+
+Data perusahaan dan pasar tampaknya bercampur dalam satu konteks. Idealnya dipisah menjadi tabel:
+perusahaan
+pasar
+pasar_utp_tahunan
+wilayah / kecamatan
+Kolom None sebaiknya diubah menjadi NULL, bukan string "None". Kalau "None" dianggap kategori, statistik dan grouping akan rusak.
+Kesimpulan data science
+
+Estimasi kasar: jika digabung, completeness sekitar 52%, tapi karena skema perusahaan dan pasar berbeda, lebih tepat: tabel perusahaan ~33% complete, tabel pasar tinggi/relatif lengkap.
+Masalah utama: missing value masif, None sebagai string, alamat tidak terstruktur, potensi duplikasi, dan outlier yang belum divalidasi.
+Jadi data belum layak untuk dashboard, analisis per kecamatan, atau pemodelan tanpa cleaning.
+Rekomendasi cleaning
+
+Profiling: ydata-profiling, missingno, pandas.describe().
+Ubah "None" → NULL; trim spasi; standardisasi kapitalisasi.
+Ekstrak alamat dengan regex: kecamatan, desa/kelurahan, RT/RW, kabupaten.
+Deduplikasi dengan fuzzy matching, misalnya RapidFuzz.
+Validasi: total UTTP = jumlah komponen; tahun integer; kecamatan harus ada di master wilayah.
+Deteksi anomali: IQR/Z-score/change point untuk total UTTP dan pedagang per tahun.
+Buat constraint dan validasi input di Supabase agar tidak ada lagi None dan alamat berantakan.
