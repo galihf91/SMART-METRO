@@ -611,6 +611,13 @@ def build_data_pengujian_timbangan(data):
     detail_pengujian = {
         "nama_alat": nama_alat,
         "sub_jenis_elektronik": sub_jenis_elektronik,
+        "nama_unit_batching": str(
+            data.get(
+                "nama_unit_batching",
+                ""
+            )
+            or ""
+        ).strip(),
         "model": str(
             data.get(
                 "model",
@@ -1215,7 +1222,15 @@ def gunakan_data_lama_untuk_pengujian_baru_timbangan(
     )
 
     st.session_state["tb_sub_jenis_elektronik"] = sub_jenis_riwayat
-
+    st.session_state[
+        "tb_nama_unit_batching"
+    ] = str(
+        detail.get(
+            "nama_unit_batching",
+            ""
+        )
+        or ""
+    ).strip()
     st.session_state.tb_saved_data = {
 
         "pemilik": nama_perusahaan,
@@ -1223,7 +1238,13 @@ def gunakan_data_lama_untuk_pengujian_baru_timbangan(
 
         "nama_alat": nama_alat_riwayat,
         "sub_jenis_elektronik": sub_jenis_riwayat,
-
+        "nama_unit_batching": str(
+            detail.get(
+                "nama_unit_batching",
+                ""
+            )
+            or ""
+        ).strip(),
 
         "merek": (
             alat.get("merk")
@@ -2061,7 +2082,15 @@ def gunakan_data_lama_untuk_edit_timbangan(
     )
 
     st.session_state["tb_sub_jenis_elektronik"] = sub_jenis_riwayat
-
+    st.session_state[
+        "tb_nama_unit_batching"
+    ] = str(
+        detail.get(
+            "nama_unit_batching",
+            ""
+        )
+        or ""
+    ).strip()
     st.session_state.tb_saved_data = {
 
         "pemilik": nama_perusahaan,
@@ -2069,7 +2098,13 @@ def gunakan_data_lama_untuk_edit_timbangan(
 
         "nama_alat": nama_alat_riwayat,
         "sub_jenis_elektronik": sub_jenis_riwayat,
-
+        "nama_unit_batching": str(
+            detail.get(
+                "nama_unit_batching",
+                ""
+            )
+            or ""
+        ).strip(),
 
         "merek": (
             alat.get("merk")
@@ -2254,7 +2289,15 @@ def gunakan_data_lama_untuk_edit_timbangan(
 
     st.session_state["tb_nama_alat"] = nama_alat_riwayat
     st.session_state["tb_sub_jenis_elektronik"] = sub_jenis_riwayat
-
+    st.session_state[
+        "tb_nama_unit_batching"
+    ] = str(
+        detail.get(
+            "nama_unit_batching",
+            ""
+        )
+        or ""
+    ).strip()
     st.session_state[
         "tb_merek"
     ] = str(
@@ -2706,6 +2749,45 @@ def nama_alat_untuk_database(nama_alat, sub_jenis=""):
 
     return nama
 
+def nama_alat_untuk_dokumen(data):
+
+    nama_alat = str(
+        data.get(
+            "nama_alat",
+            ""
+        )
+        or ""
+    ).strip()
+
+    sub_jenis = str(
+        data.get(
+            "sub_jenis_elektronik",
+            ""
+        )
+        or ""
+    ).strip()
+
+    nama_unit = str(
+        data.get(
+            "nama_unit_batching",
+            ""
+        )
+        or ""
+    ).strip()
+
+    if (
+        nama_alat.lower()
+        == "timbangan elektronik"
+        and sub_jenis
+        == "Batching Plant"
+        and nama_unit
+    ):
+        return (
+            f"Timbangan Elektronik "
+            f"({nama_unit})"
+        )
+
+    return nama_alat
 
 def nama_alat_dasar(nama_alat_tersimpan):
     """
@@ -5918,7 +6000,32 @@ def run():
                 )
             else:
                 sub_jenis_elektronik = "Biasa"
+            
+            # =====================================================
+            # NAMA / FUNGSI TIMBANGAN BATCHING PLANT
+            # =====================================================
+            if (
+                nama_alat == "Timbangan Elektronik"
+                and sub_jenis_elektronik == "Batching Plant"
+            ):
 
+                nama_unit_batching = st.text_input(
+                    "Nama / Fungsi Timbangan",
+                    value=str(
+                        st.session_state.tb_saved_data.get(
+                            "nama_unit_batching",
+                            ""
+                        )
+                        or ""
+                    ),
+                    placeholder="Contoh: Aggregate",
+                    key="tb_nama_unit_batching",
+                )
+
+            else:
+
+                nama_unit_batching = ""
+            
             is_neraca = is_neraca_name(
                 nama_alat
             )
@@ -9458,6 +9565,9 @@ def run():
                 'alamat': alamat_final,
                 'nama_alat': nama_alat,
                 'sub_jenis_elektronik': sub_jenis_elektronik,
+                'nama_unit_batching': (
+                    nama_unit_batching
+                ),
                 'is_neraca': is_neraca,
                 'is_timbangan_meja': is_timbangan_meja,
                 'merek': merek,
@@ -9614,7 +9724,10 @@ def run():
             
                 with preview_cols[0]:
                     st.write(f"**Pemilik:** {data.get('pemilik', '-')}")
-                    st.write(f"**Nama Alat:** {data.get('nama_alat', '-')}")
+                    st.write(
+                        f"**Nama Alat:** "
+                        f"{nama_alat_untuk_dokumen(data)}"
+                    )
                     st.write(f"**Merek:** {data.get('merek', '-')}")
                     st.write(
                         f"**Model / Tipe:** "
