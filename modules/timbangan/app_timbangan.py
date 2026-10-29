@@ -26,7 +26,7 @@ from modules.timbangan.form_peminjaman_standar_timbangan_generator import (
 from modules.timbangan.form_peminjaman_ctt_timbangan_generator import (
     generate_form_peminjaman_ctt_timbangan_pdf
 )
-
+from modules.utils_perusahaan import ambil_kecamatan_dari_alamat
 
 def find_project_root():
     current = Path(__file__).resolve()
@@ -5789,6 +5789,12 @@ def run():
 
         st.markdown("---")
 
+        kecamatan_otomatis = (
+            ambil_kecamatan_dari_alamat(
+                alamat
+            )
+        )
+        
         # =====================================================
         # PANEL ATAS — TANGGAL & NOMOR DOKUMEN
         # Nomor diambil dari database; boleh juga diedit manual.
