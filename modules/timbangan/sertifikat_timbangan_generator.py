@@ -113,11 +113,53 @@ def format_angka_ringkas(value):
 def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     width, height = A4
     c = canvas.Canvas(filename, pagesize=A4)
+
+    # =====================================================
+    # NAMA ALAT UNTUK SERTIFIKAT
+    # =====================================================
+    nama_alat_dokumen = str(
+        data.get(
+            "nama_alat",
+            "Timbangan Elektronik"
+        )
+        or "Timbangan Elektronik"
+    ).strip()
+
+    sub_jenis_elektronik = str(
+        data.get(
+            "sub_jenis_elektronik",
+            ""
+        )
+        or ""
+    ).strip()
+
+    nama_unit_batching = str(
+        data.get(
+            "nama_unit_batching",
+            ""
+        )
+        or ""
+    ).strip()
+
+    if (
+        nama_alat_dokumen.lower()
+        == "timbangan elektronik"
+        and sub_jenis_elektronik
+        == "Batching Plant"
+        and nama_unit_batching
+    ):
+        nama_alat_dokumen = (
+            f"Timbangan Elektronik "
+            f"({nama_unit_batching})"
+        )
+
+    # Tetap dipakai untuk logika pengecekan jenis alat
     nama_alat_normal = str(
         data.get(
             "nama_alat",
             "Timbangan Elektronik"
         )
+        or "Timbangan Elektronik"
     ).strip().lower()
 
     is_timbangan_elektronik = (
@@ -286,7 +328,39 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     c.drawString(left_col_x, y - line_spacing, "Measuring Instrument")
     c.setFont("Helvetica-Bold", 12)
     c.drawString(colon_special, y, ":")                 # titik dua di posisi khusus
-    nama_alat = data.get("nama_alat", "Timbangan Elektronik")
+    nama_alat = str(
+        data.get(
+            "nama_alat",
+            "Timbangan Elektronik"
+        )
+        or "Timbangan Elektronik"
+    ).strip()
+
+    sub_jenis_elektronik = str(
+        data.get(
+            "sub_jenis_elektronik",
+            ""
+        )
+        or ""
+    ).strip()
+
+    nama_unit_batching = str(
+        data.get(
+            "nama_unit_batching",
+            ""
+        )
+        or ""
+    ).strip()
+
+    if (
+        nama_alat.lower() == "timbangan elektronik"
+        and sub_jenis_elektronik == "Batching Plant"
+        and nama_unit_batching
+    ):
+        nama_alat = (
+            f"Timbangan Elektronik "
+            f"({nama_unit_batching})"
+        )
     c.drawString(
         colon_special + 0.3 * cm,
         y,
