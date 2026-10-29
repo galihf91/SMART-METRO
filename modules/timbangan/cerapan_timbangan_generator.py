@@ -693,10 +693,29 @@ def generate_cerapan_pdf(data: dict[str, Any], filename: str) -> str:
     spesifikasi = [
         (
             "Nama Alat",
-            safe_str(
-                data.get(
-                    "nama_alat",
-                    "Timbangan Elektronik"
+            (
+                f"{safe_str(data.get('nama_alat', 'Timbangan Elektronik'))} "
+                f"({safe_str(data.get('nama_unit_batching', ''))})"
+                if (
+                    safe_str(
+                        data.get(
+                            "sub_jenis_elektronik",
+                            ""
+                        )
+                    ).strip()
+                    == "Batching Plant"
+                    and safe_str(
+                        data.get(
+                            "nama_unit_batching",
+                            ""
+                        )
+                    ).strip()
+                )
+                else safe_str(
+                    data.get(
+                        "nama_alat",
+                        "Timbangan Elektronik"
+                    )
                 )
             ),
             True
