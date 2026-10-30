@@ -471,10 +471,142 @@ def build_export_pasar(
     if laporan.empty:
         return laporan
 
-    laporan = laporan.sort_values(
-        "Nama Pasar"
-    ).reset_index(
-        drop=True
+    # =====================================================
+    # URUTKAN PASAR BERDASARKAN TANGGAL PELAKSANAAN
+    # JANUARI -> DESEMBER
+    # =====================================================
+    bulan_map = {
+        "januari": 1,
+        "februari": 2,
+        "maret": 3,
+        "april": 4,
+        "mei": 5,
+        "juni": 6,
+        "juli": 7,
+        "agustus": 8,
+        "september": 9,
+        "oktober": 10,
+        "november": 11,
+        "desember": 12,
+    }
+
+
+    def ambil_tanggal_awal_pasar(value):
+
+        text = str(
+            value or ""
+        ).strip()
+
+        if not text:
+            return pd.Timestamp.max
+
+        # Contoh:
+        # 4-5 Februari 2026
+        match_range = re.match(
+            r"^\s*(\d{1,2})-(\d{1,2})\s+"
+            r"([A-Za-z]+)\s+(\d{4})\s*$",
+            text,
+        )
+
+        if match_range:
+
+            hari = int(
+                match_range.group(1)
+            )
+
+            nama_bulan = (
+                match_range.group(3)
+                .lower()
+            )
+
+            tahun_tanggal = int(
+                match_range.group(4)
+            )
+
+            bulan = bulan_map.get(
+                nama_bulan
+            )
+
+            if bulan:
+
+                try:
+                    return pd.Timestamp(
+                        year=tahun_tanggal,
+                        month=bulan,
+                        day=hari,
+                    )
+                except Exception:
+                    pass
+
+        # Contoh:
+        # 6 Februari 2026
+        match_single = re.match(
+            r"^\s*(\d{1,2})\s+"
+            r"([A-Za-z]+)\s+(\d{4})\s*$",
+            text,
+        )
+
+        if match_single:
+
+            hari = int(
+                match_single.group(1)
+            )
+
+            nama_bulan = (
+                match_single.group(2)
+                .lower()
+            )
+
+            tahun_tanggal = int(
+                match_single.group(3)
+            )
+
+            bulan = bulan_map.get(
+                nama_bulan
+            )
+
+            if bulan:
+
+                try:
+                    return pd.Timestamp(
+                        year=tahun_tanggal,
+                        month=bulan,
+                        day=hari,
+                    )
+                except Exception:
+                    pass
+
+        return pd.Timestamp.max
+
+
+    kolom_pelaksanaan = (
+        f"Pelaksanaan {tahun}"
+    )
+
+    laporan["_tanggal_urut"] = (
+        laporan[
+            kolom_pelaksanaan
+        ].apply(
+            ambil_tanggal_awal_pasar
+        )
+    )
+
+    laporan = (
+        laporan
+        .sort_values(
+            [
+                "_tanggal_urut",
+                "Nama Pasar",
+            ]
+        )
+        .drop(
+            columns=[
+                "_tanggal_urut"
+            ]
+        )
+        .reset_index(
+            drop=True
+        )
     )
 
     laporan.insert(
