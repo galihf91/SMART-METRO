@@ -1,4 +1,5 @@
 import html
+import re
 from datetime import date
 from io import BytesIO
 
@@ -166,7 +167,8 @@ def load_data_dashboard_uttp():
         (
             "id, "
             "nama_perusahaan, "
-            "alamat"
+            "alamat, "
+            "kecamatan"
         ),
     )
     penera_rows = fetch_all_rows(
@@ -190,6 +192,35 @@ def load_data_dashboard_uttp():
             "jenis_lokasi, "
             "kecamatan, "
             "status"
+        ),
+    )
+    pasar_rows = fetch_all_rows(
+        "pasar",
+        (
+            "id, "
+            "nama_pasar, "
+            "alamat, "
+            "kecamatan, "
+            "status"
+        ),
+    )
+
+    pasar_tahunan_rows = fetch_all_rows(
+        "pasar_tahunan",
+        (
+            "id, "
+            "pasar_id, "
+            "tahun, "
+            "tanggal_pelaksanaan, "
+            "timb_pegas, "
+            "timb_meja, "
+            "timb_elektronik, "
+            "timb_sentisimal, "
+            "timb_bobot_ingsut, "
+            "neraca, "
+            "total_uttp, "
+            "total_pedagang, "
+            "jumlah_hari"
         ),
     )
     uttp_rows = fetch_all_rows(
@@ -261,6 +292,12 @@ def load_data_dashboard_uttp():
         ),
         pd.DataFrame(
             relasi_rows
+        ),
+        pd.DataFrame(
+            pasar_rows
+        ),
+        pd.DataFrame(
+            pasar_tahunan_rows
         ),
     )
 
@@ -2963,6 +3000,319 @@ def render_detail_perusahaan(
                     hide_index=True,
                 )
 
+def parse_tanggal_pasar_laporan(value):
+    """
+    Membaca tanggal pelaksanaan pasar.
+
+    Contoh:
+    4 Februari 2026
+    4-5 Februari 2026
+    """
+
+    text = clean_text(value)
+
+    if not text:
+        return None, None
+
+    bulan_map = {
+        "januari": 1,
+        "februari": 2,
+        "maret": 3,
+        "april": 4,
+        "mei": 5,
+        "juni": 6,
+        "juli": 7,
+        "agustus": 8,
+        "september": 9,
+        "oktober": 10,
+        "november": 11,
+        "desember": 12,
+    }
+
+    # =====================================================
+    # FORMAT: 4-5 Februari 2026
+    # =====================================================
+    match_range = re.match(
+        r"^\s*(\d{1,2})-(\d{1,2})\s+"
+        r"([A-Za-z]+)\s+(\d{4})\s*$",
+        text,
+    )
+
+    if match_range:
+
+        hari_mulai = int(
+            match_range.group(1)
+        )
+
+        hari_selesai = int(
+            match_range.group(2)
+        )
+
+        nama_bulan = (
+            match_range.group(3)
+            .lower()
+        )
+
+        tahun = int(
+            match_range.group(4)
+        )
+
+        bulan = bulan_map.get(
+            nama_bulan
+        )
+
+        if bulan:
+
+            try:
+
+                tanggal_mulai = pd.Timestamp(
+                    year=tahun,
+                    month=bulan,
+                    day=hari_mulai,
+                )
+
+                tanggal_selesai = pd.Timestamp(
+                    year=tahun,
+                    month=bulan,
+                    day=hari_selesai,
+                )
+
+                return (
+                    tanggal_mulai,
+                    tanggal_selesai,
+                )
+
+            except Exception:
+                return None, None
+
+    # =====================================================
+    # FORMAT: 4 Februari 2026
+    # =====================================================
+    match_single = re.match(
+        r"^\s*(\d{1,2})\s+"
+        r"([A-Za-z]+)\s+(\d{4})\s*$",
+        text,
+    )
+
+    if match_single:
+
+        hari = int(
+            match_single.group(1)
+        )
+
+        nama_bulan = (
+            match_single.group(2)
+            .lower()
+        )
+
+        tahun = int(
+            match_single.group(3)
+        )
+
+        bulan = bulan_map.get(
+            nama_bulan
+        )
+
+        if bulan:
+
+            try:
+
+                tanggal = pd.Timestamp(
+                    year=tahun,
+                    month=bulan,
+                    day=hari,
+                )
+
+                return (
+                    tanggal,
+                    tanggal,
+                )
+
+            except Exception:
+                return None, None
+
+    return None, None
+
+
+def build_data_pasar_bulanan(
+    df_pasar,
+    df_pasar_tahunan,
+    bulan,
+    tahun,
+):
+
+    if (
+        df_pasar.empty
+        or df_pasar_tahunan.empty
+    ):
+        return pd.DataFrame()
+
+    pasar = df_pasar.copy()
+    tahunan = df_pasar_tahunan.copy()
+
+    # =====================================================
+    # NORMALISASI ID
+    # =====================================================
+    pasar["id"] = pd.to_numeric(
+        pasar["id"],
+        errors="coerce",
+    )
+
+    tahunan["pasar_id"] = pd.to_numeric(
+        tahunan["pasar_id"],
+        errors="coerce",
+    )
+
+    # =====================================================
+    # GABUNG MASTER PASAR
+    # =====================================================
+    data = tahunan.merge(
+        pasar[
+            [
+                "id",
+                "nama_pasar",
+                "kecamatan",
+            ]
+        ],
+        left_on="pasar_id",
+        right_on="id",
+        how="left",
+    )
+
+    hasil = []
+
+    # =====================================================
+    # CEK SATU PER SATU PASAR
+    # =====================================================
+    for _, item in data.iterrows():
+
+        tanggal_mulai, tanggal_selesai = (
+            parse_tanggal_pasar_laporan(
+                item.get(
+                    "tanggal_pelaksanaan"
+                )
+            )
+        )
+
+        if (
+            tanggal_mulai is None
+            or tanggal_selesai is None
+        ):
+            continue
+
+        # =================================================
+        # CEK APAKAH KEGIATAN MASUK BULAN LAPORAN
+        # =================================================
+        periode_awal = pd.Timestamp(
+            year=int(tahun),
+            month=int(bulan),
+            day=1,
+        )
+
+        periode_akhir = (
+            periode_awal
+            + pd.offsets.MonthEnd(1)
+        )
+
+        masuk_bulan = (
+            tanggal_mulai <= periode_akhir
+            and tanggal_selesai >= periode_awal
+        )
+
+        if not masuk_bulan:
+            continue
+
+        # =================================================
+        # BASE ROW PASAR
+        # =================================================
+        row = {
+            "Tanggal": pd.NaT,
+            "No. Order": "",
+            "Nama Perusahaan": clean_text(
+                item.get(
+                    "nama_pasar"
+                )
+            ),
+            "Kecamatan": clean_text(
+                item.get(
+                    "kecamatan"
+                )
+            ),
+            "Alamat": "",
+            "Lokasi": "",
+            "KET": "",
+            "Penera": "",
+        }
+
+        # Semua jenis UTTP awalnya 0
+        for col in KOLOM_ALAT_LAPORAN:
+            row[col] = 0
+
+        # =================================================
+        # PASAR = TERA ULANG MASSA TIMBANGAN
+        # =================================================
+        def angka(kolom):
+
+            nilai = pd.to_numeric(
+                item.get(
+                    kolom,
+                    0,
+                ),
+                errors="coerce",
+            )
+
+            if pd.isna(nilai):
+                return 0
+
+            return int(nilai)
+
+        row[
+            "MT_TERA_ULANG_TE"
+        ] = angka(
+            "timb_elektronik"
+        )
+
+        row[
+            "MT_TERA_ULANG_SENTISIMAL"
+        ] = angka(
+            "timb_sentisimal"
+        )
+
+        row[
+            "MT_TERA_ULANG_TBI"
+        ] = angka(
+            "timb_bobot_ingsut"
+        )
+
+        row[
+            "MT_TERA_ULANG_NERACA"
+        ] = angka(
+            "neraca"
+        )
+
+        row[
+            "MT_TERA_ULANG_PEGAS"
+        ] = angka(
+            "timb_pegas"
+        )
+
+        row[
+            "MT_TERA_ULANG_TM"
+        ] = angka(
+            "timb_meja"
+        )
+
+        hasil.append(
+            row
+        )
+
+    if not hasil:
+        return pd.DataFrame()
+
+    return pd.DataFrame(
+        hasil
+    )
+
 def build_data_laporan_bulanan(
     df_pengujian,
     df_relasi,
@@ -3188,6 +3538,7 @@ def build_data_laporan_bulanan(
         # IDENTITAS
         # =================================================
         nama_perusahaan = ""
+        kecamatan = ""
         alamat = ""
         lokasi = ""
         ket = ""
@@ -3333,7 +3684,11 @@ def build_data_laporan_bulanan(
                             "alamat_spbu"
                         )
                     )
-
+                    kecamatan = clean_text(
+                        s.get(
+                            "kecamatan"
+                        )
+                    )
             elif pd.notna(
                 perusahaan_id
             ):
@@ -3366,7 +3721,11 @@ def build_data_laporan_bulanan(
                             "alamat"
                         )
                     )
-
+                    kecamatan = clean_text(
+                        pr.get(
+                            "kecamatan"
+                        )
+                    )
         # =================================================
         # BASE ROW
         # =================================================
@@ -3387,6 +3746,7 @@ def build_data_laporan_bulanan(
             "Tanggal": tanggal,
             "No. Order": nomor_order,
             "Nama Perusahaan": nama_perusahaan,
+            "Kecamatan": kecamatan,
             "Alamat": alamat,
             "Lokasi": lokasi,
             "KET": ket,
@@ -3435,6 +3795,7 @@ def build_data_laporan_bulanan(
     agregasi = {
         "Tanggal": "first",
         "Nama Perusahaan": "first",
+        "Kecamatan": "first",
         "Alamat": "first",
         "Lokasi": "first",
         "KET": "first",
@@ -3478,6 +3839,7 @@ def build_data_laporan_bulanan(
         "Tanggal",
         "No. Order",
         "Nama Perusahaan",
+        "Kecamatan",
         "Alamat",
         "Lokasi",
         "KET",
@@ -3510,6 +3872,8 @@ def build_data_laporan_bulanan(
     )
 
     return laporan
+    
+
 def generate_excel_laporan_bulanan(
     laporan,
     bulan_nama,
@@ -3602,7 +3966,7 @@ def generate_excel_laporan_bulanan(
     # JUDUL
     # =====================================================
     ws.merge_cells(
-        "A1:AC1"
+        "A1:AD1"
     )
 
     ws["A1"] = (
@@ -3621,7 +3985,7 @@ def generate_excel_laporan_bulanan(
     )
 
     ws.merge_cells(
-        "A2:AC2"
+        "A2:AD2"
     )
 
     ws["A2"] = (
@@ -3651,10 +4015,11 @@ def generate_excel_laporan_bulanan(
         "C": "TANGGAL",
         "D": "NO. ORDER",
         "E": "NAMA PERUSAHAAN",
-        "F": "ALAMAT",
-        "G": "LOKASI",
-        "H": "PENERA",
-    }
+        "F": "KECAMATAN",
+        "G": "ALAMAT",
+        "H": "LOKASI",
+        "I": "PENERA",
+        }
 
     for col, judul in (
         identitas.items()
@@ -3678,10 +4043,10 @@ def generate_excel_laporan_bulanan(
     # KETERANGAN UTTP
     # =====================================================
     ws.merge_cells(
-        "I4:AC4"
+        "J4:AD4"
     )
 
-    ws["I4"] = (
+    ws["J4"] = (
         "KETERANGAN UTTP"
     )
 
@@ -3692,98 +4057,98 @@ def generate_excel_laporan_bulanan(
     # MASSA TIMBANGAN
     # =====================================================
     ws.merge_cells(
-        "I5:V5"
+        "J5:W5"
     )
 
-    ws["I5"] = (
+    ws["J5"] = (
         "MASSA TIMBANGAN"
     )
 
-    ws["I5"].font = font_header
-    ws["I5"].alignment = align_center
-    ws["I5"].fill = fill_mt
+    ws["J5"].font = font_header
+    ws["J5"].alignment = align_center
+    ws["J5"].fill = fill_mt
 
     # TERA
     ws.merge_cells(
-        "I6:M6"
+        "J6:N6"
     )
 
-    ws["I6"] = "TERA"
-    ws["I6"].font = font_header
-    ws["I6"].alignment = align_center
+    ws["J6"] = "TERA"
+    ws["J6"].font = font_header
+    ws["J6"].alignment = align_center
 
     # TERA ULANG
     ws.merge_cells(
-        "N6:V6"
+        "O6:W6"
     )
 
-    ws["N6"] = "TERA ULANG"
-    ws["N6"].font = font_header
-    ws["N6"].alignment = align_center
+    ws["O6"] = "TERA ULANG"
+    ws["O6"].font = font_header
+    ws["O6"].alignment = align_center
 
     # =====================================================
     # UAPV
     # =====================================================
     ws.merge_cells(
-        "W5:AC5"
+        "X5:AD5"
     )
 
-    ws["W5"] = "UAPV"
-    ws["W5"].font = font_header
-    ws["W5"].alignment = align_center
-    ws["W5"].fill = fill_uapv
+    ws["X5"] = "UAPV"
+    ws["X5"].font = font_header
+    ws["X5"].alignment = align_center
+    ws["X5"].fill = fill_uapv
 
     ws.merge_cells(
-        "W6:Z6"
+        "X6:AA6"
     )
 
-    ws["W6"] = "TERA"
-    ws["W6"].font = font_header
-    ws["W6"].alignment = align_center
+    ws["X6"] = "TERA"
+    ws["X6"].font = font_header
+    ws["X6"].alignment = align_center
 
     ws.merge_cells(
-        "AA6:AC6"
+        "AB6:AD6"
     )
 
-    ws["AA6"] = (
+    ws["AB6"] = (
         "TERA ULANG"
     )
 
-    ws["AA6"].font = font_header
-    ws["AA6"].alignment = align_center
+    ws["AB6"].font = font_header
+    ws["AB6"].alignment = align_center
 
     # =====================================================
     # NAMA JENIS ALAT
     # =====================================================
     header_alat = {
         # MT TERA
-        "I": "TJE",
-        "J": "BP",
-        "K": "TE",
-        "L": "SENTISIMAL",
-        "M": "TBI",
+        "J": "TJE",
+        "K": "BP",
+        "L": "TE",
+        "M": "SENTISIMAL",
+        "N": "TBI",
 
         # MT TERA ULANG
-        "N": "TJE",
-        "O": "BP",
-        "P": "TE",
-        "Q": "SENTISIMAL",
-        "R": "TBI",
-        "S": "NERACA",
-        "T": "PEGAS",
-        "U": "TM",
-        "V": "DACIN",
+        "O": "TJE",
+        "P": "BP",
+        "Q": "TE",
+        "R": "SENTISIMAL",
+        "S": "TBI",
+        "T": "NERACA",
+        "U": "PEGAS",
+        "V": "TM",
+        "W": "DACIN",
 
         # UAPV TERA
-        "W": "kWh",
-        "X": "TUM",
-        "Y": "NOZZLE",
-        "Z": "METER AIR",
+        "X": "kWh",
+        "Y": "TUM",
+        "Z": "NOZZLE",
+        "AA": "METER AIR",
 
         # UAPV TERA ULANG
-        "AA": "TUM",
-        "AB": "NOZZLE",
-        "AC": "METER AIR",
+        "AB": "TUM",
+        "AC": "NOZZLE",
+        "AD": "METER AIR",
     }
 
     for col, judul in (
@@ -3800,7 +4165,7 @@ def generate_excel_laporan_bulanan(
     # =====================================================
     # WARNA SUBHEADER KELOMPOK
     # =====================================================
-    for col in range(9, 23):  # I sampai V
+    for col in range(10, 24):  # I sampai V
         ws.cell(
             row=6,
             column=col,
@@ -3811,7 +4176,7 @@ def generate_excel_laporan_bulanan(
             column=col,
         ).fill = fill_mt
 
-    for col in range(23, 30):  # W sampai AC
+    for col in range(24, 31):  # W sampai AC
         ws.cell(
             row=6,
             column=col,
@@ -3828,7 +4193,7 @@ def generate_excel_laporan_bulanan(
         min_row=4,
         max_row=7,
         min_col=1,
-        max_col=29,
+        max_col=30,
     ):
 
         for cell in row:
@@ -3838,30 +4203,30 @@ def generate_excel_laporan_bulanan(
     # DATA
     # =====================================================
     kolom_excel = {
-        "MT_TERA_TJE": "I",
-        "MT_TERA_BP": "J",
-        "MT_TERA_TE": "K",
-        "MT_TERA_SENTISIMAL": "L",
-        "MT_TERA_TBI": "M",
+        "MT_TERA_TJE": "J",
+        "MT_TERA_BP": "K",
+        "MT_TERA_TE": "L",
+        "MT_TERA_SENTISIMAL": "M",
+        "MT_TERA_TBI": "N",
 
-        "MT_TERA_ULANG_TJE": "N",
-        "MT_TERA_ULANG_BP": "O",
-        "MT_TERA_ULANG_TE": "P",
-        "MT_TERA_ULANG_SENTISIMAL": "Q",
-        "MT_TERA_ULANG_TBI": "R",
-        "MT_TERA_ULANG_NERACA": "S",
-        "MT_TERA_ULANG_PEGAS": "T",
-        "MT_TERA_ULANG_TM": "U",
-        "MT_TERA_ULANG_DACIN": "V",
+        "MT_TERA_ULANG_TJE": "O",
+        "MT_TERA_ULANG_BP": "P",
+        "MT_TERA_ULANG_TE": "Q",
+        "MT_TERA_ULANG_SENTISIMAL": "R",
+        "MT_TERA_ULANG_TBI": "S",
+        "MT_TERA_ULANG_NERACA": "T",
+        "MT_TERA_ULANG_PEGAS": "U",
+        "MT_TERA_ULANG_TM": "V",
+        "MT_TERA_ULANG_DACIN": "W",
 
-        "UAPV_TERA_KWH": "W",
-        "UAPV_TERA_TUM": "X",
-        "UAPV_TERA_NOZZLE": "Y",
-        "UAPV_TERA_METER_AIR": "Z",
+        "UAPV_TERA_KWH": "X",
+        "UAPV_TERA_TUM": "Y",
+        "UAPV_TERA_NOZZLE": "Z",
+        "UAPV_TERA_METER_AIR": "AA",
 
-        "UAPV_TERA_ULANG_TUM": "AA",
-        "UAPV_TERA_ULANG_NOZZLE": "AB",
-        "UAPV_TERA_ULANG_METER_AIR": "AC",
+        "UAPV_TERA_ULANG_TUM": "AB",
+        "UAPV_TERA_ULANG_NOZZLE": "AC",
+        "UAPV_TERA_ULANG_METER_AIR": "AD",
     }
 
     data_mulai = 8
@@ -3936,7 +4301,7 @@ def generate_excel_laporan_bulanan(
             f"F{excel_row}"
         ] = clean_text(
             row.get(
-                "Alamat"
+                "Kecamatan"
             )
         )
 
@@ -3944,12 +4309,20 @@ def generate_excel_laporan_bulanan(
             f"G{excel_row}"
         ] = clean_text(
             row.get(
-                "Lokasi"
+                "Alamat"
             )
         )
 
         ws[
             f"H{excel_row}"
+        ] = clean_text(
+            row.get(
+                "Lokasi"
+            )
+        )
+
+        ws[
+            f"I{excel_row}"
         ] = clean_text(
             row.get(
                 "Penera"
@@ -3991,7 +4364,7 @@ def generate_excel_laporan_bulanan(
         # =============================================
         for col_num in range(
             1,
-            30,
+            31,
         ):
 
             cell = ws.cell(
@@ -4010,7 +4383,7 @@ def generate_excel_laporan_bulanan(
         ].alignment = align_left
 
         ws[
-            f"F{excel_row}"
+            f"G{excel_row}"
         ].alignment = align_left
         ws.row_dimensions[
             excel_row
@@ -4028,7 +4401,7 @@ def generate_excel_laporan_bulanan(
         start_row=total_row,
         start_column=1,
         end_row=total_row,
-        end_column=8,
+        end_column=9,
     )
 
     ws.cell(
@@ -4079,7 +4452,7 @@ def generate_excel_laporan_bulanan(
     # =====================================================
     for col_num in range(
         1,
-        30,
+        31,
     ):
 
         cell = ws.cell(
@@ -4318,20 +4691,20 @@ def generate_excel_laporan_bulanan(
         "C": 15,
         "D": 20,
         "E": 30,
-        "F": 55,
-        "G": 15,
-        "H": 10,
+        "F": 18,
+        "G": 55,
+        "H": 15,
+        "I": 10,
     }
 
     for col in [
-        "I", "J", "K", "L", "M",
-        "N", "O", "P", "Q", "R",
-        "S", "T", "U", "V",
-        "W", "X", "Y", "Z",
-        "AA", "AB", "AC",
+        "J", "K", "L", "M", "N",
+        "O", "P", "Q", "R", "S",
+        "T", "U", "V", "W",
+        "X", "Y", "Z", "AA",
+        "AB", "AC", "AD",
     ]:
         widths[col] = 10
-
     for col, width in (
         widths.items()
     ):
@@ -4446,6 +4819,8 @@ def render_dashboard_uttp():
             df_uttp,
             df_pengujian,
             df_relasi,
+            df_pasar,
+            df_pasar_tahunan,
         ) = (
             load_data_dashboard_uttp()
         )
@@ -4563,7 +4938,7 @@ def render_dashboard_uttp():
             )
 
         # =================================================
-        # BANGUN DATA LAPORAN
+        # BANGUN DATA LAPORAN PERUSAHAAN / SPBU
         # =================================================
         laporan_bulanan = (
             build_data_laporan_bulanan(
@@ -4593,6 +4968,87 @@ def render_dashboard_uttp():
                 ),
             )
         )
+
+        # =================================================
+        # BANGUN DATA PASAR
+        # =================================================
+        laporan_pasar = (
+            build_data_pasar_bulanan(
+                df_pasar=(
+                    df_pasar
+                ),
+                df_pasar_tahunan=(
+                    df_pasar_tahunan
+                ),
+                bulan=(
+                    bulan_laporan
+                ),
+                tahun=(
+                    tahun_laporan
+                ),
+            )
+        )
+
+        # =================================================
+        # GABUNG PERUSAHAAN + PASAR
+        # PERUSAHAAN DI ATAS, PASAR DI BAWAH
+        # =================================================
+        if not laporan_pasar.empty:
+
+            if laporan_bulanan.empty:
+
+                laporan_bulanan = (
+                    laporan_pasar.copy()
+                )
+
+            else:
+
+                laporan_bulanan = pd.concat(
+                    [
+                        laporan_bulanan,
+                        laporan_pasar,
+                    ],
+                    ignore_index=True,
+                    sort=False,
+                )
+
+            # =============================================
+            # PASTIKAN SEMUA KOLOM ALAT ADA
+            # =============================================
+            for col in KOLOM_ALAT_LAPORAN:
+
+                if col not in laporan_bulanan.columns:
+                    laporan_bulanan[col] = 0
+
+                laporan_bulanan[col] = (
+                    pd.to_numeric(
+                        laporan_bulanan[col],
+                        errors="coerce",
+                    )
+                    .fillna(0)
+                    .astype(int)
+                )
+
+            # =============================================
+            # NOMOR ULANG
+            # =============================================
+            if "No." in laporan_bulanan.columns:
+
+                laporan_bulanan["No."] = range(
+                    1,
+                    len(laporan_bulanan) + 1,
+                )
+
+            else:
+
+                laporan_bulanan.insert(
+                    0,
+                    "No.",
+                    range(
+                        1,
+                        len(laporan_bulanan) + 1,
+                    ),
+                )
 
         # =================================================
         # PREVIEW
