@@ -14,6 +14,13 @@ from modules.uttp.sertifikat_uttp_generator import (
 from modules.timbangan.cerapan_timbangan_generator import (
     generate_cerapan_pdf,
 )
+from modules.timbangan.form_peminjaman_standar_timbangan_generator import (
+    generate_form_peminjaman_standar_timbangan_pdf
+)
+
+from modules.timbangan.form_peminjaman_ctt_timbangan_generator import (
+    generate_form_peminjaman_ctt_timbangan_pdf
+)
 from modules.utils_perusahaan import ambil_kecamatan_dari_alamat
 
 def find_project_root():
@@ -658,20 +665,25 @@ def render_input_cerapan_uttp(
             kunci_muatan = (
                 f"uttp_cerapan_benar_muatan_{index}_{nomor_titik}"
             )
-            if titik_berubah:
-                st.session_state[kunci_muatan] = float(
-                    muatan_auto_kg
+
+            # =================================================
+            # ISI NILAI AWAL HANYA SEKALI
+            # Jangan ditimpa lagi setelah user mengedit
+            # =================================================
+            if kunci_muatan not in st.session_state:
+                st.session_state[
+                    kunci_muatan
+                ] = float(
+                    muatan_lama_kg
                 )
+
             muatan_tampil = st.number_input(
                 f"Muatan Uji {nomor_titik}",
-                value=float(muatan_lama_kg),
                 step=float(step_tampil),
                 format="%g",
                 key=kunci_muatan,
                 label_visibility="collapsed",
             )
-
-
 
         # Penunjukan selalu sama dengan Muatan Uji
         penunjukan_tampil = float(muatan_tampil)
@@ -2188,7 +2200,13 @@ def simpan_pengujian_uttp_umum_ke_supabase(
             )
             or []
         ),
-
+        "daftar_alat_standar_peminjaman": (
+            data.get(
+                "daftar_alat_standar_peminjaman",
+                []
+            )
+            or []
+        ),
         "nip_penera_1": str(
             data.get(
                 "nip_penera_1",
@@ -4481,7 +4499,13 @@ def gunakan_data_lama_untuk_edit_uttp(
             )
             or []
         ),
-
+        "daftar_alat_standar_peminjaman": (
+            detail.get(
+                "daftar_alat_standar_peminjaman",
+                []
+            )
+            or []
+        ),
         "jenis_pengujian": (
             pengujian.get(
                 "jenis_pengujian",
@@ -4765,7 +4789,13 @@ def gunakan_riwayat_untuk_pengujian_baru_uttp(
             )
             or []
         ),
-
+        "daftar_alat_standar_peminjaman": (
+            detail.get(
+                "daftar_alat_standar_peminjaman",
+                []
+            )
+            or []
+        ),
         # Pengujian berikutnya umumnya Tera Ulang.
         "jenis_pengujian": "Tera Ulang",
 
@@ -5342,6 +5372,269 @@ def run():
             st.warning(
                 "Pilih minimal satu kelas alat standar."
             )
+        # =====================================================
+        # ALAT STANDAR UNTUK FORM PEMINJAMAN
+        # =====================================================
+        st.markdown("---")
+        st.subheader("⚖️ Alat Standar untuk Peminjaman")
+
+        st.caption(
+            "Pilih alat standar dan jumlahnya. "
+            "Gunakan tombol Tambah Alat Standar "
+            "untuk menambahkan baris berikutnya."
+        )
+
+        opsi_alat_peminjaman = [
+            "AT 20 kg",
+            "AT 10 kg",
+            "AT 5 kg",
+            "AT 2 kg",
+            "AT 1 kg",
+            "AT M1",
+            "AT F2",
+        ]
+
+        daftar_standar_tersimpan = (
+            st.session_state.uttp_saved_data.get(
+                "daftar_alat_standar_peminjaman",
+                []
+            )
+        )
+
+        if not isinstance(
+            daftar_standar_tersimpan,
+            list
+        ):
+            daftar_standar_tersimpan = []
+
+        if (
+            "uttp_jumlah_baris_alat_standar"
+            not in st.session_state
+        ):
+            st.session_state[
+                "uttp_jumlah_baris_alat_standar"
+            ] = max(
+                1,
+                len(
+                    daftar_standar_tersimpan
+                )
+            )
+
+        jumlah_baris_alat_standar = int(
+            st.session_state[
+                "uttp_jumlah_baris_alat_standar"
+            ]
+        )
+
+        daftar_alat_standar_peminjaman = []
+
+        for indeks in range(
+            jumlah_baris_alat_standar
+        ):
+
+            data_standar_lama = (
+                daftar_standar_tersimpan[indeks]
+                if (
+                    indeks
+                    < len(
+                        daftar_standar_tersimpan
+                    )
+                    and isinstance(
+                        daftar_standar_tersimpan[indeks],
+                        dict
+                    )
+                )
+                else {}
+            )
+
+            alat_lama = str(
+                data_standar_lama.get(
+                    "jenis_alat",
+                    opsi_alat_peminjaman[0]
+                )
+            )
+
+            if alat_lama not in opsi_alat_peminjaman:
+                alat_lama = (
+                    opsi_alat_peminjaman[0]
+                )
+
+            col_alat_std, col_jumlah_std = (
+                st.columns([3, 1])
+            )
+
+            with col_alat_std:
+
+                alat_dipilih = st.selectbox(
+                    f"Alat Standar {indeks + 1}",
+                    options=opsi_alat_peminjaman,
+                    index=(
+                        opsi_alat_peminjaman.index(
+                            alat_lama
+                        )
+                    ),
+                    key=(
+                        f"uttp_jenis_alat_standar_"
+                        f"{indeks}"
+                    ),
+                )
+
+            jumlah_tetap_satu = (
+                alat_dipilih
+                in {
+                    "AT M1",
+                    "AT F2",
+                }
+            )
+
+            with col_jumlah_std:
+
+                if jumlah_tetap_satu:
+
+                    jumlah_dipilih = (
+                        st.number_input(
+                            f"Jumlah {indeks + 1} (set)",
+                            min_value=1,
+                            max_value=1,
+                            value=1,
+                            step=1,
+                            disabled=True,
+                            key=(
+                                "uttp_jumlah_alat_standar_"
+                                f"{indeks}_tetap"
+                            ),
+                        )
+                    )
+
+                else:
+
+                    jumlah_awal = (
+                        data_standar_lama.get(
+                            "jumlah_angka",
+                            1
+                        )
+                    )
+
+                    try:
+                        jumlah_awal = int(
+                            jumlah_awal
+                        )
+                    except (
+                        TypeError,
+                        ValueError
+                    ):
+                        jumlah_awal = 1
+
+                    jumlah_dipilih = (
+                        st.number_input(
+                            f"Jumlah {indeks + 1} (buah)",
+                            min_value=1,
+                            value=max(
+                                1,
+                                jumlah_awal
+                            ),
+                            step=1,
+                            key=(
+                                "uttp_jumlah_alat_standar_"
+                                f"{indeks}"
+                            ),
+                        )
+                    )
+
+            satuan_jumlah = (
+                "Set"
+                if jumlah_tetap_satu
+                else "Buah"
+            )
+
+            daftar_alat_standar_peminjaman.append(
+                {
+                    "jenis_alat": (
+                        alat_dipilih
+                    ),
+                    "nomor_seri": "",
+                    "jumlah_angka": int(
+                        jumlah_dipilih
+                    ),
+                    "jumlah": (
+                        f"{int(jumlah_dipilih)} "
+                        f"{satuan_jumlah}"
+                    ),
+                    "lama_peminjaman": (
+                        "1 Hari"
+                    ),
+                }
+            )
+
+        col_tambah_std, col_hapus_std, _ = (
+            st.columns(
+                [1.5, 1.5, 3]
+            )
+        )
+
+        with col_tambah_std:
+
+            if st.button(
+                "➕ Tambah Alat Standar",
+                key=(
+                    "uttp_tambah_baris_"
+                    "alat_standar"
+                ),
+                use_container_width=True,
+            ):
+
+                st.session_state[
+                    "uttp_jumlah_baris_alat_standar"
+                ] += 1
+
+                st.rerun()
+
+        with col_hapus_std:
+
+            if st.button(
+                "➖ Hapus Baris Terakhir",
+                key=(
+                    "uttp_hapus_baris_"
+                    "alat_standar"
+                ),
+                use_container_width=True,
+                disabled=(
+                    jumlah_baris_alat_standar
+                    <= 1
+                ),
+            ):
+
+                indeks_terakhir = (
+                    st.session_state[
+                        "uttp_jumlah_baris_alat_standar"
+                    ]
+                    - 1
+                )
+
+                for key in [
+                    (
+                        "uttp_jenis_alat_standar_"
+                        f"{indeks_terakhir}"
+                    ),
+                    (
+                        "uttp_jumlah_alat_standar_"
+                        f"{indeks_terakhir}"
+                    ),
+                    (
+                        "uttp_jumlah_alat_standar_"
+                        f"{indeks_terakhir}_tetap"
+                    ),
+                ]:
+                    st.session_state.pop(
+                        key,
+                        None
+                    )
+
+                st.session_state[
+                    "uttp_jumlah_baris_alat_standar"
+                ] -= 1
+
+                st.rerun()
         # =====================================================
         # DAFTAR RINCIAN UTTP
         # =====================================================
@@ -6155,7 +6448,9 @@ def run():
                 "alat_standar": (
                     alat_standar
                 ),
-
+                "daftar_alat_standar_peminjaman": (
+                    daftar_alat_standar_peminjaman
+                ),
                 "nama_alat": (
                     daftar_alat_uttp[0][
                         "nama_alat"
@@ -6255,13 +6550,39 @@ def run():
                         "uttp_edit_pengujian_id"
                     )
                 ),
+
                 "pemilik": pemilik,
                 "alamat": alamat,
-                "daftar_alat_uttp": daftar_alat_uttp,
-                "daftar_rincian_uttp": daftar_rincian_uttp,
-                "alat_standar": alat_standar,
-                "nama_alat": daftar_alat_uttp[0]["nama_alat"],
-                "jumlah_alat": daftar_alat_uttp[0]["jumlah"],
+
+                "daftar_alat_uttp": (
+                    daftar_alat_uttp
+                ),
+
+                "daftar_rincian_uttp": (
+                    daftar_rincian_uttp
+                ),
+
+                # Kelas standar untuk cerapan
+                "alat_standar": (
+                    alat_standar
+                ),
+
+                # Alat fisik untuk Form Peminjaman
+                "daftar_alat_standar_peminjaman": (
+                    daftar_alat_standar_peminjaman
+                ),
+
+                "nama_alat": (
+                    daftar_alat_uttp[0][
+                        "nama_alat"
+                    ]
+                ),
+
+                "jumlah_alat": (
+                    daftar_alat_uttp[0][
+                        "jumlah"
+                    ]
+                ),
                 "jenis_pengujian": jenis_pengujian,
                 "lokasi_pengujian": lokasi_pengujian,
                 "jenis_layanan": (
@@ -6457,6 +6778,42 @@ def run():
                 f"**Alat Standar:** "
                 f"{alat_standar_text or '-'}"
             )
+            daftar_standar_preview = (
+                data.get(
+                    "daftar_alat_standar_peminjaman",
+                    []
+                )
+                or []
+            )
+
+            if daftar_standar_preview:
+
+                st.write(
+                    "**Alat Standar untuk Peminjaman:**"
+                )
+
+                for item_standar in daftar_standar_preview:
+
+                    jenis_alat_std = str(
+                        item_standar.get(
+                            "jenis_alat",
+                            ""
+                        )
+                        or ""
+                    ).strip()
+
+                    jumlah_std = str(
+                        item_standar.get(
+                            "jumlah",
+                            ""
+                        )
+                        or ""
+                    ).strip()
+
+                    st.write(
+                        f"- {jenis_alat_std}: "
+                        f"{jumlah_std}"
+                    )
         with col_preview2:
             st.subheader("📄 Data Sertifikat")
             st.write(
@@ -6634,7 +6991,283 @@ def run():
                 ):
                     reset_form_uttp()
                     st.rerun()
+        
+        # =====================================================
+        # FORMULIR PEMINJAMAN
+        # =====================================================
+        st.markdown("---")
+        st.subheader("📄 Formulir Peminjaman")
 
+        daftar_alat_form = (
+            data.get(
+                "daftar_alat_standar_peminjaman",
+                []
+            )
+            or []
+        )
+        # =====================================================
+        # DATA KHUSUS UNTUK FORM PEMINJAMAN
+        # Generator Timbangan membaca:
+        # nama_penera, nip_penera, golongan_penera, keterangan
+        # =====================================================
+        data_form_peminjaman = dict(
+            data
+        )
+
+        data_form_peminjaman[
+            "nama_penera"
+        ] = str(
+            data.get(
+                "penera_1",
+                ""
+            )
+            or ""
+        ).strip()
+
+        data_form_peminjaman[
+            "nip_penera"
+        ] = str(
+            data.get(
+                "nip_penera_1",
+                ""
+            )
+            or ""
+        ).strip()
+
+        data_form_peminjaman[
+            "golongan_penera"
+        ] = str(
+            data.get(
+                "golongan_penera_1",
+                ""
+            )
+            or ""
+        ).strip()
+
+        data_form_peminjaman[
+            "keterangan"
+        ] = str(
+            data.get(
+                "jenis_pengujian",
+                "Tera Ulang"
+            )
+            or "Tera Ulang"
+        ).strip()
+
+        data_form_peminjaman[
+            "daftar_alat_standar_peminjaman"
+        ] = (
+            daftar_alat_form
+        )
+        col_form1, col_form2 = st.columns(2)
+
+        # =====================================================
+        # FORM PEMINJAMAN ALAT STANDAR
+        # =====================================================
+        with col_form1:
+
+            if st.button(
+                "⚖️ Generate Form Peminjaman Alat Standar",
+                key="uttp_generate_form_standar",
+                use_container_width=True,
+            ):
+                try:
+
+                    if not daftar_alat_form:
+                        st.error(
+                            "Belum ada alat standar untuk "
+                            "peminjaman yang dipilih."
+                        )
+
+                    else:
+                        OUTPUT_DIR.mkdir(
+                            parents=True,
+                            exist_ok=True,
+                        )
+
+                        nama_file = (
+                            format_nama_file_uttp(
+                                data,
+                                "FORM_PEMINJAMAN_ALAT_STANDAR"
+                            )
+                        )
+
+                        filename = (
+                            OUTPUT_DIR
+                            / nama_file
+                        )
+
+                        generate_form_peminjaman_standar_timbangan_pdf(
+                            data_form_peminjaman,
+                            str(filename),
+                            nomor_surat_perintah="",
+                        )
+
+                        st.session_state[
+                            "uttp_generated_files"
+                        ][
+                            "form_peminjaman_standar"
+                        ] = str(
+                            filename
+                        )
+
+                        st.success(
+                            "✅ Form peminjaman alat standar "
+                            "berhasil dibuat!"
+                        )
+
+                except Exception as exc:
+                    st.error(
+                        f"❌ Error membuat form alat standar: {exc}"
+                    )
+                    st.code(
+                        traceback.format_exc()
+                    )
+
+        # =====================================================
+        # FORM PEMINJAMAN CTT
+        # =====================================================
+        with col_form2:
+
+            if st.button(
+                "🔏 Generate Form Peminjaman CTT",
+                key="uttp_generate_form_ctt",
+                use_container_width=True,
+            ):
+                try:
+
+                    OUTPUT_DIR.mkdir(
+                        parents=True,
+                        exist_ok=True,
+                    )
+
+                    nama_file = (
+                        format_nama_file_uttp(
+                            data,
+                            "FORM_PEMINJAMAN_CTT"
+                        )
+                    )
+
+                    filename = (
+                        OUTPUT_DIR
+                        / nama_file
+                    )
+
+                    generate_form_peminjaman_ctt_timbangan_pdf(
+                        data_form_peminjaman,
+                        str(filename),
+                        nomor_surat_perintah="",
+                    )
+
+                    st.session_state[
+                        "uttp_generated_files"
+                    ][
+                        "form_peminjaman_ctt"
+                    ] = str(
+                        filename
+                    )
+
+                    st.success(
+                        "✅ Form peminjaman CTT "
+                        "berhasil dibuat!"
+                    )
+
+                except Exception as exc:
+                    st.error(
+                        f"❌ Error membuat form CTT: {exc}"
+                    )
+                    st.code(
+                        traceback.format_exc()
+                    )
+
+        # =====================================================
+        # DOWNLOAD FORM
+        # =====================================================
+        form_standar_path = (
+            st.session_state[
+                "uttp_generated_files"
+            ].get(
+                "form_peminjaman_standar"
+            )
+        )
+
+        form_ctt_path = (
+            st.session_state[
+                "uttp_generated_files"
+            ].get(
+                "form_peminjaman_ctt"
+            )
+        )
+
+        col_download1, col_download2 = (
+            st.columns(2)
+        )
+
+        with col_download1:
+
+            if (
+                form_standar_path
+                and Path(
+                    form_standar_path
+                ).exists()
+            ):
+
+                with open(
+                    form_standar_path,
+                    "rb",
+                ) as file_form:
+
+                    st.download_button(
+                        "⬇️ Download Form Alat Standar",
+                        data=file_form.read(),
+                        file_name=Path(
+                            form_standar_path
+                        ).name,
+                        mime="application/pdf",
+                        use_container_width=True,
+                        key=(
+                            "uttp_download_"
+                            "form_standar"
+                        ),
+                    )
+
+            else:
+                st.caption(
+                    "Form alat standar belum dibuat."
+                )
+
+        with col_download2:
+
+            if (
+                form_ctt_path
+                and Path(
+                    form_ctt_path
+                ).exists()
+            ):
+
+                with open(
+                    form_ctt_path,
+                    "rb",
+                ) as file_form:
+
+                    st.download_button(
+                        "⬇️ Download Form CTT",
+                        data=file_form.read(),
+                        file_name=Path(
+                            form_ctt_path
+                        ).name,
+                        mime="application/pdf",
+                        use_container_width=True,
+                        key=(
+                            "uttp_download_form_ctt"
+                        ),
+                    )
+
+            else:
+                st.caption(
+                    "Form CTT belum dibuat."
+                )
+        
         # =====================================================
         # CERAPAN (SAMPLE)
         # =====================================================
