@@ -779,7 +779,7 @@ def generate_sertifikat_pubbm(data, output_path="sertifikat_pubbm.pdf"):
         f"Lampiran Sertifikat Nomor : {data.get('nomor_sertifikat', '')}"
     )
 
-    y -= 1.8 * cm
+    y -= 0.9 * cm
 
     # ========================
     # PERANGKAT BEJANA UKUR STANDAR
@@ -1057,7 +1057,7 @@ def generate_sertifikat_pubbm(data, output_path="sertifikat_pubbm.pdf"):
         y -= 0.65 * cm
 
     # Jarak ke judul tabel
-    y -= 0.25 * cm
+    y -= 0.05 * cm
 
         # ======================== JUDUL TABEL ========================
     c.setFont("Helvetica-Bold", 12)
