@@ -653,8 +653,12 @@ TOOLS = [
         "function": {
             "name": "pengawasan_spbu",
             "description": (
-                "Memonitor SPBU yang terlambat tera ulang atau akan jatuh tempo. "
-                "Dapat menampilkan jumlah nozzle dan K-Faktor pada SPBU terkait."
+                "Membuat analisis pengawasan SPBU yang dilengkapi informasi "
+                "nozzle dan/atau K-Faktor. Gunakan tool ini jika pengguna "
+                "meminta data pengawasan SPBU BESERTA rincian nozzle, "
+                "dispenser, media BBM, atau K-Faktor. "
+                "Untuk pertanyaan sederhana tentang SPBU yang terlambat "
+                "atau akan jatuh tempo, gunakan monitor_jatuh_tempo_spbu."
             ),
             "parameters": {
                 "type": "object",
@@ -853,6 +857,323 @@ TOOLS = [
                         "type": "integer",
                         "description": (
                             "Tahun untuk data timbangan pasar. Default tahun berjalan."
+                        )
+                    },
+                    "batas": {
+                        "type": "integer",
+                        "description": (
+                            "Jumlah kecamatan yang ditampilkan. Default 30."
+                        )
+                    }
+                },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "peringkat_pemilik_pelayanan",
+            "description": (
+                "Menghitung peringkat perusahaan atau SPBU berdasarkan "
+                "jumlah kegiatan pengujian dalam periode tertentu."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "tahun": {
+                        "type": "integer",
+                        "description": "Tahun rekap, misalnya 2026."
+                    },
+                    "bulan": {
+                        "type": "integer",
+                        "description": (
+                            "Bulan 1-12. Kosongkan untuk satu tahun penuh."
+                        )
+                    },
+                    "tipe_pemilik": {
+                        "type": "string",
+                        "description": (
+                            "Gunakan 'perusahaan', 'spbu', atau 'semua'. "
+                            "Default semua."
+                        )
+                    },
+                    "nama": {
+                        "type": "string",
+                        "description": (
+                            "Filter nama perusahaan atau nomor/nama SPBU tertentu."
+                        )
+                    },
+                    "batas": {
+                        "type": "integer",
+                        "description": (
+                            "Jumlah peringkat yang ditampilkan. Default 10."
+                        )
+                    }
+                },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "bandingkan_kinerja_pelayanan",
+            "description": (
+                "Membandingkan kinerja pelayanan metrologi antara dua periode, "
+                "termasuk jumlah kegiatan, jumlah UTTP, jumlah pemilik, "
+                "selisih, persentase perubahan, dan jenis UTTP terbanyak."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "tahun_1": {
+                        "type": "integer",
+                        "description": "Tahun periode pertama."
+                    },
+                    "bulan_1": {
+                        "type": "integer",
+                        "description": "Bulan periode pertama, 1-12."
+                    },
+                    "tahun_2": {
+                        "type": "integer",
+                        "description": "Tahun periode kedua."
+                    },
+                    "bulan_2": {
+                        "type": "integer",
+                        "description": "Bulan periode kedua, 1-12."
+                    }
+                },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "ringkasan_eksekutif_metrologi",
+            "description": (
+                "Membuat ringkasan eksekutif kinerja pelayanan dan pengawasan "
+                "metrologi dalam suatu periode. Menggabungkan jumlah kegiatan, "
+                "jumlah UTTP, jenis UTTP terbanyak, penera teraktif, pemilik "
+                "dengan pelayanan terbanyak, serta prioritas pengawasan."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "tahun": {
+                        "type": "integer",
+                        "description": "Tahun ringkasan, misalnya 2026."
+                    },
+                    "bulan": {
+                        "type": "integer",
+                        "description": (
+                            "Bulan 1-12. Kosongkan untuk satu tahun penuh."
+                        )
+                    },
+                    "jumlah_prioritas": {
+                        "type": "integer",
+                        "description": (
+                            "Jumlah prioritas pengawasan yang disertakan. Default 5."
+                        )
+                    }
+                },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "monitor_jatuh_tempo_spbu",
+            "description": (
+                "Memeriksa status masa berlaku tera ulang SPBU berdasarkan "
+                "data pengujian terbaru di database SMART METRO. "
+                "WAJIB digunakan untuk pertanyaan sederhana tentang SPBU "
+                "yang akan jatuh tempo, sudah terlambat/kedaluwarsa, "
+                "masa berlaku SPBU tertentu, atau daftar SPBU berdasarkan "
+                "status tera ulang. "
+                "Jika pengguna meminta rincian nozzle atau K-Faktor, "
+                "gunakan pengawasan_spbu."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "akan_jatuh_tempo",
+                            "terlambat",
+                            "semua",
+                        ],
+                        "description": (
+                            "akan_jatuh_tempo = masa berlaku akan habis; "
+                            "terlambat = masa berlaku sudah lewat; "
+                            "semua = tampilkan seluruh status."
+                        ),
+                    },
+                    "hari": {
+                        "type": "integer",
+                        "description": (
+                            "Rentang hari ke depan. "
+                            "Default 30 hari."
+                        ),
+                    },
+                    "nomor_spbu": {
+                        "type": "string",
+                        "description": (
+                            "Nomor SPBU tertentu jika ingin "
+                            "memeriksa satu SPBU. Kosongkan untuk semua."
+                        ),
+                    },
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "deteksi_anomali_data",
+            "description": (
+                "Memeriksa kualitas dan konsistensi data pengujian "
+                "SMART METRO. Gunakan untuk mencari data yang perlu "
+                "diperiksa seperti nomor sertifikat ganda, nomor order "
+                "ganda, tanggal masa berlaku tidak logis, data tanpa "
+                "penera, data tanpa nomor dokumen, atau pengujian yang "
+                "tidak terhubung ke UTTP."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "tahun": {
+                        "type": "integer",
+                        "description": (
+                            "Tahun yang ingin diperiksa. "
+                            "Default tahun berjalan."
+                        ),
+                    },
+                    "bulan": {
+                        "type": "integer",
+                        "description": (
+                            "Bulan 1-12. Kosongkan untuk "
+                            "memeriksa satu tahun penuh."
+                        ),
+                    },
+                    "jenis_anomali": {
+                        "type": "string",
+                        "enum": [
+                            "semua",
+                            "sertifikat_ganda",
+                            "order_ganda",
+                            "tanggal",
+                            "data_tidak_lengkap",
+                            "tanpa_uttp",
+                        ],
+                        "description": (
+                            "Jenis pemeriksaan. Default semua."
+                        ),
+                    },
+                    "batas": {
+                        "type": "integer",
+                        "description": (
+                            "Maksimal temuan yang ditampilkan. "
+                            "Default 30."
+                        ),
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "skor_kualitas_data",
+            "description": (
+                "Mengukur kualitas data SMART METRO berdasarkan hasil "
+                "pemeriksaan anomali database. Menghasilkan skor 0 sampai 100, "
+                "kategori kualitas, rincian temuan, pengurang skor, dan "
+                "rekomendasi perbaikan. Gunakan untuk pertanyaan tentang "
+                "kualitas database, kesehatan data, data quality score, "
+                "atau seberapa baik kualitas data SMART METRO."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "tahun": {
+                        "type": "integer",
+                        "description": (
+                            "Tahun pemeriksaan. Default tahun berjalan."
+                        ),
+                    },
+                    "bulan": {
+                        "type": "integer",
+                        "description": (
+                            "Bulan 1-12. Kosongkan untuk satu tahun penuh."
+                        ),
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "bandingkan_skor_kualitas_data",
+            "description": (
+                "Membandingkan skor kualitas data SMART METRO antara "
+                "dua periode. Menampilkan skor masing-masing periode, "
+                "selisih skor, arah perubahan, perubahan jumlah anomali, "
+                "dan penyebab utama kenaikan atau penurunan kualitas data."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "tahun_1": {
+                        "type": "integer",
+                        "description": "Tahun periode pertama."
+                    },
+                    "bulan_1": {
+                        "type": "integer",
+                        "description": "Bulan periode pertama, 1-12."
+                    },
+                    "tahun_2": {
+                        "type": "integer",
+                        "description": "Tahun periode kedua."
+                    },
+                    "bulan_2": {
+                        "type": "integer",
+                        "description": "Bulan periode kedua, 1-12."
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "analisis_cakupan_pelayanan_kecamatan",
+            "description": (
+                "Menganalisis cakupan pelayanan metrologi per kecamatan "
+                "dengan membandingkan jumlah UTTP aktif pada master dengan "
+                "jumlah UTTP unik yang telah diuji dalam periode tertentu. "
+                "Gunakan untuk mencari kecamatan dengan cakupan rendah, "
+                "kecamatan yang perlu diprioritaskan, atau kesenjangan "
+                "antara potensi UTTP dan pelayanan."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "tahun": {
+                        "type": "integer",
+                        "description": "Tahun analisis. Default tahun berjalan."
+                    },
+                    "bulan": {
+                        "type": "integer",
+                        "description": (
+                            "Bulan 1-12. Kosongkan untuk satu tahun penuh."
                         )
                     },
                     "batas": {
@@ -4905,6 +5226,3222 @@ def tool_rekap_uttp_kecamatan(
             :batas
         ],
     }
+
+def tool_peringkat_pemilik_pelayanan(
+    argumen,
+    supabase,
+):
+
+    tahun = angka_bulat_ai(
+        argumen.get("tahun"),
+        hari_ini_wib().year,
+        2000,
+        2100,
+    )
+
+    bulan = angka_bulat_ai(
+        argumen.get("bulan"),
+        None,
+        1,
+        12,
+    )
+
+    tipe_pemilik = str(
+        argumen.get("tipe_pemilik")
+        or "semua"
+    ).strip().lower()
+
+    nama_filter = bersihkan_teks_ai(
+        argumen.get("nama")
+    )
+
+    batas = angka_bulat_ai(
+        argumen.get("batas"),
+        10,
+        1,
+        100,
+    )
+
+    # =====================================================
+    # 1. RENTANG TANGGAL
+    # =====================================================
+    if bulan:
+
+        tanggal_awal = date(
+            tahun,
+            bulan,
+            1,
+        )
+
+        if bulan == 12:
+            tanggal_akhir = date(
+                tahun + 1,
+                1,
+                1,
+            )
+        else:
+            tanggal_akhir = date(
+                tahun,
+                bulan + 1,
+                1,
+            )
+
+    else:
+
+        tanggal_awal = date(
+            tahun,
+            1,
+            1,
+        )
+
+        tanggal_akhir = date(
+            tahun + 1,
+            1,
+            1,
+        )
+
+    # =====================================================
+    # 2. MASTER PERUSAHAAN
+    # =====================================================
+    response_perusahaan = (
+        supabase
+        .table("perusahaan")
+        .select(
+            "id, nama_perusahaan, kecamatan"
+        )
+        .execute()
+    )
+
+    peta_perusahaan = {
+        row.get("id"): row
+        for row in (
+            response_perusahaan.data
+            or []
+        )
+        if row.get("id") is not None
+    }
+
+    # =====================================================
+    # 3. MASTER SPBU
+    # =====================================================
+    response_spbu = (
+        supabase
+        .table("spbu")
+        .select(
+            "id, nama_spbu, nomor_spbu, kecamatan"
+        )
+        .execute()
+    )
+
+    peta_spbu = {
+        row.get("id"): row
+        for row in (
+            response_spbu.data
+            or []
+        )
+        if row.get("id") is not None
+    }
+
+    # =====================================================
+    # 4. DATA PENGUJIAN
+    # =====================================================
+    response_pengujian = (
+        supabase
+        .table("pengujian")
+        .select(
+            "id, uttp_id, perusahaan_id, spbu_id, "
+            "tanggal_pengujian"
+        )
+        .gte(
+            "tanggal_pengujian",
+            tanggal_awal.isoformat(),
+        )
+        .lt(
+            "tanggal_pengujian",
+            tanggal_akhir.isoformat(),
+        )
+        .execute()
+    )
+
+    daftar_pengujian = (
+        response_pengujian.data
+        or []
+    )
+
+    if not daftar_pengujian:
+        return {
+            "tahun": tahun,
+            "bulan": bulan,
+            "jumlah_pemilik": 0,
+            "hasil": [],
+        }
+
+    # =====================================================
+    # 5. MASTER UTTP UNTUK FALLBACK PEMILIK
+    # =====================================================
+    ids_uttp = list({
+        row.get("uttp_id")
+        for row in daftar_pengujian
+        if row.get("uttp_id") is not None
+    })
+
+    peta_uttp = {}
+
+    if ids_uttp:
+
+        response_uttp = (
+            supabase
+            .table("uttp")
+            .select(
+                "id, perusahaan_id, spbu_id"
+            )
+            .in_(
+                "id",
+                ids_uttp,
+            )
+            .execute()
+        )
+
+        peta_uttp = {
+            row.get("id"): row
+            for row in (
+                response_uttp.data
+                or []
+            )
+        }
+
+    # =====================================================
+    # 6. HITUNG PER PEMILIK
+    # =====================================================
+    hitung = {}
+
+    for row in daftar_pengujian:
+
+        perusahaan_id = row.get(
+            "perusahaan_id"
+        )
+
+        spbu_id = row.get(
+            "spbu_id"
+        )
+
+        # fallback dari UTTP
+        if (
+            perusahaan_id is None
+            and spbu_id is None
+        ):
+
+            alat = peta_uttp.get(
+                row.get("uttp_id"),
+                {},
+            )
+
+            perusahaan_id = alat.get(
+                "perusahaan_id"
+            )
+
+            spbu_id = alat.get(
+                "spbu_id"
+            )
+
+        # =================================================
+        # SPBU
+        # =================================================
+        if spbu_id is not None:
+
+            data_spbu = peta_spbu.get(
+                spbu_id,
+                {},
+            )
+
+            nama_spbu = str(
+                data_spbu.get("nama_spbu")
+                or ""
+            ).strip()
+
+            nomor_spbu = str(
+                data_spbu.get("nomor_spbu")
+                or ""
+            ).strip()
+
+            nama_pemilik = (
+                nama_spbu
+                or (
+                    f"SPBU {nomor_spbu}"
+                    if nomor_spbu
+                    else ""
+                )
+            )
+
+            kunci = (
+                f"SPBU:{spbu_id}"
+            )
+
+            tipe = "SPBU"
+
+            kecamatan = str(
+                data_spbu.get("kecamatan")
+                or ""
+            ).strip()
+
+        # =================================================
+        # PERUSAHAAN
+        # =================================================
+        elif perusahaan_id is not None:
+
+            data_perusahaan = (
+                peta_perusahaan.get(
+                    perusahaan_id,
+                    {},
+                )
+            )
+
+            nama_pemilik = str(
+                data_perusahaan.get(
+                    "nama_perusahaan"
+                )
+                or ""
+            ).strip()
+
+            kunci = (
+                f"PERUSAHAAN:{perusahaan_id}"
+            )
+
+            tipe = "Perusahaan"
+
+            kecamatan = str(
+                data_perusahaan.get(
+                    "kecamatan"
+                )
+                or ""
+            ).strip()
+
+        else:
+            continue
+
+        if not nama_pemilik:
+            continue
+
+        if (
+            tipe_pemilik == "perusahaan"
+            and tipe != "Perusahaan"
+        ):
+            continue
+
+        if (
+            tipe_pemilik == "spbu"
+            and tipe != "SPBU"
+        ):
+            continue
+
+        if (
+            nama_filter
+            and nama_filter.lower()
+            not in nama_pemilik.lower()
+        ):
+            continue
+
+        if kunci not in hitung:
+
+            hitung[kunci] = {
+                "nama": nama_pemilik,
+                "tipe": tipe,
+                "kecamatan": kecamatan,
+                "jumlah_kegiatan": 0,
+            }
+
+        hitung[
+            kunci
+        ][
+            "jumlah_kegiatan"
+        ] += 1
+
+    # =====================================================
+    # 7. URUTKAN
+    # =====================================================
+    data_urut = sorted(
+        hitung.values(),
+        key=lambda x: x[
+            "jumlah_kegiatan"
+        ],
+        reverse=True,
+    )
+
+    hasil = []
+
+    for peringkat, item in enumerate(
+        data_urut[:batas],
+        start=1,
+    ):
+
+        hasil.append({
+            "peringkat": peringkat,
+            "nama": item.get(
+                "nama"
+            ),
+            "tipe": item.get(
+                "tipe"
+            ),
+            "kecamatan": item.get(
+                "kecamatan"
+            ),
+            "jumlah_kegiatan": item.get(
+                "jumlah_kegiatan"
+            ),
+        })
+
+    return {
+        "tahun": tahun,
+        "bulan": bulan,
+        "periode_mulai": (
+            tanggal_awal.isoformat()
+        ),
+        "periode_selesai": (
+            (
+                tanggal_akhir
+                - timedelta(days=1)
+            ).isoformat()
+        ),
+        "tipe_pemilik": (
+            tipe_pemilik
+        ),
+        "jumlah_pemilik": len(
+            hitung
+        ),
+        "hasil": hasil,
+        "pemilik_terbanyak": (
+            hasil[0]
+            if hasil
+            else None
+        ),
+    }
+
+def tool_bandingkan_kinerja_pelayanan(
+    argumen,
+    supabase,
+):
+
+    hari_ini = hari_ini_wib()
+
+    # =====================================================
+    # DEFAULT PERIODE 2 = BULAN BERJALAN
+    # =====================================================
+    tahun_2 = angka_bulat_ai(
+        argumen.get("tahun_2"),
+        hari_ini.year,
+        2000,
+        2100,
+    )
+
+    bulan_2 = angka_bulat_ai(
+        argumen.get("bulan_2"),
+        hari_ini.month,
+        1,
+        12,
+    )
+
+    # =====================================================
+    # DEFAULT PERIODE 1 = BULAN SEBELUMNYA
+    # =====================================================
+    if bulan_2 == 1:
+        default_tahun_1 = tahun_2 - 1
+        default_bulan_1 = 12
+    else:
+        default_tahun_1 = tahun_2
+        default_bulan_1 = bulan_2 - 1
+
+    tahun_1 = angka_bulat_ai(
+        argumen.get("tahun_1"),
+        default_tahun_1,
+        2000,
+        2100,
+    )
+
+    bulan_1 = angka_bulat_ai(
+        argumen.get("bulan_1"),
+        default_bulan_1,
+        1,
+        12,
+    )
+
+    # =====================================================
+    # 1. AMBIL REKAP PERIODE 1
+    # =====================================================
+    periode_1 = (
+        tool_rekap_kinerja_pelayanan(
+            {
+                "tahun": tahun_1,
+                "bulan": bulan_1,
+                "batas_jenis": 50,
+            },
+            supabase,
+        )
+    )
+
+    # =====================================================
+    # 2. AMBIL REKAP PERIODE 2
+    # =====================================================
+    periode_2 = (
+        tool_rekap_kinerja_pelayanan(
+            {
+                "tahun": tahun_2,
+                "bulan": bulan_2,
+                "batas_jenis": 50,
+            },
+            supabase,
+        )
+    )
+
+    # =====================================================
+    # 3. FUNGSI PERSENTASE PERUBAHAN
+    # =====================================================
+    def hitung_perubahan(
+        nilai_lama,
+        nilai_baru,
+    ):
+
+        nilai_lama = (
+            nilai_lama
+            or 0
+        )
+
+        nilai_baru = (
+            nilai_baru
+            or 0
+        )
+
+        selisih = (
+            nilai_baru
+            - nilai_lama
+        )
+
+        if nilai_lama == 0:
+
+            if nilai_baru == 0:
+                persen = 0.0
+
+            else:
+                persen = None
+
+        else:
+
+            persen = round(
+                (
+                    selisih
+                    / nilai_lama
+                )
+                * 100,
+                2,
+            )
+
+        if selisih > 0:
+            arah = "naik"
+
+        elif selisih < 0:
+            arah = "turun"
+
+        else:
+            arah = "tetap"
+
+        return {
+            "periode_1": nilai_lama,
+            "periode_2": nilai_baru,
+            "selisih": selisih,
+            "persentase": persen,
+            "arah": arah,
+        }
+
+    # =====================================================
+    # 4. PERBANDINGAN INDIKATOR UTAMA
+    # =====================================================
+    kegiatan = hitung_perubahan(
+        periode_1.get(
+            "jumlah_kegiatan"
+        ),
+        periode_2.get(
+            "jumlah_kegiatan"
+        ),
+    )
+
+    uttp = hitung_perubahan(
+        periode_1.get(
+            "jumlah_uttp"
+        ),
+        periode_2.get(
+            "jumlah_uttp"
+        ),
+    )
+
+    pemilik = hitung_perubahan(
+        periode_1.get(
+            "jumlah_pemilik"
+        ),
+        periode_2.get(
+            "jumlah_pemilik"
+        ),
+    )
+
+    # =====================================================
+    # 5. PETA JENIS UTTP PER PERIODE
+    # =====================================================
+    jenis_1 = {
+        str(
+            row.get(
+                "jenis_uttp"
+            )
+            or ""
+        ).strip(): (
+            row.get(
+                "jumlah"
+            )
+            or 0
+        )
+        for row in (
+            periode_1.get(
+                "jenis_uttp"
+            )
+            or []
+        )
+    }
+
+    jenis_2 = {
+        str(
+            row.get(
+                "jenis_uttp"
+            )
+            or ""
+        ).strip(): (
+            row.get(
+                "jumlah"
+            )
+            or 0
+        )
+        for row in (
+            periode_2.get(
+                "jenis_uttp"
+            )
+            or []
+        )
+    }
+
+    semua_jenis = set(
+        jenis_1.keys()
+    ) | set(
+        jenis_2.keys()
+    )
+
+    perbandingan_jenis = []
+
+    for jenis in semua_jenis:
+
+        if not jenis:
+            continue
+
+        perubahan = hitung_perubahan(
+            jenis_1.get(
+                jenis,
+                0,
+            ),
+            jenis_2.get(
+                jenis,
+                0,
+            ),
+        )
+
+        perbandingan_jenis.append({
+            "jenis_uttp": jenis,
+            **perubahan,
+        })
+
+    # =====================================================
+    # 6. URUTKAN BERDASARKAN SELISIH TERBESAR
+    # =====================================================
+    perbandingan_jenis.sort(
+        key=lambda x: abs(
+            x.get(
+                "selisih",
+                0,
+            )
+        ),
+        reverse=True,
+    )
+
+    # =====================================================
+    # 7. HASIL
+    # =====================================================
+    return {
+        "periode_1": {
+            "tahun": tahun_1,
+            "bulan": bulan_1,
+            "periode_mulai": (
+                periode_1.get(
+                    "periode_mulai"
+                )
+            ),
+            "periode_selesai": (
+                periode_1.get(
+                    "periode_selesai"
+                )
+            ),
+        },
+        "periode_2": {
+            "tahun": tahun_2,
+            "bulan": bulan_2,
+            "periode_mulai": (
+                periode_2.get(
+                    "periode_mulai"
+                )
+            ),
+            "periode_selesai": (
+                periode_2.get(
+                    "periode_selesai"
+                )
+            ),
+        },
+        "jumlah_kegiatan": kegiatan,
+        "jumlah_uttp": uttp,
+        "jumlah_pemilik": pemilik,
+        "jenis_uttp": (
+            perbandingan_jenis
+        ),
+        "jenis_terbanyak_periode_1": (
+            periode_1.get(
+                "jenis_uttp_terbanyak"
+            )
+        ),
+        "jenis_terbanyak_periode_2": (
+            periode_2.get(
+                "jenis_uttp_terbanyak"
+            )
+        ),
+    }
+    
+def tool_ringkasan_eksekutif_metrologi(
+    argumen,
+    supabase,
+):
+
+    tahun = angka_bulat_ai(
+        argumen.get("tahun"),
+        hari_ini_wib().year,
+        2000,
+        2100,
+    )
+
+    bulan = angka_bulat_ai(
+        argumen.get("bulan"),
+        None,
+        1,
+        12,
+    )
+
+    jumlah_prioritas = angka_bulat_ai(
+        argumen.get("jumlah_prioritas"),
+        5,
+        1,
+        20,
+    )
+
+    # =====================================================
+    # 1. REKAP KINERJA
+    # =====================================================
+    kinerja = tool_rekap_kinerja_pelayanan(
+        {
+            "tahun": tahun,
+            "bulan": bulan,
+            "batas_jenis": 10,
+        },
+        supabase,
+    )
+
+    # =====================================================
+    # 2. STATISTIK PENERA
+    # =====================================================
+    penera = tool_statistik_penera(
+        {
+            "tahun": tahun,
+            "bulan": bulan,
+            "batas": 5,
+        },
+        supabase,
+    )
+
+    # =====================================================
+    # 3. PEMILIK PALING BANYAK DILAYANI
+    # =====================================================
+    pemilik = tool_peringkat_pemilik_pelayanan(
+        {
+            "tahun": tahun,
+            "bulan": bulan,
+            "tipe_pemilik": "semua",
+            "batas": 5,
+        },
+        supabase,
+    )
+
+    # =====================================================
+    # 4. PRIORITAS PENGAWASAN
+    # =====================================================
+    pengawasan = tool_prioritas_pengawasan(
+        {
+            "batas": jumlah_prioritas,
+            "hari": 30,
+        },
+        supabase,
+    )
+
+    # =====================================================
+    # 5. RINGKASAN STATUS PENGAWASAN
+    # =====================================================
+    jumlah_terlambat = (
+        pengawasan.get(
+            "jumlah_terlambat"
+        )
+        or 0
+    )
+
+    jumlah_jatuh_tempo = (
+        pengawasan.get(
+            "jumlah_akan_jatuh_tempo"
+        )
+        or 0
+    )
+
+    # =====================================================
+    # 6. DATA UTAMA
+    # =====================================================
+    jenis_terbanyak = (
+        kinerja.get(
+            "jenis_uttp_terbanyak"
+        )
+    )
+
+    penera_teraktif = (
+        penera.get(
+            "penera_teraktif"
+        )
+    )
+
+    pemilik_terbanyak = (
+        pemilik.get(
+            "pemilik_terbanyak"
+        )
+    )
+
+    # =====================================================
+    # 7. HASIL
+    # =====================================================
+    return {
+        "periode": {
+            "tahun": tahun,
+            "bulan": bulan,
+            "mulai": (
+                kinerja.get(
+                    "periode_mulai"
+                )
+            ),
+            "selesai": (
+                kinerja.get(
+                    "periode_selesai"
+                )
+            ),
+        },
+
+        "pelayanan": {
+            "jumlah_kegiatan": (
+                kinerja.get(
+                    "jumlah_kegiatan"
+                )
+                or 0
+            ),
+            "jumlah_uttp": (
+                kinerja.get(
+                    "jumlah_uttp"
+                )
+                or 0
+            ),
+            "jumlah_pemilik": (
+                kinerja.get(
+                    "jumlah_pemilik"
+                )
+                or 0
+            ),
+            "jenis_uttp_terbanyak": (
+                jenis_terbanyak
+            ),
+            "rincian_jenis_uttp": (
+                kinerja.get(
+                    "jenis_uttp"
+                )
+                or []
+            ),
+        },
+
+        "penera": {
+            "penera_teraktif": (
+                penera_teraktif
+            ),
+            "peringkat": (
+                penera.get(
+                    "hasil"
+                )
+                or []
+            ),
+        },
+
+        "pemilik": {
+            "pemilik_terbanyak": (
+                pemilik_terbanyak
+            ),
+            "peringkat": (
+                pemilik.get(
+                    "hasil"
+                )
+                or []
+            ),
+        },
+
+        "pengawasan": {
+            "jumlah_terlambat": (
+                jumlah_terlambat
+            ),
+            "jumlah_akan_jatuh_tempo": (
+                jumlah_jatuh_tempo
+            ),
+            "prioritas": (
+                pengawasan.get(
+                    "hasil"
+                )
+                or []
+            ),
+        },
+    }
+def tool_deteksi_anomali_data(
+    argumen,
+    supabase,
+):
+
+    # =====================================================
+    # PARAMETER
+    # =====================================================
+    hari_ini = hari_ini_wib()
+
+    tahun = angka_bulat_ai(
+        argumen.get("tahun"),
+        hari_ini.year,
+        2000,
+        2100,
+    )
+
+    bulan = angka_bulat_ai(
+        argumen.get("bulan"),
+        None,
+        1,
+        12,
+    )
+
+    jenis_anomali = str(
+        argumen.get(
+            "jenis_anomali"
+        )
+        or "semua"
+    ).strip().lower()
+
+    batas = angka_bulat_ai(
+        argumen.get("batas"),
+        30,
+        1,
+        100,
+    )
+
+    jenis_valid = {
+        "semua",
+        "sertifikat_ganda",
+        "order_ganda",
+        "tanggal",
+        "data_tidak_lengkap",
+        "tanpa_uttp",
+    }
+
+    if jenis_anomali not in jenis_valid:
+        return {
+            "error": (
+                "Jenis anomali tidak dikenali."
+            )
+        }
+
+    # =====================================================
+    # RENTANG TANGGAL
+    # =====================================================
+    if bulan:
+
+        tanggal_awal = date(
+            tahun,
+            bulan,
+            1,
+        )
+
+        if bulan == 12:
+            tanggal_akhir = date(
+                tahun + 1,
+                1,
+                1,
+            )
+        else:
+            tanggal_akhir = date(
+                tahun,
+                bulan + 1,
+                1,
+            )
+
+    else:
+
+        tanggal_awal = date(
+            tahun,
+            1,
+            1,
+        )
+
+        tanggal_akhir = date(
+            tahun + 1,
+            1,
+            1,
+        )
+
+    # =====================================================
+    # DATA PENGUJIAN
+    # =====================================================
+    response = (
+        supabase
+        .table("pengujian")
+        .select(
+            "id, "
+            "uttp_id, "
+            "perusahaan_id, "
+            "spbu_id, "
+            "tanggal_pengujian, "
+            "tanggal_sertifikat, "
+            "jenis_pengujian, "
+            "hasil, "
+            "nomor_order, "
+            "nomor_sertifikat, "
+            "penera_1, "
+            "penera_2, "
+            "berlaku_sampai"
+        )
+        .gte(
+            "tanggal_pengujian",
+            tanggal_awal.isoformat(),
+        )
+        .lt(
+            "tanggal_pengujian",
+            tanggal_akhir.isoformat(),
+        )
+        .execute()
+    )
+
+    daftar_pengujian = (
+        response.data
+        or []
+    )
+
+    if not daftar_pengujian:
+        return {
+            "tahun": tahun,
+            "bulan": bulan,
+            "jumlah_temuan": 0,
+            "hasil": [],
+            "catatan": (
+                "Tidak ada data pengujian "
+                "pada periode tersebut."
+            ),
+        }
+
+    # =====================================================
+    # RELASI PENGUJIAN - UTTP
+    # =====================================================
+    ids_pengujian = [
+        row.get("id")
+        for row in daftar_pengujian
+        if row.get("id") is not None
+    ]
+
+    response_relasi = (
+        supabase
+        .table("pengujian_uttp")
+        .select(
+            "pengujian_id, uttp_id"
+        )
+        .in_(
+            "pengujian_id",
+            ids_pengujian,
+        )
+        .execute()
+    )
+
+    daftar_relasi = (
+        response_relasi.data
+        or []
+    )
+
+    pengujian_dengan_relasi = {
+        row.get("pengujian_id")
+        for row in daftar_relasi
+        if row.get("pengujian_id")
+        is not None
+    }
+
+    # =====================================================
+    # MASTER IDENTITAS PEMILIK
+    # =====================================================
+    ids_perusahaan = list({
+        row.get("perusahaan_id")
+        for row in daftar_pengujian
+        if row.get("perusahaan_id")
+        is not None
+    })
+
+    ids_spbu = list({
+        row.get("spbu_id")
+        for row in daftar_pengujian
+        if row.get("spbu_id")
+        is not None
+    })
+
+    peta_perusahaan = {}
+    peta_spbu = {}
+
+    if ids_perusahaan:
+
+        resp_perusahaan = (
+            supabase
+            .table("perusahaan")
+            .select(
+                "id, nama_perusahaan"
+            )
+            .in_(
+                "id",
+                ids_perusahaan,
+            )
+            .execute()
+        )
+
+        peta_perusahaan = {
+            row.get("id"): (
+                row.get(
+                    "nama_perusahaan"
+                )
+                or ""
+            )
+            for row in (
+                resp_perusahaan.data
+                or []
+            )
+        }
+
+    if ids_spbu:
+
+        resp_spbu = (
+            supabase
+            .table("spbu")
+            .select(
+                "id, nama_spbu, nomor_spbu"
+            )
+            .in_(
+                "id",
+                ids_spbu,
+            )
+            .execute()
+        )
+
+        peta_spbu = {
+            row.get("id"): row
+            for row in (
+                resp_spbu.data
+                or []
+            )
+        }
+
+    # =====================================================
+    # HELPER IDENTITAS
+    # =====================================================
+    def identitas_pemilik(row):
+
+        spbu_id = row.get(
+            "spbu_id"
+        )
+
+        if spbu_id is not None:
+
+            spbu = peta_spbu.get(
+                spbu_id,
+                {},
+            )
+
+            nomor = str(
+                spbu.get(
+                    "nomor_spbu"
+                )
+                or ""
+            ).strip()
+
+            nama = str(
+                spbu.get(
+                    "nama_spbu"
+                )
+                or ""
+            ).strip()
+
+            return (
+                f"SPBU {nomor}"
+                if nomor
+                else nama
+            )
+
+        perusahaan_id = row.get(
+            "perusahaan_id"
+        )
+
+        if perusahaan_id is not None:
+            return (
+                peta_perusahaan.get(
+                    perusahaan_id,
+                    ""
+                )
+                or ""
+            )
+
+        return (
+            "Pemilik belum teridentifikasi"
+        )
+
+    # =====================================================
+    # PENAMPUNG TEMUAN
+    # =====================================================
+    temuan = []
+
+    def tambah_temuan(
+        kategori,
+        tingkat,
+        row,
+        keterangan,
+    ):
+
+        temuan.append({
+            "kategori": kategori,
+            "tingkat": tingkat,
+            "tanggal_pengujian": (
+                row.get(
+                    "tanggal_pengujian"
+                )
+            ),
+            "pemilik": (
+                identitas_pemilik(
+                    row
+                )
+            ),
+            "jenis_pengujian": (
+                row.get(
+                    "jenis_pengujian"
+                )
+            ),
+            "nomor_order": (
+                row.get(
+                    "nomor_order"
+                )
+            ),
+            "nomor_sertifikat": (
+                row.get(
+                    "nomor_sertifikat"
+                )
+            ),
+            "penera": (
+                row.get(
+                    "penera_1"
+                )
+            ),
+            "keterangan": (
+                keterangan
+            ),
+        })
+
+    # =====================================================
+    # 1. NOMOR SERTIFIKAT GANDA
+    # =====================================================
+    if jenis_anomali in {
+        "semua",
+        "sertifikat_ganda",
+    }:
+
+        kelompok_sertifikat = {}
+
+        for row in daftar_pengujian:
+
+            nomor = str(
+                row.get(
+                    "nomor_sertifikat"
+                )
+                or ""
+            ).strip()
+
+            if not nomor:
+                continue
+
+            kelompok_sertifikat.setdefault(
+                nomor,
+                [],
+            ).append(
+                row
+            )
+
+        for nomor, rows in (
+            kelompok_sertifikat.items()
+        ):
+
+            if len(rows) <= 1:
+                continue
+
+            for row in rows:
+
+                tambah_temuan(
+                    "Nomor Sertifikat Ganda",
+                    "Tinggi",
+                    row,
+                    (
+                        f"Nomor sertifikat "
+                        f"{nomor} ditemukan "
+                        f"{len(rows)} kali."
+                    ),
+                )
+
+    # =====================================================
+    # 2. NOMOR ORDER GANDA
+    #
+    # Ini hanya PERINGATAN.
+    # Nomor order yang sama belum tentu salah.
+    # =====================================================
+    if jenis_anomali in {
+        "semua",
+        "order_ganda",
+    }:
+
+        kelompok_order = {}
+
+        for row in daftar_pengujian:
+
+            nomor = str(
+                row.get(
+                    "nomor_order"
+                )
+                or ""
+            ).strip()
+
+            if not nomor:
+                continue
+
+            kelompok_order.setdefault(
+                nomor,
+                [],
+            ).append(
+                row
+            )
+
+        for nomor, rows in (
+            kelompok_order.items()
+        ):
+
+            if len(rows) <= 1:
+                continue
+
+            for row in rows:
+
+                tambah_temuan(
+                    "Nomor Order Berulang",
+                    "Perlu Diperiksa",
+                    row,
+                    (
+                        f"Nomor order "
+                        f"{nomor} digunakan "
+                        f"pada {len(rows)} data "
+                        "pengujian. Verifikasi "
+                        "apakah penggunaan "
+                        "tersebut memang benar."
+                    ),
+                )
+
+    # =====================================================
+    # 3. TANGGAL TIDAK LOGIS
+    # =====================================================
+    if jenis_anomali in {
+        "semua",
+        "tanggal",
+    }:
+
+        for row in daftar_pengujian:
+
+            tanggal_uji_raw = (
+                row.get(
+                    "tanggal_pengujian"
+                )
+            )
+
+            berlaku_raw = (
+                row.get(
+                    "berlaku_sampai"
+                )
+            )
+
+            if (
+                not tanggal_uji_raw
+                or not berlaku_raw
+            ):
+                continue
+
+            try:
+
+                tanggal_uji = (
+                    date.fromisoformat(
+                        str(
+                            tanggal_uji_raw
+                        )[:10]
+                    )
+                )
+
+                berlaku = (
+                    date.fromisoformat(
+                        str(
+                            berlaku_raw
+                        )[:10]
+                    )
+                )
+
+            except Exception:
+
+                tambah_temuan(
+                    "Format Tanggal",
+                    "Tinggi",
+                    row,
+                    (
+                        "Tanggal pengujian "
+                        "atau masa berlaku "
+                        "tidak dapat dibaca."
+                    ),
+                )
+
+                continue
+
+            if berlaku < tanggal_uji:
+
+                tambah_temuan(
+                    "Masa Berlaku Tidak Logis",
+                    "Tinggi",
+                    row,
+                    (
+                        "Tanggal berlaku sampai "
+                        "lebih awal daripada "
+                        "tanggal pengujian."
+                    ),
+                )
+
+    # =====================================================
+    # 4. DATA PENTING TIDAK LENGKAP
+    # =====================================================
+    if jenis_anomali in {
+        "semua",
+        "data_tidak_lengkap",
+    }:
+
+        for row in daftar_pengujian:
+
+            kekurangan = []
+
+            if not str(
+                row.get(
+                    "nomor_order"
+                )
+                or ""
+            ).strip():
+
+                kekurangan.append(
+                    "nomor order"
+                )
+
+            if not str(
+                row.get(
+                    "nomor_sertifikat"
+                )
+                or ""
+            ).strip():
+
+                kekurangan.append(
+                    "nomor sertifikat"
+                )
+
+            if not str(
+                row.get(
+                    "penera_1"
+                )
+                or ""
+            ).strip():
+
+                kekurangan.append(
+                    "penera"
+                )
+
+            if not str(
+                row.get(
+                    "jenis_pengujian"
+                )
+                or ""
+            ).strip():
+
+                kekurangan.append(
+                    "jenis pengujian"
+                )
+
+            if kekurangan:
+
+                tambah_temuan(
+                    "Data Tidak Lengkap",
+                    "Sedang",
+                    row,
+                    (
+                        "Data belum memiliki: "
+                        + ", ".join(
+                            kekurangan
+                        )
+                        + "."
+                    ),
+                )
+
+    # =====================================================
+    # 5. PENGUJIAN TANPA UTTP
+    # =====================================================
+    if jenis_anomali in {
+        "semua",
+        "tanpa_uttp",
+    }:
+
+        for row in daftar_pengujian:
+
+            pengujian_id = row.get(
+                "id"
+            )
+
+            uttp_direct = row.get(
+                "uttp_id"
+            )
+
+            punya_relasi = (
+                pengujian_id
+                in pengujian_dengan_relasi
+            )
+
+            if (
+                uttp_direct is None
+                and not punya_relasi
+            ):
+
+                tambah_temuan(
+                    "Pengujian Tanpa UTTP",
+                    "Tinggi",
+                    row,
+                    (
+                        "Data pengujian tidak "
+                        "terhubung ke master UTTP "
+                        "baik melalui pengujian.uttp_id "
+                        "maupun pengujian_uttp."
+                    ),
+                )
+
+    # =====================================================
+    # URUTKAN TINGKAT PRIORITAS
+    # =====================================================
+    urutan_tingkat = {
+        "Tinggi": 1,
+        "Sedang": 2,
+        "Perlu Diperiksa": 3,
+    }
+
+    temuan.sort(
+        key=lambda x: (
+            urutan_tingkat.get(
+                x.get(
+                    "tingkat"
+                ),
+                99,
+            ),
+            str(
+                x.get(
+                    "tanggal_pengujian"
+                )
+                or ""
+            ),
+        )
+    )
+
+    jumlah_total = len(
+        temuan
+    )
+
+    # =====================================================
+    # RINGKASAN KATEGORI
+    # =====================================================
+    ringkasan = {}
+
+    for item in temuan:
+
+        kategori = item.get(
+            "kategori"
+        )
+
+        ringkasan[
+            kategori
+        ] = (
+            ringkasan.get(
+                kategori,
+                0,
+            )
+            + 1
+        )
+
+    return {
+        "tanggal_pemeriksaan": (
+            hari_ini.isoformat()
+        ),
+        "tahun": tahun,
+        "bulan": bulan,
+        "jenis_anomali": (
+            jenis_anomali
+        ),
+        "jumlah_data_diperiksa": (
+            len(
+                daftar_pengujian
+            )
+        ),
+        "jumlah_temuan": (
+            jumlah_total
+        ),
+        "ringkasan": (
+            ringkasan
+        ),
+        "hasil": (
+            temuan[:batas]
+        ),
+        "jumlah_ditampilkan": (
+            min(
+                jumlah_total,
+                batas,
+            )
+        ),
+        "catatan": (
+            "Temuan merupakan indikator "
+            "untuk pemeriksaan data dan "
+            "tidak otomatis berarti "
+            "terjadi kesalahan."
+        ),
+    }
+    
+def tool_skor_kualitas_data(
+    argumen,
+    supabase,
+):
+
+    # =====================================================
+    # PARAMETER
+    # =====================================================
+    hari_ini = hari_ini_wib()
+
+    tahun = angka_bulat_ai(
+        argumen.get("tahun"),
+        hari_ini.year,
+        2000,
+        2100,
+    )
+
+    bulan = angka_bulat_ai(
+        argumen.get("bulan"),
+        None,
+        1,
+        12,
+    )
+
+    # =====================================================
+    # AMBIL HASIL DETEKSI ANOMALI
+    # =====================================================
+    hasil_anomali = (
+        tool_deteksi_anomali_data(
+            {
+                "tahun": tahun,
+                "bulan": bulan,
+                "jenis_anomali": "semua",
+                "batas": 100,
+            },
+            supabase,
+        )
+    )
+
+    if hasil_anomali.get("error"):
+        return hasil_anomali
+
+    jumlah_data = (
+        hasil_anomali.get(
+            "jumlah_data_diperiksa",
+            0,
+        )
+        or 0
+    )
+
+    ringkasan = (
+        hasil_anomali.get(
+            "ringkasan",
+            {},
+        )
+        or {}
+    )
+
+    # =====================================================
+    # JUMLAH TEMUAN PER KATEGORI
+    # =====================================================
+    sertifikat_ganda = int(
+        ringkasan.get(
+            "Nomor Sertifikat Ganda",
+            0,
+        )
+        or 0
+    )
+
+    order_berulang = int(
+        ringkasan.get(
+            "Nomor Order Berulang",
+            0,
+        )
+        or 0
+    )
+
+    masa_berlaku_janggal = int(
+        ringkasan.get(
+            "Masa Berlaku Tidak Logis",
+            0,
+        )
+        or 0
+    )
+
+    format_tanggal = int(
+        ringkasan.get(
+            "Format Tanggal",
+            0,
+        )
+        or 0
+    )
+
+    data_tidak_lengkap = int(
+        ringkasan.get(
+            "Data Tidak Lengkap",
+            0,
+        )
+        or 0
+    )
+
+    tanpa_uttp = int(
+        ringkasan.get(
+            "Pengujian Tanpa UTTP",
+            0,
+        )
+        or 0
+    )
+
+    # =====================================================
+    # BOBOT PENGURANG
+    #
+    # Batas maksimum per kategori dibuat agar satu kategori
+    # tidak langsung membuat skor jatuh ke 0.
+    # =====================================================
+    pengurang_sertifikat = min(
+        sertifikat_ganda * 10,
+        30,
+    )
+
+    pengurang_order = min(
+        order_berulang * 3,
+        15,
+    )
+
+    pengurang_tanggal = min(
+        (
+            masa_berlaku_janggal
+            + format_tanggal
+        )
+        * 8,
+        20,
+    )
+
+    pengurang_kelengkapan = min(
+        data_tidak_lengkap * 3,
+        20,
+    )
+
+    pengurang_relasi = min(
+        tanpa_uttp * 8,
+        20,
+    )
+
+    total_pengurang = (
+        pengurang_sertifikat
+        + pengurang_order
+        + pengurang_tanggal
+        + pengurang_kelengkapan
+        + pengurang_relasi
+    )
+
+    skor = max(
+        0,
+        100 - total_pengurang,
+    )
+
+    # =====================================================
+    # KATEGORI SCORE
+    # =====================================================
+    if skor >= 95:
+
+        kategori = (
+            "Sangat Baik"
+        )
+
+    elif skor >= 85:
+
+        kategori = (
+            "Baik"
+        )
+
+    elif skor >= 70:
+
+        kategori = (
+            "Cukup"
+        )
+
+    elif skor >= 50:
+
+        kategori = (
+            "Perlu Perbaikan"
+        )
+
+    else:
+
+        kategori = (
+            "Perlu Perhatian Serius"
+        )
+
+    # =====================================================
+    # REKOMENDASI
+    # =====================================================
+    rekomendasi = []
+
+    if sertifikat_ganda:
+
+        rekomendasi.append(
+            (
+                "Periksa nomor sertifikat yang "
+                "terdeteksi digunakan lebih dari sekali."
+            )
+        )
+
+    if order_berulang:
+
+        rekomendasi.append(
+            (
+                "Verifikasi nomor order berulang untuk memastikan "
+                "apakah penggunaan pada beberapa pengujian memang sesuai."
+            )
+        )
+
+    if (
+        masa_berlaku_janggal
+        or format_tanggal
+    ):
+
+        rekomendasi.append(
+            (
+                "Periksa konsistensi tanggal pengujian "
+                "dan tanggal berlaku sampai."
+            )
+        )
+
+    if data_tidak_lengkap:
+
+        rekomendasi.append(
+            (
+                "Lengkapi data utama seperti nomor order, "
+                "nomor sertifikat, penera, atau jenis pengujian."
+            )
+        )
+
+    if tanpa_uttp:
+
+        rekomendasi.append(
+            (
+                "Periksa hubungan data pengujian dengan master UTTP "
+                "atau tabel pengujian_uttp."
+            )
+        )
+
+    if not rekomendasi:
+
+        rekomendasi.append(
+            (
+                "Tidak ditemukan masalah utama pada kategori "
+                "kualitas data yang diperiksa."
+            )
+        )
+
+    # =====================================================
+    # HASIL AKHIR
+    # =====================================================
+    return {
+        "tanggal_pemeriksaan": (
+            hari_ini.isoformat()
+        ),
+
+        "periode": {
+            "tahun": tahun,
+            "bulan": bulan,
+        },
+
+        "jumlah_data_diperiksa": (
+            jumlah_data
+        ),
+
+        "skor": (
+            skor
+        ),
+
+        "skor_maksimum": 100,
+
+        "kategori": (
+            kategori
+        ),
+
+        "total_pengurang": (
+            total_pengurang
+        ),
+
+        "rincian_pengurang": {
+            "nomor_sertifikat_ganda": {
+                "jumlah_temuan": (
+                    sertifikat_ganda
+                ),
+                "pengurang": (
+                    pengurang_sertifikat
+                ),
+            },
+
+            "nomor_order_berulang": {
+                "jumlah_temuan": (
+                    order_berulang
+                ),
+                "pengurang": (
+                    pengurang_order
+                ),
+            },
+
+            "tanggal_tidak_logis": {
+                "jumlah_temuan": (
+                    masa_berlaku_janggal
+                    + format_tanggal
+                ),
+                "pengurang": (
+                    pengurang_tanggal
+                ),
+            },
+
+            "data_tidak_lengkap": {
+                "jumlah_temuan": (
+                    data_tidak_lengkap
+                ),
+                "pengurang": (
+                    pengurang_kelengkapan
+                ),
+            },
+
+            "pengujian_tanpa_uttp": {
+                "jumlah_temuan": (
+                    tanpa_uttp
+                ),
+                "pengurang": (
+                    pengurang_relasi
+                ),
+            },
+        },
+
+        "jumlah_temuan": (
+            hasil_anomali.get(
+                "jumlah_temuan",
+                0,
+            )
+            or 0
+        ),
+
+        "rekomendasi": (
+            rekomendasi
+        ),
+
+        "catatan": (
+            "Skor merupakan indikator kualitas data internal "
+            "SMART METRO berdasarkan aturan pemeriksaan yang "
+            "ditetapkan aplikasi, bukan penilaian hukum atau "
+            "penilaian kinerja petugas."
+        ),
+    }
+def tool_monitor_jatuh_tempo_spbu(
+    argumen,
+    supabase,
+):
+    # =====================================================
+    # PARAMETER
+    # =====================================================
+    status_filter = str(
+        argumen.get(
+            "status",
+            "akan_jatuh_tempo",
+        )
+        or "akan_jatuh_tempo"
+    ).strip().lower()
+
+    try:
+        hari = int(
+            argumen.get(
+                "hari",
+                30,
+            )
+            or 30
+        )
+    except (
+        TypeError,
+        ValueError,
+    ):
+        hari = 30
+
+    hari = max(
+        1,
+        min(
+            hari,
+            365,
+        ),
+    )
+
+    nomor_spbu_filter = str(
+        argumen.get(
+            "nomor_spbu",
+            ""
+        )
+        or ""
+    ).strip()
+
+    # =====================================================
+    # TANGGAL PEMANTAUAN
+    # =====================================================
+    tanggal_hari_ini = (
+        hari_ini_wib()
+    )
+
+    batas_tanggal = (
+        tanggal_hari_ini
+        + timedelta(
+            days=hari
+        )
+    )
+
+    # =====================================================
+    # MASTER SPBU
+    # =====================================================
+    query_spbu = (
+        supabase
+        .table("spbu")
+        .select(
+            "id, "
+            "nama_spbu, "
+            "nomor_spbu, "
+            "alamat, "
+            "kecamatan, "
+            "status"
+        )
+    )
+
+    if nomor_spbu_filter:
+        query_spbu = (
+            query_spbu
+            .ilike(
+                "nomor_spbu",
+                f"%{nomor_spbu_filter}%"
+            )
+        )
+
+    response_spbu = (
+        query_spbu
+        .execute()
+    )
+
+    daftar_spbu = (
+        response_spbu.data
+        or []
+    )
+
+    if not daftar_spbu:
+        return {
+            "tanggal_pemantauan": (
+                tanggal_hari_ini.isoformat()
+            ),
+            "jumlah_ditemukan": 0,
+            "hasil": [],
+            "catatan": (
+                "Data SPBU tidak ditemukan."
+            ),
+        }
+
+    id_spbu = [
+        item.get("id")
+        for item in daftar_spbu
+        if item.get("id") is not None
+    ]
+
+    if not id_spbu:
+        return {
+            "tanggal_pemantauan": (
+                tanggal_hari_ini.isoformat()
+            ),
+            "jumlah_ditemukan": 0,
+            "hasil": [],
+        }
+
+    # =====================================================
+    # AMBIL RIWAYAT PENGUJIAN SPBU
+    # =====================================================
+    response_pengujian = (
+        supabase
+        .table("pengujian")
+        .select(
+            "id, "
+            "spbu_id, "
+            "tanggal_pengujian, "
+            "tanggal_sertifikat, "
+            "jenis_pengujian, "
+            "nomor_order, "
+            "nomor_sertifikat, "
+            "berlaku_sampai"
+        )
+        .in_(
+            "spbu_id",
+            id_spbu,
+        )
+        .not_.is_(
+            "berlaku_sampai",
+            "null",
+        )
+        .order(
+            "tanggal_pengujian",
+            desc=True,
+        )
+        .execute()
+    )
+
+    daftar_pengujian = (
+        response_pengujian.data
+        or []
+    )
+
+    # =====================================================
+    # AMBIL PENGUJIAN TERBARU PER SPBU
+    # =====================================================
+    terbaru_per_spbu = {}
+
+    for item in daftar_pengujian:
+
+        spbu_id = item.get(
+            "spbu_id"
+        )
+
+        if spbu_id is None:
+            continue
+
+        if (
+            spbu_id
+            not in terbaru_per_spbu
+        ):
+            terbaru_per_spbu[
+                spbu_id
+            ] = item
+
+    peta_spbu = {
+        item.get("id"): item
+        for item in daftar_spbu
+    }
+
+    hasil = []
+
+    # =====================================================
+    # HITUNG STATUS
+    # =====================================================
+    for spbu_id, pengujian in (
+        terbaru_per_spbu.items()
+    ):
+
+        berlaku_raw = (
+            pengujian.get(
+                "berlaku_sampai"
+            )
+        )
+
+        if not berlaku_raw:
+            continue
+
+        try:
+            berlaku_sampai = (
+                datetime.strptime(
+                    str(
+                        berlaku_raw
+                    )[:10],
+                    "%Y-%m-%d",
+                ).date()
+            )
+        except (
+            TypeError,
+            ValueError,
+        ):
+            continue
+
+        sisa_hari = (
+            berlaku_sampai
+            - tanggal_hari_ini
+        ).days
+
+        # =============================================
+        # STATUS
+        # =============================================
+        if sisa_hari < 0:
+
+            status_tera = (
+                "Terlambat Tera Ulang"
+            )
+
+        elif sisa_hari <= hari:
+
+            status_tera = (
+                "Akan Jatuh Tempo"
+            )
+
+        else:
+
+            status_tera = (
+                "Aktif"
+            )
+
+        # =============================================
+        # FILTER
+        # =============================================
+        if (
+            status_filter
+            == "akan_jatuh_tempo"
+            and not (
+                0 <= sisa_hari <= hari
+            )
+        ):
+            continue
+
+        if (
+            status_filter
+            == "terlambat"
+            and not (
+                sisa_hari < 0
+            )
+        ):
+            continue
+
+        master = (
+            peta_spbu.get(
+                spbu_id,
+                {}
+            )
+        )
+
+        hasil.append(
+            {
+                "nomor_spbu": (
+                    master.get(
+                        "nomor_spbu",
+                        ""
+                    )
+                ),
+                "nama_spbu": (
+                    master.get(
+                        "nama_spbu",
+                        ""
+                    )
+                ),
+                "kecamatan": (
+                    master.get(
+                        "kecamatan",
+                        ""
+                    )
+                ),
+                "tanggal_pengujian": (
+                    pengujian.get(
+                        "tanggal_pengujian"
+                    )
+                ),
+                "berlaku_sampai": (
+                    berlaku_sampai.isoformat()
+                ),
+                "sisa_hari": (
+                    sisa_hari
+                ),
+                "status": (
+                    status_tera
+                ),
+                "nomor_sertifikat": (
+                    pengujian.get(
+                        "nomor_sertifikat",
+                        ""
+                    )
+                ),
+            }
+        )
+
+    # =====================================================
+    # URUTKAN BERDASARKAN URGENSI
+    # =====================================================
+    hasil = sorted(
+        hasil,
+        key=lambda x: (
+            x.get(
+                "sisa_hari",
+                999999
+            )
+        ),
+    )
+
+    return {
+        "tanggal_pemantauan": (
+            tanggal_hari_ini.isoformat()
+        ),
+        "batas_pemantauan": (
+            batas_tanggal.isoformat()
+        ),
+        "rentang_hari": hari,
+        "status_filter": (
+            status_filter
+        ),
+        "jumlah_ditemukan": (
+            len(hasil)
+        ),
+        "hasil": hasil,
+    }
+    
+def tool_bandingkan_skor_kualitas_data(
+    argumen,
+    supabase,
+):
+
+    hari_ini = hari_ini_wib()
+
+    # =====================================================
+    # PERIODE 2
+    # Default = bulan berjalan
+    # =====================================================
+    tahun_2 = angka_bulat_ai(
+        argumen.get("tahun_2"),
+        hari_ini.year,
+        2000,
+        2100,
+    )
+
+    bulan_2 = angka_bulat_ai(
+        argumen.get("bulan_2"),
+        hari_ini.month,
+        1,
+        12,
+    )
+
+    # =====================================================
+    # PERIODE 1
+    # Default = bulan sebelumnya
+    # =====================================================
+    if bulan_2 == 1:
+
+        default_tahun_1 = (
+            tahun_2 - 1
+        )
+
+        default_bulan_1 = 12
+
+    else:
+
+        default_tahun_1 = (
+            tahun_2
+        )
+
+        default_bulan_1 = (
+            bulan_2 - 1
+        )
+
+    tahun_1 = angka_bulat_ai(
+        argumen.get("tahun_1"),
+        default_tahun_1,
+        2000,
+        2100,
+    )
+
+    bulan_1 = angka_bulat_ai(
+        argumen.get("bulan_1"),
+        default_bulan_1,
+        1,
+        12,
+    )
+
+    # =====================================================
+    # HITUNG QUALITY SCORE MASING-MASING
+    # =====================================================
+    periode_1 = (
+        tool_skor_kualitas_data(
+            {
+                "tahun": tahun_1,
+                "bulan": bulan_1,
+            },
+            supabase,
+        )
+    )
+
+    periode_2 = (
+        tool_skor_kualitas_data(
+            {
+                "tahun": tahun_2,
+                "bulan": bulan_2,
+            },
+            supabase,
+        )
+    )
+
+    if periode_1.get("error"):
+        return periode_1
+
+    if periode_2.get("error"):
+        return periode_2
+
+    # =====================================================
+    # NILAI DASAR
+    # =====================================================
+    skor_1 = int(
+        periode_1.get(
+            "skor",
+            0,
+        )
+        or 0
+    )
+
+    skor_2 = int(
+        periode_2.get(
+            "skor",
+            0,
+        )
+        or 0
+    )
+
+    selisih_skor = (
+        skor_2
+        - skor_1
+    )
+
+    if selisih_skor > 0:
+
+        arah = (
+            "meningkat"
+        )
+
+    elif selisih_skor < 0:
+
+        arah = (
+            "menurun"
+        )
+
+    else:
+
+        arah = (
+            "tetap"
+        )
+
+    # =====================================================
+    # TEMUAN
+    # =====================================================
+    temuan_1 = int(
+        periode_1.get(
+            "jumlah_temuan",
+            0,
+        )
+        or 0
+    )
+
+    temuan_2 = int(
+        periode_2.get(
+            "jumlah_temuan",
+            0,
+        )
+        or 0
+    )
+
+    perubahan_temuan = (
+        temuan_2
+        - temuan_1
+    )
+
+    # =====================================================
+    # PERBANDINGAN PER KATEGORI
+    # =====================================================
+    rincian_1 = (
+        periode_1.get(
+            "rincian_pengurang",
+            {},
+        )
+        or {}
+    )
+
+    rincian_2 = (
+        periode_2.get(
+            "rincian_pengurang",
+            {},
+        )
+        or {}
+    )
+
+    semua_kategori = set(
+        rincian_1.keys()
+    ) | set(
+        rincian_2.keys()
+    )
+
+    perubahan_kategori = []
+
+    for kategori in semua_kategori:
+
+        data_1 = (
+            rincian_1.get(
+                kategori,
+                {},
+            )
+            or {}
+        )
+
+        data_2 = (
+            rincian_2.get(
+                kategori,
+                {},
+            )
+            or {}
+        )
+
+        jumlah_1 = int(
+            data_1.get(
+                "jumlah_temuan",
+                0,
+            )
+            or 0
+        )
+
+        jumlah_2 = int(
+            data_2.get(
+                "jumlah_temuan",
+                0,
+            )
+            or 0
+        )
+
+        pengurang_1 = int(
+            data_1.get(
+                "pengurang",
+                0,
+            )
+            or 0
+        )
+
+        pengurang_2 = int(
+            data_2.get(
+                "pengurang",
+                0,
+            )
+            or 0
+        )
+
+        perubahan_kategori.append({
+            "kategori": kategori,
+
+            "periode_1": (
+                jumlah_1
+            ),
+
+            "periode_2": (
+                jumlah_2
+            ),
+
+            "perubahan_temuan": (
+                jumlah_2
+                - jumlah_1
+            ),
+
+            "pengurang_periode_1": (
+                pengurang_1
+            ),
+
+            "pengurang_periode_2": (
+                pengurang_2
+            ),
+
+            "perubahan_pengurang": (
+                pengurang_2
+                - pengurang_1
+            ),
+        })
+
+    # =====================================================
+    # URUTKAN PERUBAHAN PALING BERPENGARUH
+    # =====================================================
+    perubahan_kategori.sort(
+        key=lambda x: abs(
+            x.get(
+                "perubahan_pengurang",
+                0,
+            )
+        ),
+        reverse=True,
+    )
+
+    # =====================================================
+    # CARI PENYEBAB UTAMA
+    # =====================================================
+    penyebab_penurunan = []
+
+    penyebab_perbaikan = []
+
+    for item in perubahan_kategori:
+
+        perubahan = (
+            item.get(
+                "perubahan_pengurang",
+                0,
+            )
+        )
+
+        if perubahan > 0:
+
+            penyebab_penurunan.append({
+                "kategori": (
+                    item.get(
+                        "kategori"
+                    )
+                ),
+                "tambahan_pengurang": (
+                    perubahan
+                ),
+                "perubahan_temuan": (
+                    item.get(
+                        "perubahan_temuan"
+                    )
+                ),
+            })
+
+        elif perubahan < 0:
+
+            penyebab_perbaikan.append({
+                "kategori": (
+                    item.get(
+                        "kategori"
+                    )
+                ),
+                "pengurang_berkurang": (
+                    abs(
+                        perubahan
+                    )
+                ),
+                "perubahan_temuan": (
+                    item.get(
+                        "perubahan_temuan"
+                    )
+                ),
+            })
+
+    # =====================================================
+    # HASIL
+    # =====================================================
+    return {
+        "periode_1": {
+            "tahun": tahun_1,
+            "bulan": bulan_1,
+            "skor": skor_1,
+            "kategori": (
+                periode_1.get(
+                    "kategori"
+                )
+            ),
+            "jumlah_data_diperiksa": (
+                periode_1.get(
+                    "jumlah_data_diperiksa"
+                )
+            ),
+            "jumlah_temuan": (
+                temuan_1
+            ),
+        },
+
+        "periode_2": {
+            "tahun": tahun_2,
+            "bulan": bulan_2,
+            "skor": skor_2,
+            "kategori": (
+                periode_2.get(
+                    "kategori"
+                )
+            ),
+            "jumlah_data_diperiksa": (
+                periode_2.get(
+                    "jumlah_data_diperiksa"
+                )
+            ),
+            "jumlah_temuan": (
+                temuan_2
+            ),
+        },
+
+        "perubahan": {
+            "selisih_skor": (
+                selisih_skor
+            ),
+            "arah": (
+                arah
+            ),
+            "perubahan_jumlah_temuan": (
+                perubahan_temuan
+            ),
+        },
+
+        "perubahan_kategori": (
+            perubahan_kategori
+        ),
+
+        "penyebab_penurunan": (
+            penyebab_penurunan
+        ),
+
+        "penyebab_perbaikan": (
+            penyebab_perbaikan
+        ),
+
+        "catatan": (
+            "Perbandingan berdasarkan aturan "
+            "Quality Score internal SMART METRO "
+            "dan bukan penilaian kinerja pegawai."
+        ),
+    }
+def tool_analisis_cakupan_pelayanan_kecamatan(
+    argumen,
+    supabase,
+):
+
+    tahun = angka_bulat_ai(
+        argumen.get("tahun"),
+        hari_ini_wib().year,
+        2000,
+        2100,
+    )
+
+    bulan = angka_bulat_ai(
+        argumen.get("bulan"),
+        None,
+        1,
+        12,
+    )
+
+    batas = angka_bulat_ai(
+        argumen.get("batas"),
+        30,
+        1,
+        100,
+    )
+
+    # =====================================================
+    # RENTANG PERIODE
+    # =====================================================
+    if bulan:
+
+        tanggal_awal = date(
+            tahun,
+            bulan,
+            1,
+        )
+
+        if bulan == 12:
+            tanggal_akhir = date(
+                tahun + 1,
+                1,
+                1,
+            )
+        else:
+            tanggal_akhir = date(
+                tahun,
+                bulan + 1,
+                1,
+            )
+
+    else:
+
+        tanggal_awal = date(
+            tahun,
+            1,
+            1,
+        )
+
+        tanggal_akhir = date(
+            tahun + 1,
+            1,
+            1,
+        )
+
+    # =====================================================
+    # MASTER PERUSAHAAN
+    # =====================================================
+    response_perusahaan = (
+        supabase
+        .table("perusahaan")
+        .select(
+            "id, nama_perusahaan, kecamatan"
+        )
+        .execute()
+    )
+
+    peta_perusahaan = {
+        row.get("id"): row
+        for row in (
+            response_perusahaan.data
+            or []
+        )
+        if row.get("id") is not None
+    }
+
+    # =====================================================
+    # MASTER SPBU
+    # =====================================================
+    response_spbu = (
+        supabase
+        .table("spbu")
+        .select(
+            "id, nama_spbu, nomor_spbu, kecamatan"
+        )
+        .execute()
+    )
+
+    peta_spbu = {
+        row.get("id"): row
+        for row in (
+            response_spbu.data
+            or []
+        )
+        if row.get("id") is not None
+    }
+
+    # =====================================================
+    # MASTER UTTP
+    # =====================================================
+    response_uttp = (
+        supabase
+        .table("uttp")
+        .select(
+            "id, perusahaan_id, spbu_id, "
+            "jenis_uttp, status"
+        )
+        .execute()
+    )
+
+    daftar_uttp = (
+        response_uttp.data
+        or []
+    )
+
+    peta_uttp = {}
+
+    master_per_kecamatan = {}
+
+    # =====================================================
+    # PETAKAN UTTP KE KECAMATAN
+    # =====================================================
+    for alat in daftar_uttp:
+
+        status = str(
+            alat.get("status")
+            or ""
+        ).strip().lower()
+
+        if status not in {
+            "",
+            "aktif",
+        }:
+            continue
+
+        uttp_id = alat.get(
+            "id"
+        )
+
+        if uttp_id is None:
+            continue
+
+        kecamatan = ""
+
+        spbu_id = alat.get(
+            "spbu_id"
+        )
+
+        perusahaan_id = alat.get(
+            "perusahaan_id"
+        )
+
+        if spbu_id is not None:
+
+            kecamatan = str(
+                peta_spbu.get(
+                    spbu_id,
+                    {},
+                ).get(
+                    "kecamatan"
+                )
+                or ""
+            ).strip()
+
+        elif perusahaan_id is not None:
+
+            kecamatan = str(
+                peta_perusahaan.get(
+                    perusahaan_id,
+                    {},
+                ).get(
+                    "kecamatan"
+                )
+                or ""
+            ).strip()
+
+        if not kecamatan:
+            continue
+
+        peta_uttp[
+            uttp_id
+        ] = {
+            "kecamatan": kecamatan,
+            "jenis_uttp": (
+                alat.get(
+                    "jenis_uttp"
+                )
+            ),
+        }
+
+        master_per_kecamatan[
+            kecamatan
+        ] = (
+            master_per_kecamatan.get(
+                kecamatan,
+                0,
+            )
+            + 1
+        )
+
+    # =====================================================
+    # DATA PENGUJIAN PERIODE
+    # =====================================================
+    response_pengujian = (
+        supabase
+        .table("pengujian")
+        .select(
+            "id, uttp_id, tanggal_pengujian"
+        )
+        .gte(
+            "tanggal_pengujian",
+            tanggal_awal.isoformat(),
+        )
+        .lt(
+            "tanggal_pengujian",
+            tanggal_akhir.isoformat(),
+        )
+        .execute()
+    )
+
+    daftar_pengujian = (
+        response_pengujian.data
+        or []
+    )
+
+    ids_pengujian = [
+        row.get("id")
+        for row in daftar_pengujian
+        if row.get("id") is not None
+    ]
+
+    # =====================================================
+    # STRUKTUR BARU: pengujian_uttp
+    # =====================================================
+    daftar_relasi = []
+
+    if ids_pengujian:
+
+        response_relasi = (
+            supabase
+            .table("pengujian_uttp")
+            .select(
+                "pengujian_id, uttp_id"
+            )
+            .in_(
+                "pengujian_id",
+                ids_pengujian,
+            )
+            .execute()
+        )
+
+        daftar_relasi = (
+            response_relasi.data
+            or []
+        )
+
+    # =====================================================
+    # UTTP UNIK YANG TELAH DIUJI
+    # =====================================================
+    uttp_teruji = set()
+
+    for row in daftar_relasi:
+
+        uttp_id = row.get(
+            "uttp_id"
+        )
+
+        if uttp_id is not None:
+            uttp_teruji.add(
+                uttp_id
+            )
+
+    # fallback struktur lama
+    for row in daftar_pengujian:
+
+        uttp_id = row.get(
+            "uttp_id"
+        )
+
+        if uttp_id is not None:
+            uttp_teruji.add(
+                uttp_id
+            )
+
+    # =====================================================
+    # HITUNG UTTP TERUJI PER KECAMATAN
+    # =====================================================
+    teruji_per_kecamatan = {}
+
+    for uttp_id in uttp_teruji:
+
+        data_uttp = (
+            peta_uttp.get(
+                uttp_id
+            )
+        )
+
+        if not data_uttp:
+            continue
+
+        kecamatan = (
+            data_uttp.get(
+                "kecamatan"
+            )
+        )
+
+        if not kecamatan:
+            continue
+
+        teruji_per_kecamatan[
+            kecamatan
+        ] = (
+            teruji_per_kecamatan.get(
+                kecamatan,
+                0,
+            )
+            + 1
+        )
+
+    # =====================================================
+    # SUSUN ANALISIS CAKUPAN
+    # =====================================================
+    hasil = []
+
+    for (
+        kecamatan,
+        jumlah_master,
+    ) in master_per_kecamatan.items():
+
+        jumlah_teruji = (
+            teruji_per_kecamatan.get(
+                kecamatan,
+                0,
+            )
+        )
+
+        belum_teruji = max(
+            0,
+            jumlah_master
+            - jumlah_teruji,
+        )
+
+        if jumlah_master > 0:
+
+            persentase = round(
+                (
+                    jumlah_teruji
+                    / jumlah_master
+                )
+                * 100,
+                2,
+            )
+
+        else:
+
+            persentase = 0.0
+
+        # =============================================
+        # STATUS CAKUPAN
+        # =============================================
+        if jumlah_teruji == 0:
+
+            status_cakupan = (
+                "Belum Ada Pelayanan"
+            )
+
+        elif persentase < 50:
+
+            status_cakupan = (
+                "Rendah"
+            )
+
+        elif persentase < 80:
+
+            status_cakupan = (
+                "Sedang"
+            )
+
+        else:
+
+            status_cakupan = (
+                "Tinggi"
+            )
+
+        hasil.append({
+            "kecamatan": (
+                kecamatan
+            ),
+            "jumlah_uttp_master": (
+                jumlah_master
+            ),
+            "jumlah_uttp_teruji": (
+                jumlah_teruji
+            ),
+            "belum_teruji": (
+                belum_teruji
+            ),
+            "cakupan_persen": (
+                persentase
+            ),
+            "status_cakupan": (
+                status_cakupan
+            ),
+        })
+
+    # =====================================================
+    # PRIORITAS:
+    # cakupan paling rendah terlebih dahulu,
+    # jika sama → jumlah UTTP terbesar dahulu
+    # =====================================================
+    hasil.sort(
+        key=lambda x: (
+            x.get(
+                "cakupan_persen",
+                0,
+            ),
+            -x.get(
+                "jumlah_uttp_master",
+                0,
+            ),
+        )
+    )
+
+    total_master = sum(
+        row.get(
+            "jumlah_uttp_master",
+            0,
+        )
+        for row in hasil
+    )
+
+    total_teruji = sum(
+        row.get(
+            "jumlah_uttp_teruji",
+            0,
+        )
+        for row in hasil
+    )
+
+    cakupan_total = (
+        round(
+            (
+                total_teruji
+                / total_master
+            )
+            * 100,
+            2,
+        )
+        if total_master
+        else 0.0
+    )
+
+    return {
+        "tahun": tahun,
+        "bulan": bulan,
+
+        "periode_mulai": (
+            tanggal_awal.isoformat()
+        ),
+
+        "periode_selesai": (
+            (
+                tanggal_akhir
+                - timedelta(days=1)
+            ).isoformat()
+        ),
+
+        "jumlah_uttp_master": (
+            total_master
+        ),
+
+        "jumlah_uttp_teruji": (
+            total_teruji
+        ),
+
+        "cakupan_total_persen": (
+            cakupan_total
+        ),
+
+        "jumlah_kecamatan": (
+            len(hasil)
+        ),
+
+        "hasil": (
+            hasil[:batas]
+        ),
+
+        "catatan": (
+            "Cakupan dihitung dari UTTP aktif pada master "
+            "yang memiliki informasi kecamatan dan UTTP unik "
+            "yang tercatat telah diuji pada periode terpilih. "
+            "Data timbangan pasar agregat tidak dimasukkan "
+            "ke dalam persentase cakupan ini."
+        ),
+    }
 def jalankan_tool(nama, argumen, supabase):
     try:
         if nama == "hitung_spbu":
@@ -4974,7 +8511,50 @@ def jalankan_tool(nama, argumen, supabase):
                 argumen,
                 supabase,
             )
-        return {"error": f"Tool '{nama}' tidak dikenali."}
+        if nama == "peringkat_pemilik_pelayanan":
+            return tool_peringkat_pemilik_pelayanan(
+                argumen,
+                supabase,
+            )
+        if nama == "bandingkan_kinerja_pelayanan":
+            return tool_bandingkan_kinerja_pelayanan(
+                argumen,
+                supabase,
+            )
+        if nama == "ringkasan_eksekutif_metrologi":
+            return tool_ringkasan_eksekutif_metrologi(
+                argumen,
+                supabase,
+            )
+        if nama == "monitor_jatuh_tempo_spbu":
+            return tool_monitor_jatuh_tempo_spbu(
+                argumen,
+                supabase,
+            )
+
+        if nama == "deteksi_anomali_data":
+            return tool_deteksi_anomali_data(
+                argumen,
+                supabase,
+            )
+        if nama == "skor_kualitas_data":
+            return tool_skor_kualitas_data(
+                argumen,
+                supabase,
+            )
+        if nama == "bandingkan_skor_kualitas_data":
+            return tool_bandingkan_skor_kualitas_data(
+                argumen,
+                supabase,
+            )
+        if nama == "analisis_cakupan_pelayanan_kecamatan":
+            return tool_analisis_cakupan_pelayanan_kecamatan(
+                argumen,
+                supabase,
+            )
+        return {
+            "error": f"Tool '{nama}' tidak dikenali."
+        }
         
 
     except Exception as exc:
@@ -5162,9 +8742,10 @@ def buat_prompt_sistem(konteks):
         "15. Pertanyaan jumlah nozzle PUBBM, media BBM, posisi nozzle, "
         "nomor dispenser, atau K-Faktor WAJIB menggunakan tool "
         "rekap_pubbm.\n"
-        "16. Pertanyaan SPBU yang terlambat tera ulang, SPBU yang akan jatuh "
-        "tempo, prioritas pengawasan SPBU, atau SPBU terlambat beserta "
-        "nozzle/K-Faktor WAJIB menggunakan tool pengawasan_spbu.\n"
+        "16. Jika pengguna meminta analisis pengawasan SPBU BESERTA rincian "
+        "nozzle, dispenser, media BBM, atau K-Faktor, WAJIB menggunakan "
+        "tool pengawasan_spbu. Jangan gunakan pengawasan_spbu hanya untuk "
+        "pertanyaan sederhana tentang masa berlaku atau jatuh tempo SPBU.\n"
         "17. Jika pengguna meminta prioritas pengawasan, UTTP paling mendesak, "
         "UTTP paling lama terlambat, atau daftar yang harus segera ditindaklanjuti, "
         "WAJIB menggunakan tool prioritas_pengawasan.\n"
@@ -5196,6 +8777,66 @@ def buat_prompt_sistem(konteks):
         "atau master SPBU. Data timbangan pasar diperoleh dari pasar dan "
         "pasar_tahunan. Karena timbangan pasar merupakan data agregat, jangan "
         "menganggap setiap timbangan pasar sebagai baris master UTTP individual.\n"
+        "25. Jika pengguna meminta perusahaan atau SPBU yang paling banyak "
+        "dilayani, wajib tera dengan pelayanan terbanyak, jumlah pelayanan "
+        "per perusahaan/SPBU, atau peringkat pemilik berdasarkan jumlah "
+        "kegiatan pengujian, WAJIB menggunakan tool "
+        "peringkat_pemilik_pelayanan.\n"
+        "26. Jika pengguna meminta perbandingan kinerja antara dua bulan atau "
+        "dua periode, tren kenaikan/penurunan pelayanan, persentase perubahan "
+        "jumlah pengujian, UTTP, pemilik, atau jenis UTTP, WAJIB menggunakan "
+        "tool bandingkan_kinerja_pelayanan.\n"
+        "27. Jika tool bandingkan_kinerja_pelayanan mengembalikan persentase None, "
+        "jangan menyebut persentase kenaikan karena periode awal bernilai nol. "
+        "Cukup jelaskan perubahan dari 0 menjadi nilai periode berikutnya.\n"
+        "28. Jika pengguna meminta ringkasan eksekutif, gambaran umum kinerja "
+        "metrologi, kondisi pelayanan bulan ini, atau evaluasi singkat pelayanan "
+        "dan pengawasan, WAJIB menggunakan tool ringkasan_eksekutif_metrologi.\n"
+        "29. Untuk hasil ringkasan_eksekutif_metrologi, susun jawaban ringkas dan "
+        "terstruktur dengan urutan: Kinerja Pelayanan, Penera, Pemilik/Wajib Tera, "
+        "Pengawasan, dan Kesimpulan. Jangan menampilkan ID database internal.\n"
+        "30. Pertanyaan tentang MASA BERLAKU, JATUH TEMPO, "
+        "TERLAMBAT TERA ULANG, KEDALUWARSA, atau status tera ulang SPBU "
+        "WAJIB menggunakan tool monitor_jatuh_tempo_spbu. "
+        "Gunakan tool ini untuk pertanyaan seperti 'SPBU mana yang jatuh tempo "
+        "dalam 30 hari?', 'SPBU mana yang terlambat?', atau "
+        "'bagaimana status SPBU tertentu?'. Jangan menentukan status tersebut "
+        "dari RAG atau pengetahuan model sendiri.\n"
+        "31. Jika pertanyaan SPBU juga meminta rincian nozzle, posisi dispenser, "
+        "media BBM, atau K-Faktor, gunakan tool pengawasan_spbu sebagai pengganti "
+        "monitor_jatuh_tempo_spbu.\n"
+        "32. Jika pengguna meminta pemeriksaan anomali, kesalahan data, "
+        "data janggal, data tidak lengkap, nomor sertifikat ganda, "
+        "nomor order berulang, pengujian tanpa UTTP, atau audit kualitas "
+        "data SMART METRO, WAJIB menggunakan tool deteksi_anomali_data.\n"
+        "33. Hasil deteksi_anomali_data adalah indikator untuk pemeriksaan. "
+        "Jangan langsung menyatakan terjadi pelanggaran, manipulasi, atau "
+        "kesalahan petugas. Gunakan istilah 'perlu diperiksa' kecuali tool "
+        "menunjukkan kondisi yang secara data memang tidak valid.\n"
+        "34. Jika pengguna meminta skor kualitas data, data quality score, "
+        "kesehatan database, kualitas database SMART METRO, atau meminta "
+        "penilaian 0 sampai 100 terhadap kualitas data, WAJIB menggunakan "
+        "tool skor_kualitas_data.\n"
+        "35. Saat menjelaskan skor kualitas data, sebutkan skor, kategori, "
+        "jumlah data yang diperiksa, penyebab utama pengurangan skor, dan "
+        "rekomendasi. Jangan menyatakan skor tersebut sebagai penilaian "
+        "kinerja pegawai atau kepatuhan hukum.\n"
+        "36. Jika pengguna meminta perbandingan kualitas data antara dua bulan, "
+        "dua periode, perubahan Quality Score, apakah kualitas data meningkat "
+        "atau menurun, atau penyebab skor kualitas berubah, WAJIB menggunakan "
+        "tool bandingkan_skor_kualitas_data.\n"
+        "37. Saat menjelaskan hasil bandingkan_skor_kualitas_data, sebutkan "
+        "skor periode pertama, skor periode kedua, selisih skor, arah perubahan, "
+        "dan kategori anomali yang paling berpengaruh. Jangan menyimpulkan "
+        "bahwa penurunan skor disebabkan oleh kinerja buruk petugas.\n"
+        "38. Jika pengguna meminta kecamatan dengan cakupan pelayanan rendah, "
+        "kecamatan yang belum banyak dilayani, kesenjangan antara jumlah UTTP "
+        "dan UTTP yang telah diuji, atau wilayah yang perlu diprioritaskan "
+        "berdasarkan cakupan pelayanan, WAJIB menggunakan tool "
+        "analisis_cakupan_pelayanan_kecamatan.\n"
+        "39. Jangan menyebut kecamatan dengan cakupan rendah sebagai wilayah "
+        "yang tidak patuh. Cakupan hanya menunjukkan perbandingan UTTP master "
+        "dengan UTTP yang tercatat diuji pada periode yang dipilih.\n"
         "<<<KONTEKS\n"
         f"{konteks}\n"
         "KONTEKS>>>"
@@ -5572,6 +9213,248 @@ def inisialisasi_chat_ai():
     if "ai_session_id" not in st.session_state:
         st.session_state.ai_session_id = str(uuid.uuid4())
 
+def buat_saran_lanjutan_ai(
+    pertanyaan,
+    jawaban,
+):
+
+    teks = (
+        f"{pertanyaan or ''} "
+        f"{jawaban or ''}"
+    ).lower()
+
+    # =====================================================
+    # RINGKASAN / KINERJA
+    # =====================================================
+    if any(
+        kata in teks
+        for kata in [
+            "kinerja",
+            "ringkasan eksekutif",
+            "jumlah kegiatan",
+            "pelayanan metrologi",
+        ]
+    ):
+        return [
+            "Bandingkan kinerja dengan bulan lalu",
+            "Tampilkan 5 prioritas pengawasan",
+            "Siapa penera paling aktif bulan ini?",
+        ]
+
+    # =====================================================
+    # PENGAWASAN
+    # =====================================================
+    if any(
+        kata in teks
+        for kata in [
+            "terlambat",
+            "jatuh tempo",
+            "pengawasan",
+            "masa berlaku",
+        ]
+    ):
+        return [
+            "Tampilkan 10 prioritas pengawasan",
+            "SPBU mana yang paling mendesak?",
+            "Tampilkan UTTP yang akan jatuh tempo 30 hari ke depan",
+        ]
+
+    # =====================================================
+    # SPBU / PUBBM
+    # =====================================================
+    if any(
+        kata in teks
+        for kata in [
+            "spbu",
+            "pubbm",
+            "nozzle",
+            "k-faktor",
+            "k faktor",
+        ]
+    ):
+        return [
+            "Tampilkan SPBU yang terlambat tera ulang",
+            "Berapa nozzle PUBBM yang diuji tahun ini?",
+            "Tampilkan data K-Faktor SPBU",
+        ]
+
+    # =====================================================
+    # PENERA
+    # =====================================================
+    if any(
+        kata in teks
+        for kata in [
+            "penera",
+            "petugas",
+        ]
+    ):
+        return [
+            "Tampilkan 5 penera paling aktif tahun ini",
+            "Penera tersebut paling banyak menguji UTTP apa?",
+            "Bandingkan kinerja penera bulan ini",
+        ]
+
+    # =====================================================
+    # PERUSAHAAN / PEMILIK
+    # =====================================================
+    if any(
+        kata in teks
+        for kata in [
+            "perusahaan",
+            "pemilik",
+            "wajib tera",
+        ]
+    ):
+        return [
+            "Tampilkan 10 perusahaan paling banyak dilayani",
+            "Apakah ada UTTP perusahaan yang terlambat?",
+            "Tampilkan perusahaan yang akan jatuh tempo 30 hari lagi",
+        ]
+
+    # =====================================================
+    # KECAMATAN
+    # =====================================================
+    if "kecamatan" in teks:
+        return [
+            "Kecamatan mana yang memiliki UTTP paling banyak?",
+            "Rincikan jenis UTTP per kecamatan",
+            "Berapa Pompa Ukur BBM per kecamatan?",
+        ]
+
+    # =====================================================
+    # PASAR
+    # =====================================================
+    if "pasar" in teks:
+        return [
+            "Pasar mana yang belum tera ulang tahun ini?",
+            "Berapa total timbangan pasar tahun ini?",
+            "Pasar mana yang memiliki timbangan terbanyak?",
+        ]
+
+    # =====================================================
+    # DEFAULT
+    # =====================================================
+    return [
+        "Bagaimana kinerja metrologi bulan ini?",
+        "Tampilkan 5 prioritas pengawasan",
+        "Tampilkan jenis UTTP yang paling banyak diuji tahun ini",
+    ]
+
+def render_saran_lanjutan_ai(
+    index,
+    pertanyaan,
+    jawaban,
+):
+
+    daftar_saran = (
+        buat_saran_lanjutan_ai(
+            pertanyaan,
+            jawaban,
+        )
+    )
+
+    if not daftar_saran:
+        return
+
+    st.caption(
+        "Pertanyaan lanjutan"
+    )
+
+    kolom = st.columns(
+        len(daftar_saran)
+    )
+
+    for nomor, saran in enumerate(
+        daftar_saran
+    ):
+
+        with kolom[nomor]:
+
+            if st.button(
+                saran,
+                key=(
+                    f"ai_saran_"
+                    f"{index}_"
+                    f"{nomor}"
+                ),
+                use_container_width=True,
+            ):
+
+                st.session_state[
+                    "ai_saran_dipilih"
+                ] = saran
+
+                st.rerun()
+                
+def render_pertanyaan_cepat_ai():
+
+    st.markdown(
+        "#### 💡 Pertanyaan Cepat"
+    )
+
+    st.caption(
+        "Pilih salah satu untuk mulai bertanya."
+    )
+
+    daftar = [
+        (
+            "📊 Kinerja",
+            "Bagaimana kinerja metrologi bulan ini?"
+        ),
+        (
+            "⚠️ Pengawasan",
+            "Tampilkan 5 prioritas pengawasan"
+        ),
+        (
+            "⛽ SPBU",
+            "Bagaimana kondisi pengawasan SPBU saat ini?"
+        ),
+        (
+            "🏪 Pasar",
+            "Bagaimana kondisi pelayanan pasar tahun ini?"
+        ),
+        (
+            "👨‍🔧 Penera",
+            "Siapa penera paling aktif tahun ini?"
+        ),
+        (
+            "🏢 Perusahaan",
+            "Tampilkan 10 perusahaan yang paling banyak dilayani tahun ini"
+        ),
+    ]
+
+    col1, col2, col3 = st.columns(3)
+
+    kolom = [
+        col1,
+        col2,
+        col3,
+    ]
+
+    for i, (
+        label,
+        pertanyaan,
+    ) in enumerate(daftar):
+
+        with kolom[
+            i % 3
+        ]:
+
+            if st.button(
+                label,
+                key=(
+                    f"ai_quick_"
+                    f"{i}"
+                ),
+                use_container_width=True,
+            ):
+
+                st.session_state[
+                    "ai_saran_dipilih"
+                ] = pertanyaan
+
+                st.rerun()
+                
 def render_chat(tampilkan_di_sidebar=True):
     inisialisasi_chat_ai()
 
@@ -5597,17 +9480,91 @@ def render_chat(tampilkan_di_sidebar=True):
             "Klik Chat Baru untuk memulai percakapan baru."
         )
 
-    for index, m in enumerate(st.session_state.ai_riwayat):
-        with st.chat_message(m["role"]):
-            st.markdown(m["content"])
+    for index, m in enumerate(
+        st.session_state.ai_riwayat
+    ):
+
+        with st.chat_message(
+            m["role"]
+        ):
+
+            st.markdown(
+                m["content"]
+            )
 
             if m["role"] == "assistant":
-                render_sumber_ai(m)
-                render_feedback_ai(index, m)
+
+                render_feedback_ai(
+                    index,
+                    m,
+                )
+
+                # =============================================
+                # SARAN HANYA UNTUK JAWABAN TERAKHIR
+                # =============================================
+                if (
+                    index
+                    == len(
+                        st.session_state.ai_riwayat
+                    ) - 1
+                ):
+
+                    pertanyaan_sebelumnya = ""
+
+                    if index > 0:
+
+                        pesan_sebelumnya = (
+                            st.session_state
+                            .ai_riwayat[
+                                index - 1
+                            ]
+                        )
+
+                        if (
+                            pesan_sebelumnya.get(
+                                "role"
+                            )
+                            == "user"
+                        ):
+                            pertanyaan_sebelumnya = (
+                                pesan_sebelumnya.get(
+                                    "content"
+                                )
+                                or ""
+                            )
+
+                    render_saran_lanjutan_ai(
+                        index=index,
+                        pertanyaan=(
+                            pertanyaan_sebelumnya
+                        ),
+                        jawaban=(
+                            m.get(
+                                "content"
+                            )
+                            or ""
+                        ),
+                    )
 
     if tampilkan_di_sidebar:
-        pertanyaan = st.chat_input(
-            "Tanya apa saja soal metrologi atau data pengujian..."
+        if not st.session_state.get(
+            "ai_riwayat"
+        ):
+            render_pertanyaan_cepat_ai()
+        pertanyaan_saran = (
+            st.session_state.pop(
+                "ai_saran_dipilih",
+                None,
+            )
+        )
+
+        pertanyaan_input = st.chat_input(
+            "Tanyakan tentang metrologi..."
+        )
+
+        pertanyaan = (
+            pertanyaan_saran
+            or pertanyaan_input
         )
     else:
         with st.form("form_pertanyaan_ai", clear_on_submit=True):
