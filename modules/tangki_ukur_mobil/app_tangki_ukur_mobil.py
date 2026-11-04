@@ -1971,26 +1971,180 @@ def generate_nomor_order(tanggal):
         f"{bulan_ke_romawi(t.month)}/{t.year}"
     )
 
+def ambil_nomor_order_tum_berikutnya(
+    tanggal,
+    supabase=None,
+):
+    if supabase is None:
+        supabase = get_supabase_tum()
 
+    tanggal = parse_date_value(
+        tanggal
+    )
+
+    romawi = bulan_ke_romawi(
+        tanggal.month
+    )
+
+    tahun = tanggal.year
+
+    response = (
+        supabase
+        .table("pengujian")
+        .select("nomor_order")
+        .ilike(
+            "nomor_order",
+            f"%/SCD/{romawi}/{tahun}"
+        )
+        .execute()
+    )
+
+    tertinggi = 0
+
+    for row in (
+        response.data
+        or []
+    ):
+        nomor = str(
+            row.get(
+                "nomor_order",
+                ""
+            )
+            or ""
+        ).strip()
+
+        bagian = nomor.split("/")
+
+        if len(bagian) < 4:
+            continue
+
+        try:
+            angka = int(
+                bagian[0]
+            )
+        except ValueError:
+            continue
+
+        tertinggi = max(
+            tertinggi,
+            angka
+        )
+
+    return (
+        f"{tertinggi + 1:04d}"
+        f"/SCD/{romawi}/{tahun}"
+    )
+
+
+def ambil_nomor_sertifikat_tum_berikutnya(
+    tanggal,
+    supabase=None,
+):
+    if supabase is None:
+        supabase = get_supabase_tum()
+
+    tanggal = parse_date_value(
+        tanggal
+    )
+
+    romawi = bulan_ke_romawi(
+        tanggal.month
+    )
+
+    tahun = tanggal.year
+
+    response = (
+        supabase
+        .table("pengujian")
+        .select(
+            "nomor_sertifikat"
+        )
+        .ilike(
+            "nomor_sertifikat",
+            (
+                "%/BID-K/"
+                f"{romawi}/{tahun}"
+            )
+        )
+        .execute()
+    )
+
+    tertinggi = 0
+
+    for row in (
+        response.data
+        or []
+    ):
+        nomor = str(
+            row.get(
+                "nomor_sertifikat",
+                ""
+            )
+            or ""
+        ).strip()
+
+        bagian = nomor.split("/")
+
+        if len(bagian) < 5:
+            continue
+
+        try:
+            angka = int(
+                bagian[1]
+            )
+        except ValueError:
+            continue
+
+        tertinggi = max(
+            tertinggi,
+            angka
+        )
+
+    return (
+        "500.2.3.15/"
+        f"{tertinggi + 1:04d}"
+        f"/BID-K/{romawi}/{tahun}"
+    )
 # =========================================================
 # DATA MASTER
 # =========================================================
-@st.cache_data
+@st.cache_data(ttl=60)
 def load_data_perusahaan():
-    path = Path("data/data_perusahaan.xlsx")
+    try:
+        supabase = get_supabase_tum()
 
-    if not path.exists():
-        return pd.DataFrame(
-            columns=[
-                "Nama Perusahaan",
-                "Alamat",
-            ]
+        response = (
+            supabase
+            .table("perusahaan")
+            .select(
+                "id, nama_perusahaan, alamat"
+            )
+            .order(
+                "nama_perusahaan"
+            )
+            .execute()
         )
 
-    try:
-        df = pd.read_excel(
-            path,
-            engine="openpyxl"
+        data = response.data or []
+
+        if not data:
+            return pd.DataFrame(
+                columns=[
+                    "ID",
+                    "Nama Perusahaan",
+                    "Alamat",
+                ]
+            )
+
+        df = pd.DataFrame(data)
+
+        df = df.rename(
+            columns={
+                "id": "ID",
+                "nama_perusahaan":
+                    "Nama Perusahaan",
+                "alamat": "Alamat",
+            }
         )
 
         for col in [
@@ -2000,39 +2154,20 @@ def load_data_perusahaan():
             if col not in df.columns:
                 df[col] = ""
 
-        df["Nama Perusahaan"] = (
-            df["Nama Perusahaan"]
-            .fillna("")
-            .astype(str)
-            .str.strip()
-        )
-
-        df["Alamat"] = (
-            df["Alamat"]
-            .fillna("")
-            .astype(str)
-            .str.strip()
-        )
-
-        df = df[
-            df["Nama Perusahaan"] != ""
-        ].copy()
-
-        # Jika ada perusahaan duplikat,
-        # pilih alamat yang paling lengkap/panjang.
-        df["_panjang"] = df["Alamat"].str.len()
-
-        df = (
-            df.sort_values(
-                "_panjang",
-                ascending=False
+            df[col] = (
+                df[col]
+                .fillna("")
+                .astype(str)
+                .str.strip()
             )
+
+        return (
+            df[
+                df["Nama Perusahaan"] != ""
+            ]
             .drop_duplicates(
-                "Nama Perusahaan",
-                keep="first"
-            )
-            .drop(
-                columns=["_panjang"]
+                subset=["Nama Perusahaan"],
+                keep="first",
             )
             .sort_values(
                 "Nama Perusahaan"
@@ -2040,103 +2175,116 @@ def load_data_perusahaan():
             .reset_index(drop=True)
         )
 
-        return df
-
     except Exception as exc:
         st.warning(
-            f"Data perusahaan tidak dapat dibaca: {exc}"
+            "Data perusahaan dari Supabase "
+            f"tidak dapat dibaca: {exc}"
         )
 
         return pd.DataFrame(
             columns=[
+                "ID",
                 "Nama Perusahaan",
                 "Alamat",
             ]
         )
 
-
-@st.cache_data
+@st.cache_data(ttl=60)
 def load_data_penera():
-    path = Path("data/data_penera.xlsx")
+    try:
+        supabase = get_supabase_tum()
 
-    if not path.exists():
-        return pd.DataFrame(
-            columns=[
-                "Nama",
-                "NIP",
-                "Golongan",
-            ]
+        response = (
+            supabase
+            .table("penera")
+            .select(
+                "id, nama, nip, "
+                "golongan, status"
+            )
+            .eq(
+                "status",
+                "aktif"
+            )
+            .order(
+                "nama"
+            )
+            .execute()
         )
 
-    try:
-        df = pd.read_excel(
-            path,
-            engine="openpyxl"
+        data = response.data or []
+
+        if not data:
+            return pd.DataFrame(
+                columns=[
+                    "ID",
+                    "Nama",
+                    "NIP",
+                    "Golongan",
+                    "Status",
+                ]
+            )
+
+        df = pd.DataFrame(data)
+
+        df = df.rename(
+            columns={
+                "id": "ID",
+                "nama": "Nama",
+                "nip": "NIP",
+                "golongan": "Golongan",
+                "status": "Status",
+            }
         )
 
         for col in [
             "Nama",
             "NIP",
             "Golongan",
+            "Status",
         ]:
             if col not in df.columns:
                 df[col] = ""
 
-        df["Nama"] = (
-            df["Nama"]
-            .fillna("")
-            .astype(str)
-            .str.strip()
-        )
+            df[col] = (
+                df[col]
+                .fillna("")
+                .astype(str)
+                .str.strip()
+            )
 
-        df["Golongan"] = (
-            df["Golongan"]
-            .fillna("")
-            .astype(str)
-            .str.strip()
-        )
-
-        def fmt_nip(value):
-            if pd.isna(value):
-                return ""
-
-            if (
-                isinstance(value, float)
-                and value.is_integer()
-            ):
-                return str(int(value))
-
-            text = str(value).strip()
-
-            if text.endswith(".0"):
-                text = text[:-2]
-
-            return text
-
-        df["NIP"] = df["NIP"].apply(
-            fmt_nip
+        # Hindari NIP seperti 1987....0
+        df["NIP"] = (
+            df["NIP"]
+            .str.replace(
+                r"\.0$",
+                "",
+                regex=True,
+            )
         )
 
         return (
             df[
                 df["Nama"] != ""
             ]
+            .sort_values("Nama")
             .reset_index(drop=True)
         )
 
     except Exception as exc:
         st.warning(
-            f"Data penera tidak dapat dibaca: {exc}"
+            "Data penera dari Supabase "
+            f"tidak dapat dibaca: {exc}"
         )
 
         return pd.DataFrame(
             columns=[
+                "ID",
                 "Nama",
                 "NIP",
                 "Golongan",
+                "Status",
             ]
         )
-
 
 # =========================================================
 # SESSION STATE
@@ -2155,7 +2303,15 @@ def init_tum_state():
             date.today()
         )
     )
-
+    tanggal_sertifikat = (
+        parse_date_value(
+            saved.get(
+                "tanggal_tanda_tangan",
+                tanggal_uji
+            ),
+            tanggal_uji
+        )
+    )
     masa_berlaku = parse_date_value(
         saved.get(
             "masa_berlaku",
@@ -2224,6 +2380,8 @@ def init_tum_state():
         ),
 
         "tum_tanggal_pengujian": tanggal_uji,
+        "tum_tanggal_tanda_tangan":
+            tanggal_sertifikat,
         "tum_masa_berlaku": masa_berlaku,
 
         "tum_metode": saved.get(
@@ -3902,142 +4060,332 @@ def run():
             .tum_saved_data
         )
 
-        col1, col2, col3 = (
-            st.columns(3)
+        # =========================================================
+        # IDENTITAS PEMILIK
+        # =========================================================
+        st.subheader(
+            "🏢 Identitas Pemilik"
         )
 
-        # =================================================
-        # IDENTITAS PEMILIK
-        # =================================================
-        with col1:
-            st.subheader(
-                "Identitas Pemilik"
+        df_perusahaan = (
+            st.session_state.get(
+                "tum_data_perusahaan"
             )
+        )
 
-            df_perusahaan = (
-                st.session_state.get(
-                    "tum_data_perusahaan"
-                )
+        if (
+            df_perusahaan is not None
+            and not df_perusahaan.empty
+        ):
+
+            options = (
+                df_perusahaan[
+                    "Nama Perusahaan"
+                ]
+                .dropna()
+                .astype(str)
+                .str.strip()
+                .tolist()
             )
 
             if (
-                df_perusahaan
-                is not None
-                and not df_perusahaan.empty
+                "tum_perusahaan_select"
+                not in st.session_state
             ):
-                options = (
-                    df_perusahaan[
-                        "Nama Perusahaan"
-                    ]
-                    .dropna()
-                    .astype(str)
-                    .str.strip()
-                    .tolist()
-                )
+                nama_lama = str(
+                    st.session_state.get(
+                        "tum_nama_perusahaan",
+                        ""
+                    )
+                    or ""
+                ).strip()
 
-                if (
+                st.session_state[
                     "tum_perusahaan_select"
-                    not in st.session_state
-                ):
-                    nama_lama = str(
-                        st.session_state.get(
-                            "tum_nama_perusahaan",
-                            ""
-                        )
-                    ).strip()
+                ] = (
+                    nama_lama
+                    if nama_lama in options
+                    else ""
+                )
 
-                    st.session_state[
-                        "tum_perusahaan_select"
-                    ] = (
-                        nama_lama
-                        if nama_lama in options
-                        else ""
+            st.selectbox(
+                "Cari & Pilih Nama Perusahaan",
+                options=[""] + options,
+                placeholder=(
+                    "Ketik atau pilih perusahaan..."
+                ),
+                key="tum_perusahaan_select",
+                on_change=(
+                    update_perusahaan_tum
+                ),
+                disabled=(
+                    st.session_state.get(
+                        "tum_input_manual_perusahaan",
+                        False
                     )
+                ),
+            )
 
-                    if (
-                        nama_lama
-                        and nama_lama
-                        not in options
-                    ):
-                        st.session_state[
-                            "tum_input_manual_perusahaan"
-                        ] = True
-
-                st.selectbox(
-                    "Cari & Pilih Nama Perusahaan",
-                    options=[""] + options,
-                    placeholder=(
-                        "Ketik atau pilih perusahaan..."
-                    ),
-                    key=(
-                        "tum_perusahaan_select"
-                    ),
-                    on_change=(
-                        update_perusahaan_tum
-                    ),
+            selected_perusahaan = str(
+                st.session_state.get(
+                    "tum_perusahaan_select",
+                    ""
                 )
+                or ""
+            ).strip()
 
-                st.text_area(
-                    "Alamat",
-                    height=110,
-                    key="tum_alamat"
-                )
-
-                st.checkbox(
-                    "Input manual nama perusahaan",
-                    key=(
-                        "tum_input_manual_perusahaan"
-                    )
-                )
-
-                if st.session_state.get(
+            if (
+                selected_perusahaan
+                and not st.session_state.get(
                     "tum_input_manual_perusahaan",
                     False
-                ):
-                    st.text_input(
-                        "Nama Pemilik / Perusahaan",
-                        key=(
-                            "tum_nama_perusahaan"
-                        )
-                    )
-
-            else:
-                st.info(
-                    "Data perusahaan tidak ditemukan. "
-                    "Silakan input manual."
                 )
+            ):
+                st.session_state[
+                    "tum_nama_perusahaan"
+                ] = selected_perusahaan
 
+            st.text_area(
+                "Alamat",
+                height=90,
+                key="tum_alamat"
+            )
+
+            st.checkbox(
+                "Input manual nama perusahaan",
+                key=(
+                    "tum_input_manual_perusahaan"
+                ),
+            )
+
+            if st.session_state.get(
+                "tum_input_manual_perusahaan",
+                False
+            ):
                 st.text_input(
                     "Nama Pemilik / Perusahaan",
                     key=(
                         "tum_nama_perusahaan"
-                    )
+                    ),
                 )
 
-                st.text_area(
-                    "Alamat",
-                    height=110,
-                    key="tum_alamat"
-                )
+        else:
 
+            st.warning(
+                "Master perusahaan belum tersedia."
+            )
+
+            st.text_input(
+                "Nama Pemilik / Perusahaan",
+                key="tum_nama_perusahaan",
+            )
+
+            st.text_area(
+                "Alamat",
+                height=90,
+                key="tum_alamat",
+            )
+
+
+        if st.session_state.get(
+            "tum_input_manual_perusahaan",
+            False
+        ):
             pemilik = str(
                 st.session_state.get(
                     "tum_nama_perusahaan",
                     ""
                 )
+                or ""
             ).strip()
 
-            alamat = str(
+        else:
+            pemilik = str(
                 st.session_state.get(
-                    "tum_alamat",
+                    "tum_perusahaan_select",
                     ""
                 )
+                or st.session_state.get(
+                    "tum_nama_perusahaan",
+                    ""
+                )
+                or ""
             ).strip()
+
+
+        alamat = str(
+            st.session_state.get(
+                "tum_alamat",
+                ""
+            )
+            or ""
+        ).strip()
+
+
+        st.markdown("---")
+
+
+        # =========================================================
+        # NOMOR DOKUMEN
+        # =========================================================
+        st.subheader(
+            "📊 Nomor Dokumen"
+        )
+
+        col_tgl1, col_tgl2 = (
+            st.columns(2)
+        )
+
+        with col_tgl1:
+
+            tanggal_pengujian = (
+                st.date_input(
+                    "Tanggal Pengujian",
+                    key=(
+                        "tum_tanggal_pengujian"
+                    ),
+                    on_change=(
+                        update_tanggal_tum
+                    ),
+                )
+            )
+
+        with col_tgl2:
+
+            tanggal_tanda_tangan = (
+                st.date_input(
+                    "Tanggal Sertifikat",
+                    key=(
+                        "tum_tanggal_tanda_tangan"
+                    ),
+                )
+            )
+
+
+        if st.button(
+            "🔢 Generate Nomor Order & Sertifikat",
+            type="primary",
+            use_container_width=True,
+            key="tum_generate_nomor",
+        ):
+
+            supabase_nomor = (
+                get_supabase_tum()
+            )
+
+            nomor_order_baru = (
+                ambil_nomor_order_tum_berikutnya(
+                    tanggal_pengujian,
+                    supabase_nomor,
+                )
+            )
+
+            nomor_sertifikat_baru = (
+                ambil_nomor_sertifikat_tum_berikutnya(
+                    tanggal_tanda_tangan,
+                    supabase_nomor,
+                )
+            )
+
+            st.session_state[
+                "tum_nomor_order"
+            ] = nomor_order_baru
+
+            st.session_state[
+                "tum_nomor_order_widget"
+            ] = nomor_order_baru
+
+            st.session_state[
+                "tum_nomor_sertifikat"
+            ] = nomor_sertifikat_baru
+
+            st.session_state[
+                "tum_nomor_sertifikat_widget"
+            ] = nomor_sertifikat_baru
+
+
+        if (
+            "tum_nomor_order_widget"
+            not in st.session_state
+        ):
+            st.session_state[
+                "tum_nomor_order_widget"
+            ] = str(
+                st.session_state.get(
+                    "tum_nomor_order",
+                    ""
+                )
+                or ""
+            )
+
+
+        if (
+            "tum_nomor_sertifikat_widget"
+            not in st.session_state
+        ):
+            st.session_state[
+                "tum_nomor_sertifikat_widget"
+            ] = str(
+                st.session_state.get(
+                    "tum_nomor_sertifikat",
+                    ""
+                )
+                or ""
+            )
+
+
+        col_no1, col_no2 = (
+            st.columns(2)
+        )
+
+        with col_no1:
+
+            nomor_order = st.text_input(
+                "Nomor Order",
+                key=(
+                    "tum_nomor_order_widget"
+                ),
+                on_change=(
+                    sinkron_nomor_order_tum
+                ),
+            )
+
+        with col_no2:
+
+            nomor_sertifikat = (
+                st.text_input(
+                    "Nomor Sertifikat",
+                    key=(
+                        "tum_nomor_sertifikat_widget"
+                    ),
+                    on_change=(
+                        sinkron_nomor_sertifikat_tum
+                    ),
+                )
+            )
+
+
+        st.session_state[
+            "tum_nomor_order"
+        ] = nomor_order
+
+        st.session_state[
+            "tum_nomor_sertifikat"
+        ] = nomor_sertifikat
+
+
+        st.markdown("---")
+
+
+        # =========================================================
+        # FORM UTAMA
+        # =========================================================
+        col1, col2 = st.columns(2)
 
         # =================================================
         # DATA TANGKI DAN KENDARAAN
         # =================================================
-        with col2:
+        with col1:
             st.subheader(
                 "Data Tangki & Kendaraan"
             )
@@ -4382,7 +4730,7 @@ def run():
         # =================================================
         # DATA PENGUJIAN
         # =================================================
-        with col3:
+        with col2:
             st.subheader(
                 "Data Pengujian"
             )
@@ -4410,27 +4758,6 @@ def run():
                 )
             )
 
-            tanggal_pengujian = (
-                st.date_input(
-                    "Tanggal Pengujian",
-                    key=(
-                        "tum_tanggal_pengujian"
-                    ),
-                    on_change=(
-                        update_tanggal_tum
-                    )
-                )
-            )
-            tanggal_tanda_tangan = st.date_input(
-                "Tanggal Tanda Tangan",
-                value=parse_date_value(
-                    saved.get(
-                        "tanggal_tanda_tangan",
-                        tanggal_pengujian
-                    )
-                ),
-                key="tum_tanggal_tanda_tangan"
-            )
             masa_berlaku = (
                 st.date_input(
                     "Pengujian Ulang / Masa Berlaku",
@@ -4480,86 +4807,6 @@ def run():
                     disabled=True,
                     key="tum_satuan_suhu"
                 )
-
-            # =====================================================
-            # NOMOR DOKUMEN
-            # State data dan widget DIPISAH
-            # =====================================================
-
-            tanggal_nomor_tum = st.session_state.get(
-                "tum_tanggal_pengujian",
-                date.today()
-            )
-
-            # ---------------------------------------------
-            # Nomor Sertifikat
-            # ---------------------------------------------
-            if (
-                "tum_nomor_sertifikat_widget"
-                not in st.session_state
-            ):
-                st.session_state[
-                    "tum_nomor_sertifikat_widget"
-                ] = (
-                    str(
-                        st.session_state.get(
-                            "tum_nomor_sertifikat",
-                            ""
-                        )
-                        or ""
-                    ).strip()
-                    or generate_nomor_sertifikat(
-                        tanggal_nomor_tum
-                    )
-                )
-
-            nomor_sertifikat = st.text_input(
-                "Nomor Sertifikat",
-                key="tum_nomor_sertifikat_widget",
-                on_change=(
-                    sinkron_nomor_sertifikat_tum
-                ),
-            )
-
-            # Pastikan state data juga selalu terisi
-            st.session_state[
-                "tum_nomor_sertifikat"
-            ] = nomor_sertifikat
-
-            # ---------------------------------------------
-            # Nomor Order
-            # ---------------------------------------------
-            if (
-                "tum_nomor_order_widget"
-                not in st.session_state
-            ):
-                st.session_state[
-                    "tum_nomor_order_widget"
-                ] = (
-                    str(
-                        st.session_state.get(
-                            "tum_nomor_order",
-                            ""
-                        )
-                        or ""
-                    ).strip()
-                    or generate_nomor_order(
-                        tanggal_nomor_tum
-                    )
-                )
-
-            nomor_order = st.text_input(
-                "Nomor Order",
-                key="tum_nomor_order_widget",
-                on_change=(
-                    sinkron_nomor_order_tum
-                ),
-            )
-
-            # Pastikan state data juga selalu terisi
-            st.session_state[
-                "tum_nomor_order"
-            ] = nomor_order
 
         # =================================================
         # PENERA
