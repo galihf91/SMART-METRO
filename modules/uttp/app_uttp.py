@@ -3459,41 +3459,106 @@ def _read_excel(path):
     return pd.read_excel(path, engine="openpyxl")
 
 
+@st.cache_data(ttl=60)
 def load_data_penera():
-    path = PROJECT_ROOT / "data" / "data_penera.xlsx"
-
     try:
-        df = _read_excel(path)
+        supabase = get_supabase_uttp()
 
-        if df is None:
+        response = (
+            supabase
+            .table("penera")
+            .select(
+                "id, nama, nip, golongan, status"
+            )
+            .eq(
+                "status",
+                "aktif"
+            )
+            .order(
+                "nama"
+            )
+            .execute()
+        )
+
+        rows = response.data or []
+
+        if not rows:
             return pd.DataFrame(
-                columns=["Nama", "NIP", "Golongan"]
+                columns=[
+                    "ID",
+                    "Nama",
+                    "NIP",
+                    "Golongan",
+                    "Status",
+                ]
             )
 
-        for column in ["Nama", "NIP", "Golongan"]:
+        df = pd.DataFrame(rows)
+
+        df = df.rename(
+            columns={
+                "id": "ID",
+                "nama": "Nama",
+                "nip": "NIP",
+                "golongan": "Golongan",
+                "status": "Status",
+            }
+        )
+
+        for column in [
+            "Nama",
+            "NIP",
+            "Golongan",
+            "Status",
+        ]:
             if column not in df.columns:
                 df[column] = ""
 
-        df["Nama"] = df["Nama"].fillna("").astype(str).str.strip()
-        df["Golongan"] = (
-            df["Golongan"].fillna("").astype(str).str.strip()
+            df[column] = (
+                df[column]
+                .fillna("")
+                .astype(str)
+                .str.strip()
+            )
+
+        # Hindari NIP tampil seperti 1987.....0
+        df["NIP"] = (
+            df["NIP"]
+            .str.replace(
+                r"\.0$",
+                "",
+                regex=True,
+            )
         )
 
-        def format_nip(value):
-            if pd.isna(value):
-                return ""
-            if isinstance(value, float) and value.is_integer():
-                return str(int(value))
-            return str(value).strip()
+        df = (
+            df[
+                df["Nama"] != ""
+            ]
+            .drop_duplicates(
+                subset=["Nama"],
+                keep="first",
+            )
+            .sort_values("Nama")
+            .reset_index(drop=True)
+        )
 
-        df["NIP"] = df["NIP"].apply(format_nip)
-
-        return df[df["Nama"] != ""].reset_index(drop=True)
+        return df
 
     except Exception as exc:
-        st.warning(f"Data penera tidak dapat dibaca: {exc}")
+        st.warning(
+            "Data penera dari Supabase "
+            f"tidak dapat dibaca: {exc}"
+        )
+
         return pd.DataFrame(
-            columns=["Nama", "NIP", "Golongan"]
+            columns=[
+                "ID",
+                "Nama",
+                "NIP",
+                "Golongan",
+                "Status",
+            ]
         )
 
 
@@ -4020,7 +4085,25 @@ def init_uttp_state():
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
+    
+    # =====================================================
+    # REFRESH MASTER PENERA UTTP
+    # =====================================================
+    df_penera_uttp = st.session_state.get(
+        "uttp_data_penera"
+    )
 
+    if (
+        df_penera_uttp is None
+        or not isinstance(
+            df_penera_uttp,
+            pd.DataFrame
+        )
+        or df_penera_uttp.empty
+    ):
+        st.session_state[
+            "uttp_data_penera"
+        ] = load_data_penera()
 
 def reset_form_uttp():
     for key in list(st.session_state.keys()):
