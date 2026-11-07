@@ -941,14 +941,17 @@ def render_tabel_ringkasan_pemilik(
                 "pemilik_display",
             ],
             dropna=False,
+            as_index=False,
         )[
-            "uttp_id"
+            "jumlah_unit_dashboard"
         ]
-        .nunique()
+        .sum()
         .rename(
-            "Jumlah UTTP"
+            columns={
+                "jumlah_unit_dashboard":
+                    "Jumlah UTTP"
+            }
         )
-        .reset_index()
         .sort_values(
             [
                 "Jumlah UTTP",
@@ -2081,6 +2084,7 @@ def build_monitoring_data(
             "penera_1",
             "penera_2",
             "berlaku_sampai",
+            "jumlah_alat",
             "sisa_hari",
             "status_tera",
         ]
@@ -2098,7 +2102,41 @@ def build_monitoring_data(
         on="uttp_id",
         how="left",
     )
+    # =====================================================
+    # JUMLAH UNIT FISIK
+    # kWh memakai jumlah_alat dari pengujian
+    # UTTP lain dihitung 1 master = 1 unit
+    # =====================================================
+    def hitung_jumlah_unit_dashboard(row):
 
+        jenis = clean_text(
+            row.get("jenis_uttp")
+        ).lower()
+
+        if jenis in {
+            "kwh meter",
+            "kwh",
+        }:
+
+            jumlah = pd.to_numeric(
+                row.get("jumlah_alat"),
+                errors="coerce",
+            )
+
+            if pd.isna(jumlah) or jumlah <= 0:
+                return 1
+
+            return int(jumlah)
+
+        return 1
+
+
+    monitor[
+        "jumlah_unit_dashboard"
+    ] = monitor.apply(
+        hitung_jumlah_unit_dashboard,
+        axis=1,
+    )
     monitor = monitor.merge(
         jumlah_pengujian,
         on="uttp_id",
@@ -2231,19 +2269,55 @@ def render_detail_perusahaan(
     # =====================================================
     # KPI PERUSAHAAN
     # =====================================================
-    total_uttp = (
-        company_df[
-            "uttp_id"
-        ].nunique()
+    total_uttp = int(
+        pd.to_numeric(
+            company_df[
+                "jumlah_unit_dashboard"
+            ],
+            errors="coerce",
+        )
+        .fillna(1)
+        .sum()
     )
 
     tera_aktif = int(
-        (
-            company_df[
-                "status_tera"
-            ]
-            == STATUS_AKTIF
-        ).sum()
+        company_df.loc[
+            company_df["status_tera"]
+            == STATUS_AKTIF,
+            "jumlah_unit_dashboard",
+        ].sum()
+    )
+
+    akan_habis = int(
+        company_df.loc[
+            company_df["status_tera"]
+            == STATUS_JATUH_TEMPO,
+            "jumlah_unit_dashboard",
+        ].sum()
+    )
+
+    kedaluwarsa = int(
+        company_df.loc[
+            company_df["status_tera"]
+            == STATUS_KEDALUWARSA,
+            "jumlah_unit_dashboard",
+        ].sum()
+    )
+
+    belum_uji = int(
+        company_df.loc[
+            company_df["status_tera"]
+            == STATUS_BELUM_UJI,
+            "jumlah_unit_dashboard",
+        ].sum()
+    )
+
+    data_kurang = int(
+        company_df.loc[
+            company_df["status_tera"]
+            == STATUS_DATA_KURANG,
+            "jumlah_unit_dashboard",
+        ].sum()
     )
 
     akan_habis = int(
@@ -2363,18 +2437,28 @@ def render_detail_perusahaan(
             )
         )
         .groupby(
-            "jenis_display"
+            "jenis_display",
+            as_index=False,
         )[
-            "uttp_id"
+            "jumlah_unit_dashboard"
         ]
-        .nunique()
+        .sum()
+    )
+
+    jenis_count.columns = [
+        "Jenis UTTP",
+        "Jumlah UTTP",
+    ]
+
+    jenis_count = (
+        jenis_count
         .sort_values(
-            ascending=False
+            "Jumlah UTTP",
+            ascending=False,
         )
-        .rename(
-            "Jumlah UTTP"
+        .reset_index(
+            drop=True
         )
-        .reset_index()
     )
 
     jenis_count.columns = [
@@ -3602,11 +3686,11 @@ def build_data_laporan_bulanan(
                         jumlah_alat
                     )
                 
-                    # kWh hanya dihitung sekali per pengujian,
-                    # walaupun mempunyai master UTTP terkait.
-                    jumlah_per_jenis[
-                        key
-                    ] = jumlah_alat
+                    # BENAR
+                    jumlah_per_jenis[key] = (
+                        jumlah_per_jenis.get(key, 0)
+                        + jumlah_alat
+                    )
                 
                 else:
                 
@@ -5391,62 +5475,85 @@ def render_dashboard_uttp():
             .nunique()
         )
 
-        total_uttp = (
-            fdf[
-                "uttp_id"
-            ]
-            .dropna()
-            .nunique()
+        total_uttp = int(
+            pd.to_numeric(
+                fdf[
+                    "jumlah_unit_dashboard"
+                ],
+                errors="coerce",
+            )
+            .fillna(1)
+            .sum()
         )
 
-        total_aktif = (
-            fdf.loc[
-                fdf["status_tera"]
-                == STATUS_AKTIF,
-                "uttp_id"
-            ]
-            .dropna()
-            .nunique()
+
+        total_aktif = int(
+            pd.to_numeric(
+                fdf.loc[
+                    fdf["status_tera"]
+                    == STATUS_AKTIF,
+                    "jumlah_unit_dashboard",
+                ],
+                errors="coerce",
+            )
+            .fillna(1)
+            .sum()
         )
 
-        total_jatuh_tempo = (
-            fdf.loc[
-                fdf["status_tera"]
-                == STATUS_JATUH_TEMPO,
-                "uttp_id"
-            ]
-            .dropna()
-            .nunique()
+
+        total_jatuh_tempo = int(
+            pd.to_numeric(
+                fdf.loc[
+                    fdf["status_tera"]
+                    == STATUS_JATUH_TEMPO,
+                    "jumlah_unit_dashboard",
+                ],
+                errors="coerce",
+            )
+            .fillna(1)
+            .sum()
         )
 
-        total_kedaluwarsa = (
-            fdf.loc[
-                fdf["status_tera"]
-                == STATUS_KEDALUWARSA,
-                "uttp_id"
-            ]
-            .dropna()
-            .nunique()
+
+        total_kedaluwarsa = int(
+            pd.to_numeric(
+                fdf.loc[
+                    fdf["status_tera"]
+                    == STATUS_KEDALUWARSA,
+                    "jumlah_unit_dashboard",
+                ],
+                errors="coerce",
+            )
+            .fillna(1)
+            .sum()
         )
 
-        total_belum_uji = (
-            fdf.loc[
-                fdf["status_tera"]
-                == STATUS_BELUM_UJI,
-                "uttp_id"
-            ]
-            .dropna()
-            .nunique()
+
+        total_belum_uji = int(
+            pd.to_numeric(
+                fdf.loc[
+                    fdf["status_tera"]
+                    == STATUS_BELUM_UJI,
+                    "jumlah_unit_dashboard",
+                ],
+                errors="coerce",
+            )
+            .fillna(1)
+            .sum()
         )
 
-        total_data_kurang = (
-            fdf.loc[
-                fdf["status_tera"]
-                == STATUS_DATA_KURANG,
-                "uttp_id"
-            ]
-            .dropna()
-            .nunique()
+
+        total_data_kurang = int(
+            pd.to_numeric(
+                fdf.loc[
+                    fdf["status_tera"]
+                    == STATUS_DATA_KURANG,
+                    "jumlah_unit_dashboard",
+                ],
+                errors="coerce",
+            )
+            .fillna(1)
+            .sum()
         )
 
         total_status = (
@@ -5802,24 +5909,24 @@ def render_dashboard_uttp():
                 )
             )
             .groupby(
-                "jenis_display"
+                "jenis_display",
+                as_index=False,
             )[
-                "uttp_id"
+                "jumlah_unit_dashboard"
             ]
-            .nunique()
-            .rename(
-                "Jumlah UTTP"
-            )
-            .reset_index()
+            .sum()
             .rename(
                 columns={
                     "jenis_display":
-                    "Jenis UTTP"
+                        "Jenis UTTP",
+
+                    "jumlah_unit_dashboard":
+                        "Jumlah UTTP",
                 }
             )
             .sort_values(
                 "Jumlah UTTP",
-                ascending=False
+                ascending=False,
             )
             .reset_index(
                 drop=True
