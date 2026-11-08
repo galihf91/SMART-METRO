@@ -762,7 +762,11 @@ TOOLS = [
             "description": (
                 "Membuat rekap kinerja pelayanan metrologi berdasarkan periode. "
                 "Menghitung jumlah kegiatan pengujian, jumlah UTTP yang diuji, "
-                "jumlah perusahaan yang dilayani, serta jenis UTTP terbanyak."
+                "jumlah pemilik yang dilayani, serta jenis UTTP terbanyak. "
+                "Secara default statistik utama mengecualikan Meter kWh agar "
+                "jumlah fisik kWh yang besar tidak mendistorsi statistik pelayanan. "
+                "Gunakan sertakan_kwh=True hanya jika pengguna secara eksplisit "
+                "meminta statistik atau total termasuk Meter kWh."
             ),
             "parameters": {
                 "type": "object",
@@ -782,7 +786,16 @@ TOOLS = [
                         "description": (
                             "Jumlah jenis UTTP terbanyak yang ditampilkan. Default 10."
                         )
-                    }
+                    },
+                    "sertakan_kwh": {
+                        "type": "boolean",
+                        "description": (
+                            "False untuk mengecualikan Meter kWh dari statistik utama "
+                            "agar volume kWh tidak mendistorsi statistik pelayanan. "
+                            "True untuk memasukkan jumlah fisik Meter kWh berdasarkan "
+                            "jumlah_alat. Default False."
+                        )
+                    },
                 },
                 "required": []
             }
@@ -832,10 +845,14 @@ TOOLS = [
         "function": {
             "name": "rekap_uttp_kecamatan",
             "description": (
-                "Menghitung dan merinci UTTP berdasarkan kecamatan. "
-                "Data berasal dari master perusahaan, SPBU, dan data timbangan pasar. "
-                "Gunakan untuk pertanyaan jumlah alat ukur per kecamatan atau "
-                "jenis UTTP tertentu di suatu kecamatan."
+                "Menghitung dan merinci jumlah fisik UTTP berdasarkan kecamatan. "
+                "UTTP umum/timbangan, TUM, Meter Air, PUBBM, dan UTTP lain "
+                "umumnya dihitung dari master/detail alat. "
+                "Khusus Meter kWh, satu master dapat mewakili banyak unit sehingga "
+                "jumlah fisik wajib menggunakan jumlah_alat pada pengujian terbaru. "
+                "Data timbangan pasar menggunakan agregat pasar_tahunan. "
+                "Gunakan untuk pertanyaan jumlah alat ukur per kecamatan, "
+                "rincian jenis UTTP, atau total UTTP suatu kecamatan."
             ),
             "parameters": {
                 "type": "object",
@@ -1190,7 +1207,98 @@ TOOLS = [
 ]
 
 
+def ambil_semua_baris_ai(
+    supabase,
+    tabel,
+    kolom,
+    ukuran_batch=1000,
+):
+    semua = []
+    awal = 0
 
+    while True:
+
+        akhir = (
+            awal
+            + ukuran_batch
+            - 1
+        )
+
+        response = (
+            supabase
+            .table(tabel)
+            .select(kolom)
+            .range(
+                awal,
+                akhir,
+            )
+            .execute()
+        )
+
+        batch = (
+            response.data
+            or []
+        )
+
+        semua.extend(
+            batch
+        )
+
+        if len(batch) < ukuran_batch:
+            break
+
+        awal += ukuran_batch
+
+    return semua
+@st.cache_data(
+    ttl=300,
+    show_spinner=False,
+)
+def ambil_semua_baris_ai_cache(
+    tabel,
+    kolom,
+    ukuran_batch=1000,
+):
+
+    supabase = init_supabase()
+
+    semua = []
+    awal = 0
+
+    while True:
+
+        akhir = (
+            awal
+            + ukuran_batch
+            - 1
+        )
+
+        response = (
+            supabase
+            .table(tabel)
+            .select(kolom)
+            .range(
+                awal,
+                akhir,
+            )
+            .execute()
+        )
+
+        batch = (
+            response.data
+            or []
+        )
+
+        semua.extend(
+            batch
+        )
+
+        if len(batch) < ukuran_batch:
+            break
+
+        awal += ukuran_batch
+
+    return semua
 # =========================================================
 # EKSEKUTOR TOOL
 # =========================================================
@@ -4044,7 +4152,12 @@ def tool_rekap_kinerja_pelayanan(
         1,
         50,
     )
-
+    sertakan_kwh = bool(
+        argumen.get(
+            "sertakan_kwh",
+            False,
+        )
+    )
     # =====================================================
     # 1. RENTANG TANGGAL
     # =====================================================
@@ -4092,7 +4205,8 @@ def tool_rekap_kinerja_pelayanan(
         .select(
             "id, uttp_id, perusahaan_id, spbu_id, "
             "tanggal_pengujian, jenis_pengujian, "
-            "hasil, nomor_order"
+            "hasil, nomor_order, jumlah_alat, "
+            "data_pengujian"
         )
         .gte(
             "tanggal_pengujian",
@@ -4125,6 +4239,11 @@ def tool_rekap_kinerja_pelayanan(
         for row in daftar_pengujian
         if row.get("id") is not None
     ]
+    peta_pengujian = {
+        row.get("id"): row
+        for row in daftar_pengujian
+        if row.get("id") is not None
+    }
 
     # =====================================================
     # 3. RELASI PENGUJIAN - UTTP
@@ -4232,14 +4351,31 @@ def tool_rekap_kinerja_pelayanan(
         }
 
     # =====================================================
-    # 6. HITUNG JENIS UTTP
+    # 6. HITUNG JUMLAH UTTP
+    #
+    # Statistik utama:
+    # Meter kWh dikeluarkan agar tidak mendistorsi
+    # volume pelayanan.
+    #
+    # Tetapi jumlah fisik kWh tetap dihitung terpisah.
     # =====================================================
     hitung_jenis = {}
 
-    for _, uttp_id in pasangan_pengujian_uttp:
+    jumlah_uttp_tanpa_kwh = 0
+    jumlah_meter_kwh = 0
+
+    for (
+        pengujian_id,
+        uttp_id,
+    ) in pasangan_pengujian_uttp:
 
         alat = peta_uttp.get(
             uttp_id,
+            {},
+        )
+
+        pengujian = peta_pengujian.get(
+            pengujian_id,
             {},
         )
 
@@ -4250,6 +4386,47 @@ def tool_rekap_kinerja_pelayanan(
             or "Tidak teridentifikasi"
         ).strip()
 
+        jenis_lower = (
+            jenis
+            .strip()
+            .lower()
+        )
+
+        # =================================================
+        # METER kWh
+        # =================================================
+        if "kwh" in jenis_lower:
+
+            jumlah_unit = angka_bulat_ai(
+                pengujian.get(
+                    "jumlah_alat"
+                ),
+                1,
+                1,
+                None,
+            )
+
+            if jumlah_unit is None:
+                jumlah_unit = 1
+
+            jumlah_meter_kwh += (
+                jumlah_unit
+            )
+
+            # Jika statistik diminta TANPA kWh,
+            # jangan masukkan ke hitung jenis utama.
+            if not sertakan_kwh:
+                continue
+
+        else:
+
+            jumlah_unit = 1
+
+            jumlah_uttp_tanpa_kwh += 1
+
+        # =================================================
+        # REKAP JENIS
+        # =================================================
         hitung_jenis[
             jenis
         ] = (
@@ -4257,9 +4434,17 @@ def tool_rekap_kinerja_pelayanan(
                 jenis,
                 0,
             )
-            + 1
+            + jumlah_unit
         )
-
+    jumlah_uttp_termasuk_kwh = (
+        jumlah_uttp_tanpa_kwh
+        + jumlah_meter_kwh
+    )
+    jumlah_uttp_statistik = (
+        jumlah_uttp_termasuk_kwh
+        if sertakan_kwh
+        else jumlah_uttp_tanpa_kwh
+    )
     jenis_urut = sorted(
         hitung_jenis.items(),
         key=lambda x: x[1],
@@ -4343,8 +4528,23 @@ def tool_rekap_kinerja_pelayanan(
         "jumlah_kegiatan": len(
             daftar_pengujian
         ),
-        "jumlah_uttp": len(
-            pasangan_pengujian_uttp
+        "jumlah_uttp": (
+            jumlah_uttp_statistik
+        ),
+        "sertakan_kwh": (
+            sertakan_kwh
+        ),
+
+        "jumlah_uttp_tanpa_kwh": (
+            jumlah_uttp_tanpa_kwh
+        ),
+
+        "jumlah_meter_kwh": (
+            jumlah_meter_kwh
+        ),
+
+        "jumlah_uttp_termasuk_kwh": (
+            jumlah_uttp_termasuk_kwh
         ),
         "jumlah_pemilik": len(
             pemilik_unik
@@ -4820,18 +5020,9 @@ def tool_rekap_uttp_kecamatan(
     # =====================================================
     # 1. MASTER PERUSAHAAN
     # =====================================================
-    response_perusahaan = (
-        supabase
-        .table("perusahaan")
-        .select(
-            "id, nama_perusahaan, kecamatan"
-        )
-        .execute()
-    )
-
-    daftar_perusahaan = (
-        response_perusahaan.data
-        or []
+    daftar_perusahaan = ambil_semua_baris_ai_cache(
+        "perusahaan",
+        "id, nama_perusahaan, kecamatan",
     )
 
     peta_perusahaan = {
@@ -4843,18 +5034,12 @@ def tool_rekap_uttp_kecamatan(
     # =====================================================
     # 2. MASTER SPBU
     # =====================================================
-    response_spbu = (
-        supabase
-        .table("spbu")
-        .select(
-            "id, nama_spbu, nomor_spbu, kecamatan"
-        )
-        .execute()
-    )
-
-    daftar_spbu = (
-        response_spbu.data
-        or []
+    daftar_spbu = ambil_semua_baris_ai_cache(
+        "spbu",
+        (
+            "id, nama_spbu, "
+            "nomor_spbu, kecamatan"
+        ),
     )
 
     peta_spbu = {
@@ -4866,21 +5051,142 @@ def tool_rekap_uttp_kecamatan(
     # =====================================================
     # 3. MASTER UTTP
     # =====================================================
-    response_uttp = (
-        supabase
-        .table("uttp")
-        .select(
+    daftar_uttp = ambil_semua_baris_ai_cache(
+        "uttp",
+        (
             "id, perusahaan_id, spbu_id, "
-            "jenis_uttp, merk, tipe, nomor_seri, status"
+            "jenis_uttp, merk, tipe, "
+            "nomor_seri, status"
+        ),
+    )
+    # =====================================================
+    # 3A. DATA PENGUJIAN
+    #
+    # Dibutuhkan terutama untuk Meter kWh karena satu
+    # master kWh dapat mewakili banyak unit fisik.
+    # =====================================================
+    daftar_pengujian = ambil_semua_baris_ai_cache(
+        "pengujian",
+        (
+            "id, uttp_id, perusahaan_id, "
+            "tanggal_pengujian, jumlah_alat, "
+            "data_pengujian"
+        ),
+    )
+
+    # =====================================================
+    # 3B. RELASI PENGUJIAN - UTTP
+    # =====================================================
+    daftar_relasi = ambil_semua_baris_ai_cache(
+        "pengujian_uttp",
+        "pengujian_id, uttp_id",
+    )
+
+    # =====================================================
+    # 3C. PETA PENGUJIAN
+    # =====================================================
+    peta_pengujian = {
+        row.get("id"): row
+        for row in daftar_pengujian
+        if row.get("id") is not None
+    }
+
+
+    # =====================================================
+    # 3D. PETA RIWAYAT PER UTTP
+    #
+    # Mendukung:
+    # 1. struktur baru pengujian_uttp
+    # 2. struktur lama pengujian.uttp_id
+    # =====================================================
+    riwayat_per_uttp = {}
+
+    for relasi in daftar_relasi:
+
+        pengujian_id = relasi.get(
+            "pengujian_id"
         )
-        .execute()
-    )
 
-    daftar_uttp = (
-        response_uttp.data
-        or []
-    )
+        uttp_id = relasi.get(
+            "uttp_id"
+        )
 
+        if (
+            pengujian_id is None
+            or uttp_id is None
+        ):
+            continue
+
+        pengujian = peta_pengujian.get(
+            pengujian_id
+        )
+
+        if not pengujian:
+            continue
+
+        riwayat_per_uttp.setdefault(
+            uttp_id,
+            [],
+        ).append(
+            pengujian
+        )
+
+
+    # fallback pengujian.uttp_id
+    for pengujian in daftar_pengujian:
+
+        uttp_id = pengujian.get(
+            "uttp_id"
+        )
+
+        if uttp_id is None:
+            continue
+
+        daftar = riwayat_per_uttp.setdefault(
+            uttp_id,
+            [],
+        )
+
+        if not any(
+            row.get("id")
+            == pengujian.get("id")
+            for row in daftar
+        ):
+            daftar.append(
+                pengujian
+            )
+
+
+    # =====================================================
+    # 3E. PENGUJIAN TERBARU PER UTTP
+    # =====================================================
+    terbaru_per_uttp = {}
+
+    for uttp_id, daftar in (
+        riwayat_per_uttp.items()
+    ):
+
+        daftar_urut = sorted(
+            daftar,
+            key=lambda row: (
+                str(
+                    row.get(
+                        "tanggal_pengujian"
+                    )
+                    or ""
+                ),
+                int(
+                    row.get("id")
+                    or 0
+                ),
+            ),
+            reverse=True,
+        )
+
+        if daftar_urut:
+            terbaru_per_uttp[
+                uttp_id
+            ] = daftar_urut[0]
     # =====================================================
     # 4. REKAP UTTP PER KECAMATAN
     # =====================================================
@@ -4904,6 +5210,61 @@ def tool_rekap_uttp_kecamatan(
             or "Tidak teridentifikasi"
         ).strip()
 
+        # =================================================
+        # ID MASTER UTTP
+        # =================================================
+        uttp_id = alat.get(
+            "id"
+        )
+
+        # =================================================
+        # PENGUJIAN TERBARU UNTUK MASTER INI
+        # =================================================
+        pengujian_terbaru = (
+            terbaru_per_uttp.get(
+                uttp_id,
+                {},
+            )
+        )
+
+        jenis_lower = (
+            jenis
+            .strip()
+            .lower()
+        )
+
+        jenis_lower = (
+            jenis
+            .strip()
+            .lower()
+        )
+
+        # =================================================
+        # JUMLAH FISIK
+        #
+        # kWh:
+        # satu master dapat mewakili banyak unit
+        #
+        # UTTP lain:
+        # satu master/detail = satu alat
+        # =================================================
+        if "kwh" in jenis_lower:
+
+            jumlah_unit = angka_bulat_ai(
+                pengujian_terbaru.get(
+                    "jumlah_alat"
+                ),
+                1,
+                1,
+                None,
+            )
+
+            if jumlah_unit is None:
+                jumlah_unit = 1
+
+        else:
+
+            jumlah_unit = 1
         if (
             jenis_filter
             and jenis_filter.lower()
@@ -4969,8 +5330,35 @@ def tool_rekap_uttp_kecamatan(
                 or ""
             ).strip()
 
+
+        # =================================================
+        # FALLBACK KECAMATAN DARI DATA PENGUJIAN
+        # =================================================
+        if not kecamatan:
+
+            data_pengujian = (
+                pengujian_terbaru.get(
+                    "data_pengujian"
+                )
+                or {}
+            )
+
+            if isinstance(
+                data_pengujian,
+                dict,
+            ):
+
+                kecamatan = str(
+                    data_pengujian.get(
+                        "kecamatan"
+                    )
+                    or ""
+                ).strip()
+
+
         if not kecamatan:
             continue
+
 
         if (
             kecamatan_filter
@@ -4996,7 +5384,7 @@ def tool_rekap_uttp_kecamatan(
 
         item[
             "jumlah_uttp_master"
-        ] += 1
+        ] += jumlah_unit
 
         item[
             "jenis_uttp"
@@ -5007,7 +5395,7 @@ def tool_rekap_uttp_kecamatan(
                 jenis,
                 0,
             )
-            + 1
+            + jumlah_unit
         )
 
         if pemilik:
@@ -5673,6 +6061,7 @@ def tool_bandingkan_kinerja_pelayanan(
                 "tahun": tahun_1,
                 "bulan": bulan_1,
                 "batas_jenis": 50,
+                "sertakan_kwh": False,
             },
             supabase,
         )
@@ -5687,6 +6076,7 @@ def tool_bandingkan_kinerja_pelayanan(
                 "tahun": tahun_2,
                 "bulan": bulan_2,
                 "batas_jenis": 50,
+                "sertakan_kwh": False,
             },
             supabase,
         )
@@ -5870,6 +6260,7 @@ def tool_bandingkan_kinerja_pelayanan(
     # 7. HASIL
     # =====================================================
     return {
+        "meter_kwh_dalam_statistik": False,
         "periode_1": {
             "tahun": tahun_1,
             "bulan": bulan_1,
@@ -5950,6 +6341,7 @@ def tool_ringkasan_eksekutif_metrologi(
             "tahun": tahun,
             "bulan": bulan,
             "batas_jenis": 10,
+            "sertakan_kwh": False,
         },
         supabase,
     )
@@ -8760,7 +9152,21 @@ def buat_prompt_sistem(konteks):
         "20. Jika pengguna meminta rekap kinerja pelayanan, jumlah kegiatan "
         "pengujian dalam suatu bulan/tahun, jumlah UTTP yang diuji, jumlah "
         "pemilik yang dilayani, atau jenis UTTP yang paling banyak diuji, "
-        "WAJIB menggunakan tool rekap_kinerja_pelayanan.\n"
+        "WAJIB menggunakan tool rekap_kinerja_pelayanan. "
+        "Untuk statistik pelayanan umum gunakan sertakan_kwh=False sebagai "
+        "default agar jumlah fisik Meter kWh yang besar tidak mendistorsi "
+        "statistik pelayanan.\n"
+        "20a. Jika pengguna secara eksplisit meminta total UTTP termasuk Meter kWh, "
+        "volume fisik seluruh alat, statistik termasuk kWh, atau ingin mengetahui "
+        "berapa total apabila Meter kWh ikut dihitung, gunakan "
+        "rekap_kinerja_pelayanan dengan sertakan_kwh=True.\n"
+
+        "20b. Jika hasil rekap_kinerja_pelayanan menyediakan "
+        "jumlah_uttp_tanpa_kwh, jumlah_meter_kwh, dan "
+        "jumlah_uttp_termasuk_kwh, bedakan ketiga angka tersebut dengan jelas. "
+        "Jangan menyebut jumlah fisik Meter kWh sebagai jumlah kegiatan pelayanan. "
+        "Jika pengguna tidak menentukan apakah kWh disertakan, gunakan statistik "
+        "utama tanpa Meter kWh dan boleh menyebut jumlah Meter kWh secara terpisah.\n"
         "21. Jika pengguna meminta statistik penera, penera paling aktif, "
         "jumlah pengujian yang dilakukan penera tertentu, atau peringkat "
         "penera berdasarkan jumlah pengujian, WAJIB menggunakan tool "
@@ -8769,14 +9175,25 @@ def buat_prompt_sistem(konteks):
         "gunakan data tersebut untuk menjelaskan rincian jenis UTTP yang "
         "ditangani penera. Jangan mengatakan rincian jenis UTTP tidak tersedia "
         "jika data jenis_uttp tersedia dari tool.\n"
-        "23. Jika pengguna meminta jumlah alat ukur, UTTP, timbangan, "
-        "PUBBM, atau distribusi alat berdasarkan kecamatan, WAJIB menggunakan "
-        "tool rekap_uttp_kecamatan. Jangan mengatakan data UTTP per kecamatan "
-        "tidak tersedia sebelum memanggil tool tersebut.\n"
-        "24. Data kecamatan UTTP dapat diperoleh dari kecamatan master perusahaan "
-        "atau master SPBU. Data timbangan pasar diperoleh dari pasar dan "
-        "pasar_tahunan. Karena timbangan pasar merupakan data agregat, jangan "
-        "menganggap setiap timbangan pasar sebagai baris master UTTP individual.\n"
+        "23. Jika pengguna meminta jumlah fisik alat ukur, sebaran UTTP, "
+        "distribusi alat berdasarkan kecamatan, jumlah Meter kWh per kecamatan, "
+        "atau total alat yang berada di suatu wilayah, WAJIB menggunakan tool "
+        "rekap_uttp_kecamatan. Dalam konteks sebaran fisik, Meter kWh tetap "
+        "dihitung berdasarkan jumlah_alat karena yang dimaksud adalah jumlah "
+        "unit fisik alat, bukan jumlah kegiatan pelayanan.\n"
+
+        "24. Perhatikan cara penyimpanan setiap jenis UTTP. "
+        "UTTP umum/timbangan, Tangki Ukur Mobil, Meter Air, PUBBM, dan jenis "
+        "lain pada umumnya dihitung berdasarkan master/detail alat. "
+        "Khusus Meter kWh, satu master dapat mewakili banyak unit identik sehingga "
+        "jumlah fisik harus menggunakan jumlah_alat dari pengujian terbaru, "
+        "bukan jumlah baris master UTTP.\n"
+
+        "24a. Data kecamatan UTTP dapat berasal dari master perusahaan, "
+        "master SPBU, atau data_pengujian sebagai fallback. "
+        "Data timbangan pasar berasal dari pasar dan pasar_tahunan. "
+        "Karena timbangan pasar merupakan data agregat, jangan menganggap setiap "
+        "timbangan pasar sebagai satu baris master UTTP individual.\n"
         "25. Jika pengguna meminta perusahaan atau SPBU yang paling banyak "
         "dilayani, wajib tera dengan pelayanan terbanyak, jumlah pelayanan "
         "per perusahaan/SPBU, atau peringkat pemilik berdasarkan jumlah "
@@ -8905,7 +9322,7 @@ def tanya_deepseek_stream(pertanyaan, riwayat=None):
                 messages=pesan,
                 tools=TOOLS,
                 temperature=0.2,
-                timeout=60,
+                timeout=120,
                 stream=True,
             )
 
@@ -9003,10 +9420,18 @@ def tanya_deepseek_stream(pertanyaan, riwayat=None):
             st.session_state["ai_tool_log"] = log_tool
 
     except Exception as exc:
-        st.session_state["ai_error_detail"] = str(exc)
+
+        error_detail = (
+            f"{type(exc).__name__}: {exc}"
+        )
+
+        st.session_state[
+            "ai_error_detail"
+        ] = error_detail
+
         yield (
-            "\n\nMaaf, layanan AI sedang tidak dapat dihubungi. "
-            "Silakan coba beberapa saat lagi."
+            "\n\n⚠️ ERROR AI:\n\n"
+            f"{error_detail}"
         )
 
     finally:
