@@ -23,7 +23,7 @@ RIWAYAT_MAKS = 6
 MATCH_THRESHOLD = 0.4
 MATCH_COUNT = 30
 MATCH_COUNT_KEYWORD = 10
-RERANK_TOP = 8
+RERANK_TOP = 15
 
 BATAS_KONTEKS_TOKEN = 6000
 BATAS_RIWAYAT_TOKEN = 2000
@@ -181,18 +181,27 @@ def kata_kunci_pertanyaan(pertanyaan, maksimal=3):
     return hasil
 
 
-def cari_kandidat_keyword(pertanyaan, supabase):
-    kata_kunci = kata_kunci_pertanyaan(pertanyaan)
+def cari_kandidat_keyword(
+    pertanyaan,
+    supabase,
+):
+    kata_kunci = kata_kunci_pertanyaan(
+        pertanyaan
+    )
 
     if not kata_kunci:
         return []
 
+    # =====================================================
+    # Ambil kandidat lebih banyak terlebih dahulu
+    # =====================================================
     filter_or = ",".join(
         f"content.ilike.%{kata}%"
         for kata in kata_kunci
     )
 
     daftar_kolom = (
+        "id, content, metadata",
         "id, content",
         "doc_id, content",
         "content",
@@ -205,10 +214,61 @@ def cari_kandidat_keyword(pertanyaan, supabase):
                 .table(TABEL_DOKUMEN)
                 .select(kolom)
                 .or_(filter_or)
-                .limit(MATCH_COUNT_KEYWORD)
+                .limit(
+                    max(
+                        MATCH_COUNT_KEYWORD * 5,
+                        50,
+                    )
+                )
                 .execute()
             )
-            return response.data or []
+
+            kandidat = response.data or []
+
+            # =================================================
+            # Ranking berdasarkan jumlah keyword yang cocok
+            # =================================================
+            for item in kandidat:
+
+                isi = str(
+                    item.get("content")
+                    or ""
+                ).lower()
+
+                jumlah_cocok = sum(
+                    1
+                    for kata in kata_kunci
+                    if kata in isi
+                )
+
+                metadata = item.get("metadata") or {}
+
+                try:
+                    prioritas_sumber = int(
+                        metadata.get("prioritas", 50)
+                    )
+                except Exception:
+                    prioritas_sumber = 50
+
+                item["_skor_keyword"] = (
+                    jumlah_cocok * 100
+                    + prioritas_sumber
+                )
+
+            kandidat.sort(
+                key=lambda x: (
+                    x.get(
+                        "_skor_keyword",
+                        0,
+                    )
+                ),
+                reverse=True,
+            )
+
+            return kandidat[
+                :MATCH_COUNT_KEYWORD
+            ]
+
         except Exception:
             continue
 
@@ -322,6 +382,43 @@ def tulis_ulang_pertanyaan(pertanyaan, riwayat, client):
 # =========================================================
 # KONEKSI & MODEL
 # =========================================================
+def simpan_document_ai(
+    content,
+    metadata=None,
+):
+    content = str(content or "").strip()
+
+    if not content:
+        return None
+
+    model = load_model()
+    supabase = init_supabase()
+
+    embedding = model.encode(
+        f"passage: {content}",
+        normalize_embeddings=True,
+    ).tolist()
+
+    payload = {
+        "content": content,
+        "metadata": metadata or {},
+        "embedding": embedding,
+    }
+
+    response = (
+        supabase
+        .table("documents")
+        .insert(payload)
+        .select("id")
+        .execute()
+    )
+
+    data = response.data or []
+
+    if data:
+        return data[0].get("id")
+
+    return None
 @st.cache_resource
 def load_model():
     return SentenceTransformer("intfloat/multilingual-e5-small")
@@ -9473,8 +9570,11 @@ def catat_log_ai(pertanyaan, jawaban, query_retrieval, sumber, tool_log, latency
         data = response.data or []
         if data:
             return data[0].get("id")
-    except Exception:
-        pass
+    except Exception as e:
+        st.error(
+            f"Gagal menyimpan log AI: {e}"
+        )
+        return None
 
     return None
 
@@ -9498,7 +9598,715 @@ def simpan_feedback_ai(log_id, nilai):
     except Exception:
         pass
 
+def simpan_laporan_ai(
+    pertanyaan,
+    jawaban,
+    kategori,
+    jawaban_yang_diharapkan,
+    sumber=None,
+    query_retrieval="",
+    tool_log=None,
+    latency=None,
+):
 
+    try:
+
+        supabase = init_supabase()
+
+        payload = {
+            "session_id": (
+                st.session_state.get(
+                    "ai_session_id"
+                )
+            ),
+
+            "pertanyaan": str(
+                pertanyaan or ""
+            ),
+
+            "jawaban": str(
+                jawaban or ""
+            ),
+
+            "kategori_laporan": (
+                kategori
+            ),
+
+            "jawaban_yang_diharapkan": (
+                str(
+                    jawaban_yang_diharapkan
+                    or ""
+                )
+            ),
+
+            "dilaporkan": True,
+
+            "laporan_at": datetime.now(
+                ZONA_WIB
+            ).isoformat(),
+
+            "status_evaluasi": (
+                "belum_ditinjau"
+            ),
+
+            "sumber": (
+                sumber or []
+            ),
+
+            "query_retrieval": str(
+                query_retrieval or ""
+            ),
+
+            "tool_log": (
+                tool_log or []
+            ),
+
+            "latency_detik": latency,
+
+            "model": CHAT_MODEL,
+        }
+
+        response = (
+            supabase
+            .table(
+                "ai_chat_logs"
+            )
+            .insert(
+                payload
+            )
+            .select(
+                "id"
+            )
+            .execute()
+        )
+
+        data = (
+            response.data
+            or []
+        )
+
+        if data:
+            return data[0].get(
+                "id"
+            )
+
+        return None
+
+    except Exception as e:
+
+        st.error(
+            "Gagal menyimpan laporan AI: "
+            f"{e}"
+        )
+
+        return None
+
+def simpan_evaluasi_ai(
+    log_id,
+    status,
+    catatan,
+):
+    if not log_id:
+        return False
+
+    try:
+        supabase = init_supabase()
+
+        (
+            supabase
+            .table("ai_chat_logs")
+            .update({
+                "status_evaluasi": status,
+                "catatan_evaluasi": catatan,
+                "evaluasi_at": datetime.now(
+                    ZONA_WIB
+                ).isoformat(),
+            })
+            .eq("id", log_id)
+            .execute()
+        )
+
+        return True
+
+    except Exception:
+        return False
+def simpan_hasil_tes_ulang_ai(
+    log_asal_id,
+    log_baru_id,
+    jawaban_baru,
+):
+    if not log_asal_id:
+        return False
+
+    try:
+        supabase = init_supabase()
+
+        (
+            supabase
+            .table("ai_chat_logs")
+            .update({
+                "tes_ulang_jawaban": (
+                    jawaban_baru
+                ),
+                "tes_ulang_log_id": (
+                    str(log_baru_id)
+                    if log_baru_id
+                    else None
+                ),
+                "tes_ulang_at": datetime.now(
+                    ZONA_WIB
+                ).isoformat(),
+            })
+            .eq(
+                "id",
+                log_asal_id,
+            )
+            .execute()
+        )
+
+        return True
+
+    except Exception:
+        return False
+def render_panel_evaluasi_ai():
+
+    st.subheader(
+        "🧪 Evaluasi SMART METRO AI"
+    )
+    try:
+        supabase = init_supabase()
+
+        response_stat = (
+            supabase
+            .table("ai_chat_logs")
+            .select(
+                "status_evaluasi"
+            )
+            .eq(
+                "dilaporkan",
+                True,
+            )
+            .execute()
+        )
+
+        data_stat = response_stat.data or []
+
+    except Exception:
+        data_stat = []
+    total_laporan = len(data_stat)
+
+    jumlah_belum = sum(
+        1 for item in data_stat
+        if (
+            item.get("status_evaluasi")
+            or "belum_ditinjau"
+        ) == "belum_ditinjau"
+    )
+
+    jumlah_knowledge = sum(
+        1 for item in data_stat
+        if item.get("status_evaluasi")
+        == "perlu_knowledge"
+    )
+
+    jumlah_retrieval = sum(
+        1 for item in data_stat
+        if item.get("status_evaluasi")
+        == "perlu_retrieval"
+    )
+
+    jumlah_tool = sum(
+        1 for item in data_stat
+        if item.get("status_evaluasi")
+        == "perlu_tool"
+    )
+
+    jumlah_selesai = sum(
+        1 for item in data_stat
+        if item.get("status_evaluasi")
+        == "selesai"
+    )
+    kolom1, kolom2, kolom3 = st.columns(3)
+
+    kolom1.metric(
+        "🚩 Total Laporan",
+        total_laporan,
+    )
+
+    kolom2.metric(
+        "🔎 Belum Ditinjau",
+        jumlah_belum,
+    )
+
+    kolom3.metric(
+        "✅ Selesai",
+        jumlah_selesai,
+    )
+
+    kolom4, kolom5, kolom6 = st.columns(3)
+
+    kolom4.metric(
+        "📚 Knowledge",
+        jumlah_knowledge,
+    )
+
+    kolom5.metric(
+        "🔍 Retrieval",
+        jumlah_retrieval,
+    )
+
+    kolom6.metric(
+        "🛠️ Tool",
+        jumlah_tool,
+    )
+    filter_status = st.selectbox(
+        "Tampilkan laporan",
+        [
+            "Belum selesai",
+            "Semua laporan",
+            "Belum ditinjau",
+            "Perlu knowledge",
+            "Perlu retrieval",
+            "Perlu tool",
+            "Perlu prompt",
+            "Jawaban AI salah",
+            "Selesai",
+        ],
+        key="filter_status_evaluasi_ai",
+    )
+    try:
+        supabase = init_supabase()
+
+        query = (
+            supabase
+            .table("ai_chat_logs")
+            .select(
+                "id,"
+                "created_at,"
+                "pertanyaan,"
+                "jawaban,"
+                "kategori_laporan,"
+                "alasan_laporan,"
+                "jawaban_yang_diharapkan,"
+                "sumber,"
+                "tool_log,"
+                "status_evaluasi,"
+                "catatan_evaluasi,"
+                "tes_ulang_jawaban,"
+                "tes_ulang_log_id,"
+                "tes_ulang_at"
+            )
+            .eq(
+                "dilaporkan",
+                True,
+            )
+        )
+
+        if filter_status == "Belum selesai":
+
+            query = query.neq(
+                "status_evaluasi",
+                "selesai",
+            )
+
+        elif filter_status == "Belum ditinjau":
+
+            query = query.eq(
+                "status_evaluasi",
+                "belum_ditinjau",
+            )
+
+        elif filter_status == "Perlu knowledge":
+
+            query = query.eq(
+                "status_evaluasi",
+                "perlu_knowledge",
+            )
+
+        elif filter_status == "Perlu retrieval":
+
+            query = query.eq(
+                "status_evaluasi",
+                "perlu_retrieval",
+            )
+
+        elif filter_status == "Perlu tool":
+
+            query = query.eq(
+                "status_evaluasi",
+                "perlu_tool",
+            )
+
+        elif filter_status == "Perlu prompt":
+
+            query = query.eq(
+                "status_evaluasi",
+                "perlu_prompt",
+            )
+
+        elif filter_status == "Jawaban AI salah":
+
+            query = query.eq(
+                "status_evaluasi",
+                "jawaban_ai_salah",
+            )
+
+        elif filter_status == "Selesai":
+
+            query = query.eq(
+                "status_evaluasi",
+                "selesai",
+            )
+
+        response = (
+            query
+            .order(
+                "laporan_at",
+                desc=True,
+            )
+            .limit(100)
+            .execute()
+        )
+
+        laporan = response.data or []
+
+    except Exception as e:
+        st.error(
+            f"Gagal mengambil laporan AI: {e}"
+        )
+        return
+
+    if not laporan:
+        st.info(
+            "Belum ada jawaban AI "
+            "yang dilaporkan."
+        )
+        return
+
+    st.caption(
+        f"{len(laporan)} laporan ditemukan"
+    )
+
+    for nomor, item in enumerate(
+        laporan,
+        start=1,
+    ):
+
+        status_sekarang = (
+            item.get("status_evaluasi")
+            or "belum_ditinjau"
+        )
+
+        pertanyaan = (
+            item.get("pertanyaan")
+            or "-"
+        )
+
+        with st.expander(
+            f"#{nomor} • "
+            f"{status_sekarang} • "
+            f"{pertanyaan[:80]}",
+            expanded=False,
+        ):
+
+            st.markdown(
+                "#### ❓ Pertanyaan"
+            )
+
+            st.write(
+                pertanyaan
+            )
+
+            st.markdown(
+                "#### 🤖 Jawaban AI"
+            )
+
+            st.write(
+                item.get("jawaban")
+                or "-"
+            )
+
+            st.markdown(
+                "#### 🚩 Laporan"
+            )
+
+            st.write(
+                "**Kategori:**",
+                item.get(
+                    "kategori_laporan"
+                )
+                or "-"
+            )
+
+            st.write(
+                "**Alasan:**",
+                item.get(
+                    "alasan_laporan"
+                )
+                or "-"
+            )
+
+            st.markdown(
+                "#### ✅ Jawaban yang diharapkan"
+            )
+
+            st.info(
+                item.get(
+                    "jawaban_yang_diharapkan"
+                )
+                or "Tidak diisi"
+            )
+            jawaban_tes_ulang = (
+                item.get(
+                    "tes_ulang_jawaban"
+                )
+            )
+
+            if jawaban_tes_ulang:
+
+                st.markdown(
+                    "#### 🧪 Hasil Tes Ulang"
+                )
+
+                kolom_lama, kolom_baru = (
+                    st.columns(2)
+                )
+
+                with kolom_lama:
+
+                    st.caption(
+                        "❌ Jawaban sebelumnya"
+                    )
+
+                    st.warning(
+                        item.get("jawaban")
+                        or "-"
+                    )
+
+                with kolom_baru:
+
+                    st.caption(
+                        "🔄 Jawaban setelah perbaikan"
+                    )
+
+                    st.success(
+                        jawaban_tes_ulang
+                    )
+
+                st.caption(
+                    "Tes ulang terakhir: "
+                    f"{item.get('tes_ulang_at') or '-'}"
+                )
+                kolom_berhasil, kolom_masih_salah = st.columns(2)
+
+                with kolom_berhasil:
+                    if st.button(
+                        "✅ Perbaikan Berhasil",
+                        key=f"hasil_baik_{item['id']}",
+                        use_container_width=True,
+                    ):
+
+                        berhasil = simpan_evaluasi_ai(
+                            item["id"],
+                            "selesai",
+                            (
+                                catatan.strip()
+                                or "Hasil tes ulang sudah sesuai."
+                            ),
+                        )
+
+                        if berhasil:
+                            st.success(
+                                "Perbaikan dinyatakan berhasil."
+                            )
+                            st.rerun()
+                        else:
+                            st.error(
+                                "Status belum berhasil disimpan."
+                            )
+
+                with kolom_masih_salah:
+                    if st.button(
+                        "❌ Masih Salah",
+                        key=f"hasil_salah_{item['id']}",
+                        use_container_width=True,
+                    ):
+
+                        berhasil = simpan_evaluasi_ai(
+                            item["id"],
+                            "jawaban_ai_salah",
+                            (
+                                catatan.strip()
+                                or "Hasil tes ulang masih belum sesuai."
+                            ),
+                        )
+
+                        if berhasil:
+                            st.warning(
+                                "Laporan tetap dibuka untuk perbaikan."
+                            )
+                            st.rerun()
+                        else:
+                            st.error(
+                                "Status belum berhasil disimpan."
+                            )
+            with st.expander(
+                "📚 Data teknis AI",
+                expanded=False,
+            ):
+                st.write(
+                    "Sumber:",
+                    item.get("sumber")
+                    or [],
+                )
+
+                st.write(
+                    "Tool:",
+                    item.get("tool_log")
+                    or [],
+                )
+
+            daftar_status = [
+                "belum_ditinjau",
+                "perlu_knowledge",
+                "perlu_retrieval",
+                "perlu_tool",
+                "perlu_prompt",
+                "jawaban_ai_salah",
+                "selesai",
+            ]
+
+            try:
+                index_status = (
+                    daftar_status.index(
+                        status_sekarang
+                    )
+                )
+            except ValueError:
+                index_status = 0
+
+            status_baru = st.selectbox(
+                "Hasil evaluasi",
+                daftar_status,
+                index=index_status,
+                key=(
+                    f"status_eval_"
+                    f"{item['id']}"
+                ),
+            )
+
+            catatan = st.text_area(
+                "Catatan evaluasi",
+                value=(
+                    item.get(
+                        "catatan_evaluasi"
+                    )
+                    or ""
+                ),
+                placeholder=(
+                    "Contoh: knowledge BKD "
+                    "PUBBM belum terambil "
+                    "oleh retrieval."
+                ),
+                key=(
+                    f"catatan_eval_"
+                    f"{item['id']}"
+                ),
+            )
+
+            if st.button(
+                "💾 Simpan evaluasi",
+                key=(
+                    f"simpan_eval_"
+                    f"{item['id']}"
+                ),
+            ):
+
+                berhasil = (
+                    simpan_evaluasi_ai(
+                        item["id"],
+                        status_baru,
+                        catatan.strip(),
+                    )
+                )
+
+                if berhasil:
+                    st.success(
+                        "Evaluasi berhasil "
+                        "disimpan."
+                    )
+                else:
+                    st.error(
+                        "Evaluasi gagal "
+                        "disimpan."
+                    )
+            kolom_selesai, kolom_buka, kolom_tes = st.columns(3)
+
+            with kolom_selesai:
+                if st.button(
+                    "✅ Tandai Selesai",
+                    key=f"selesai_eval_{item['id']}",
+                    use_container_width=True,
+                ):
+
+                    berhasil = simpan_evaluasi_ai(
+                        item["id"],
+                        "selesai",
+                        catatan.strip(),
+                    )
+
+                    if berhasil:
+                        st.success(
+                            "Laporan ditandai selesai."
+                        )
+                        st.rerun()
+                    else:
+                        st.error(
+                            "Status belum berhasil diperbarui."
+                        )
+
+            with kolom_buka:
+                if st.button(
+                    "🔄 Buka Lagi",
+                    key=f"buka_eval_{item['id']}",
+                    use_container_width=True,
+                ):
+
+                    berhasil = simpan_evaluasi_ai(
+                        item["id"],
+                        "belum_ditinjau",
+                        catatan.strip(),
+                    )
+
+                    if berhasil:
+                        st.success(
+                            "Laporan dibuka kembali."
+                        )
+                        st.rerun()
+                    else:
+                        st.error(
+                            "Status belum berhasil diperbarui."
+                        )
+            with kolom_tes:
+                if st.button(
+                    "🧪 Tes Ulang",
+                    key=f"tes_ulang_eval_{item['id']}",
+                    use_container_width=True,
+                ):
+
+                    st.session_state[
+                        "ai_saran_dipilih"
+                    ] = (
+                        item.get("pertanyaan")
+                        or ""
+                    )
+
+                    # Simpan ID laporan yang sedang dites ulang
+                    st.session_state[
+                        "ai_tes_ulang_asal_id"
+                    ] = item["id"]
+
+                    st.rerun()
 def render_sumber_ai(pesan):
     daftar_sumber = pesan.get("sumber") or []
 
@@ -9517,38 +10325,122 @@ def render_sumber_ai(pesan):
 
 
 def render_feedback_ai(index, pesan):
-    log_id = pesan.get("log_id")
 
-    if not log_id or not ai_log_aktif():
+    # =============================================
+    # JIKA SUDAH DILAPORKAN
+    # =============================================
+    if pesan.get("dilaporkan"):
+
+        st.success(
+            "🚩 Jawaban ini sudah dilaporkan "
+            "untuk evaluasi AI."
+        )
         return
 
-    if hasattr(st, "feedback"):
-        nilai = st.feedback("thumbs", key=f"ai_feedback_{index}")
-
-        if nilai is not None:
-            teks_nilai = (
-                "membantu"
-                if int(nilai) == 1
-                else "tidak_membantu"
-            )
-            if pesan.get("feedback") != teks_nilai:
-                pesan["feedback"] = teks_nilai
-                simpan_feedback_ai(log_id, teks_nilai)
-        return
-
-    kolom1, kolom2 = st.columns(2)
-
-    if kolom1.button("👍 Membantu", key=f"ai_feedback_up_{index}"):
-        pesan["feedback"] = "membantu"
-        simpan_feedback_ai(log_id, "membantu")
-
-    if kolom2.button(
-        "👎 Tidak membantu",
-        key=f"ai_feedback_down_{index}",
+    # =============================================
+    # LAPORKAN JAWABAN
+    # =============================================
+    with st.expander(
+        "🚩 Laporkan jawaban",
+        expanded=False,
     ):
-        pesan["feedback"] = "tidak_membantu"
-        simpan_feedback_ai(log_id, "tidak_membantu")
 
+        kategori = st.selectbox(
+            "Masalah pada jawaban",
+            [
+                "Jawaban tidak masuk akal",
+                "Salah data",
+                "Salah regulasi / metode",
+                "Tidak menjawab pertanyaan",
+                "Sumber tidak sesuai",
+                "Perhitungan salah",
+                "Lainnya",
+            ],
+            key=f"ai_report_category_{index}",
+        )
+
+        jawaban_benar = st.text_area(
+            "Jawaban yang benar seharusnya:",
+            placeholder=(
+                "Contoh: BKD PUBBM adalah ±0,5% "
+                "sesuai Kepdirjen PKTN Nomor 5 Tahun 2026."
+            ),
+            key=f"ai_report_expected_{index}",
+        )
+
+        if st.button(
+            "🚩 Kirim laporan",
+            key=f"ai_report_submit_{index}",
+            use_container_width=True,
+            type="primary",
+        ):
+
+            if not jawaban_benar.strip():
+
+                st.warning(
+                    "Silakan isi jawaban yang benar "
+                    "terlebih dahulu."
+                )
+
+                return
+
+            log_baru_id = simpan_laporan_ai(
+                pertanyaan=(
+                    pesan.get("pertanyaan")
+                    or ""
+                ),
+                jawaban=(
+                    pesan.get("content")
+                    or ""
+                ),
+                kategori=kategori,
+                jawaban_yang_diharapkan=(
+                    jawaban_benar.strip()
+                ),
+                sumber=(
+                    pesan.get("sumber")
+                    or []
+                ),
+                query_retrieval=(
+                    pesan.get(
+                        "query_retrieval",
+                        "",
+                    )
+                ),
+                tool_log=(
+                    pesan.get(
+                        "tool_log",
+                        [],
+                    )
+                ),
+                latency=(
+                    pesan.get(
+                        "latency_detik"
+                    )
+                ),
+            )
+
+            if log_baru_id:
+
+                pesan["log_id"] = (
+                    log_baru_id
+                )
+
+                pesan["dilaporkan"] = True
+
+                st.success(
+                    "Laporan berhasil disimpan "
+                    "ke Panel Evaluasi AI."
+                )
+
+                st.rerun()
+
+            else:
+
+                st.error(
+                    "Laporan belum berhasil "
+                    "disimpan."
+                )
 
 def arsipkan_chat_aktif_ai():
     riwayat = st.session_state.get("ai_riwayat") or []
@@ -10063,23 +10955,66 @@ def render_chat(tampilkan_di_sidebar=True):
 
     sumber = st.session_state.get("ai_sumber_terakhir") or []
 
-    log_id = catat_log_ai(
-        pertanyaan,
-        jawaban,
-        st.session_state.get("ai_query_rewrite", ""),
-        sumber,
-        st.session_state.get("ai_tool_log", []),
-        st.session_state.get("ai_latency"),
+    log_id = None
+    # =============================================
+    # SIMPAN HASIL TES ULANG
+    # =============================================
+    log_asal_tes_ulang = (
+        st.session_state.pop(
+            "ai_tes_ulang_asal_id",
+            None,
+        )
     )
 
+    if log_asal_tes_ulang:
+
+        simpan_hasil_tes_ulang_ai(
+            log_asal_tes_ulang,
+            log_id,
+            jawaban,
+        )
     st.session_state.ai_riwayat.append({
         "role": "assistant",
         "content": jawaban,
         "log_id": log_id,
         "feedback": None,
         "sumber": sumber,
-    })
 
+        # Simpan pertanyaan hanya di session
+        # agar tersedia jika pengguna melaporkan jawaban.
+        "pertanyaan": pertanyaan,
+
+        "query_retrieval": (
+            st.session_state.get(
+                "ai_query_rewrite",
+                "",
+            )
+        ),
+
+        "tool_log": (
+            st.session_state.get(
+                "ai_tool_log",
+                [],
+            )
+        ),
+
+        "latency_detik": (
+            st.session_state.get(
+                "ai_latency"
+            )
+        ),
+    })
+    # =============================================
+    # FEEDBACK & LAPORAN UNTUK JAWABAN BARU
+    # =============================================
+    pesan_baru = (
+        st.session_state.ai_riwayat[-1]
+    )
+
+    render_feedback_ai(
+        len(st.session_state.ai_riwayat) - 1,
+        pesan_baru,
+    )
     if ai_debug_aktif():
         with st.expander("🔎 Detail pencarian", expanded=False):
             st.write(
