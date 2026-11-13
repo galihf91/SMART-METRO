@@ -6319,8 +6319,13 @@ def run():
                 ] = kelas_final
             
             else:
-                # === Kapasitas Maksimum ===
+                # =====================================================
+                # KAPASITAS MAKSIMUM
+                # =====================================================
+                st.markdown("**Kap. Maks**")
+
                 col_val, col_unit = st.columns([3, 1])
+
                 with col_val:
                     st.text_input(
                         "Kapasitas Maksimum",
@@ -6329,6 +6334,7 @@ def run():
                         on_change=update_class,
                         label_visibility="collapsed",
                     )
+
                 with col_unit:
                     st.selectbox(
                         "Satuan",
@@ -6338,7 +6344,11 @@ def run():
                         label_visibility="collapsed",
                     )
 
-                # === Daya Baca ===
+                # =====================================================
+                # DAYA BACA
+                # =====================================================
+                st.markdown("**Daya Baca**")
+
                 col_val, col_unit = st.columns([3, 1])
 
                 with col_val:
@@ -6351,14 +6361,13 @@ def run():
                             if is_timbangan_elektronik
                             else sinkronkan_daya_baca_interval
                         ),
-                        label_visibility="collapsed"
+                        label_visibility="collapsed",
                     )
 
                 with col_unit:
                     st.markdown(
                         f"**{st.session_state.tb_satuan_kapasitas_max}**"
                     )
-
 
                 # Untuk alat selain Timbangan Elektronik,
                 # interval skala selalu sama dengan daya baca.
@@ -6370,8 +6379,11 @@ def run():
                         )
                     )
 
+                # =====================================================
+                # INTERVAL SKALA VERIFIKASI
+                # =====================================================
+                st.markdown("**Interval Skala Verifikasi**")
 
-                # === Interval Skala Verifikasi ===
                 col_val, col_unit = st.columns([3, 1])
 
                 with col_val:
@@ -6384,7 +6396,7 @@ def run():
                             key="tb_interval_skala_input",
                             on_change=update_class,
                             help="Interval Skala Verifikasi (e).",
-                            label_visibility="collapsed"
+                            label_visibility="collapsed",
                         )
 
                     else:
@@ -6396,29 +6408,22 @@ def run():
                                 "Interval Skala Verifikasi otomatis "
                                 "sama dengan Daya Baca."
                             ),
-                            label_visibility="collapsed"
+                            label_visibility="collapsed",
                         )
 
-                with col_unit:
-                    st.markdown(
-                        f"**{st.session_state.tb_satuan_kapasitas_max}**"
-                    )
+                # =====================================================
+                # MINIMUM MENIMBANG
+                # =====================================================
+                st.markdown("**Minimum Menimbang**")
 
-                # =========================================================
-                # KAPASITAS MINIMUM
-                # Nilai mengikuti kelas yang saat ini aktif.
-                # Jangan panggil update_class() di sini karena akan
-                # menimpa pilihan kelas manual user saat setiap rerun.
-                # =========================================================
-                
                 min_kg = st.session_state.get(
                     "tb_kapasitas_min_kg",
-                    0.0
+                    0.0,
                 )
 
                 satuan = st.session_state.get(
                     "tb_satuan_kapasitas_max",
-                    "kg"
+                    "kg",
                 )
 
                 formatted = (
@@ -6427,17 +6432,18 @@ def run():
                     else ""
                 )
 
-                # Sinkronkan nilai widget dengan hasil perhitungan terbaru
-                st.session_state["tb_kapasitas_min_tampil"] = formatted
+                st.session_state[
+                    "tb_kapasitas_min_tampil"
+                ] = formatted
 
                 col_val, col_unit = st.columns([3, 1])
 
                 with col_val:
                     st.text_input(
-                        "Kapasitas Minimum",
+                        "Minimum Menimbang",
                         disabled=True,
                         help=(
-                            "Kapasitas minimum dihitung berdasarkan "
+                            "Minimum menimbang dihitung berdasarkan "
                             "kelas: faktor × interval skala (e)."
                         ),
                         key="tb_kapasitas_min_tampil",
@@ -6449,34 +6455,37 @@ def run():
 
                 kapasitas_max_kg = get_input_kg(
                     "kapasitas_max_input",
-                    0.0
+                    0.0,
                 )
 
                 daya_baca_kg = get_input_kg(
                     "daya_baca_input",
-                    0.0
+                    0.0,
                 )
 
                 if is_timbangan_elektronik:
                     interval_skala_kg = get_input_kg(
                         "interval_skala_input",
-                        0.0
+                        0.0,
                     )
                 else:
-                    # Alat selain Timbangan Elektronik: e = d
                     interval_skala_kg = daya_baca_kg
+
                 kelas_final = st.session_state.get(
                     "tb_kelas",
-                    "III"
+                    "III",
                 )
+
                 kapasitas_min_final = st.session_state.get(
                     "tb_kapasitas_min_kg",
-                    0.0
+                    0.0,
                 )
+
                 status_kelas = st.session_state.get(
                     "tb_kelas_status",
-                    ""
-                )
+                    "",
+                )                                              
+
         st.markdown("---")
 
         # ======================== KELAS & JENIS PENGUJIAN ========================
