@@ -1500,16 +1500,11 @@ def simpan_pengujian_kwh_ke_supabase(
             )
         )
 
-        berlaku_sampai = (
-            parse_tanggal_kwh(
-                data.get(
-                    "berlaku_sampai"
-                ),
-                tambah_tahun(
-                    tanggal_pengujian,
-                    10,
-                ),
-            )
+        # Berlaku sampai WAJIB mengacu
+        # pada tanggal pengujian
+        berlaku_sampai = tambah_tahun(
+            tanggal_pengujian,
+            10,
         )
 
         kecamatan = (
@@ -2544,7 +2539,80 @@ def gunakan_data_lama_untuk_edit_kwh(
     st.session_state[
         "data_kwh"
     ] = data_riwayat
+    # =====================================================
+    # KEMBALIKAN PENERA DARI RIWAYAT
+    # =====================================================
+    penera_1_lama = str(
+        data_riwayat.get(
+            "penera_1",
+            ""
+        )
+        or ""
+    ).strip()
 
+    penera_2_lama = str(
+        data_riwayat.get(
+            "penera_2",
+            ""
+        )
+        or ""
+    ).strip()
+
+    st.session_state[
+        "penera_1_kwh_select"
+    ] = penera_1_lama
+
+    st.session_state[
+        "penera_2_kwh_select"
+    ] = penera_2_lama
+
+    st.session_state[
+        "nip_penera_1_kwh"
+    ] = str(
+        data_riwayat.get(
+            "nip_penera_1",
+            ""
+        )
+        or ""
+    ).strip()
+
+    st.session_state[
+        "golongan_penera_1_kwh"
+    ] = str(
+        data_riwayat.get(
+            "golongan_penera_1",
+            ""
+        )
+        or ""
+    ).strip()
+
+    st.session_state[
+        "nip_penera_2_kwh"
+    ] = str(
+        data_riwayat.get(
+            "nip_penera_2",
+            ""
+        )
+        or ""
+    ).strip()
+
+    st.session_state[
+        "golongan_penera_2_kwh"
+    ] = str(
+        data_riwayat.get(
+            "golongan_penera_2",
+            ""
+        )
+        or ""
+    ).strip()
+
+    st.session_state[
+        "jumlah_penera_kwh"
+    ] = (
+        2
+        if penera_2_lama
+        else 1
+    )
     st.session_state[
         "kwh_edit_pengujian_id"
     ] = pengujian_id
@@ -3031,9 +3099,8 @@ def run():
             tanggal_pengujian = (
                 st.date_input(
                     "Tanggal Pengujian",
-                    key=(
-                        "tanggal_pengujian_kwh"
-                    ),
+                    key="tanggal_pengujian_kwh",
+                    on_change=update_nomor_dokumen_kwh,
                 )
             )
 
@@ -3416,10 +3483,19 @@ def run():
             )
 
         with col_pengujian2:
-            berlaku_sampai = st.date_input(
+            berlaku_sampai = tambah_tahun(
+                tanggal_pengujian,
+                10,
+            )
+
+            st.date_input(
                 "Berlaku Sampai",
-                key="berlaku_sampai_kwh",
+                value=berlaku_sampai,
                 disabled=True,
+                key=(
+                    "berlaku_sampai_kwh_"
+                    f"{tanggal_pengujian.isoformat()}"
+                ),
             )
 
         st.markdown("---")
