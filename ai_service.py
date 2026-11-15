@@ -457,7 +457,7 @@ def init_client():
 SPBU = {
     "tabel": "spbu",
     "kolom_nomor": "nomor_spbu",
-    "kolom_nama": "nama",
+    "kolom_nama": "nama_spbu",
     "kolom_alamat": "alamat",
     "kolom_kecamatan": "kecamatan",
 }
@@ -476,9 +476,14 @@ TOOLS = [
         "function": {
             "name": "hitung_spbu",
             "description": (
-                "Menghitung jumlah SPBU dari tabel spbu, bisa difilter "
-                "per kecamatan. WAJIB dipakai untuk SEMUA pertanyaan "
-                "jumlah SPBU. Jangan pakai hitung_aset untuk SPBU."
+                "Menghitung dan menampilkan daftar SPBU dari tabel spbu. "
+                "Bisa difilter berdasarkan kecamatan. "
+                "WAJIB digunakan untuk pertanyaan jumlah SPBU maupun "
+                "pertanyaan daftar SPBU seperti 'SPBU apa saja', "
+                "'sebutkan SPBU', atau 'SPBU yang ada di Kecamatan Balaraja'. "
+                "Tool mengembalikan nomor SPBU, nama SPBU, alamat, "
+                "kecamatan, dan jumlah SPBU. "
+                "Jangan gunakan hitung_aset untuk SPBU."
             ),
             "parameters": {
                 "type": "object",
@@ -568,21 +573,36 @@ TOOLS = [
         "function": {
             "name": "status_pasar",
             "description": (
-                "Membaca status sidang tera ulang pasar berdasarkan tahun. "
-                "Gunakan untuk pertanyaan jumlah pasar sudah tera, belum tera, "
-                "atau daftar pasar yang belum melaksanakan tera ulang."
+                "Membaca master pasar dan status sidang tera ulang pasar. "
+                "Gunakan untuk pertanyaan jumlah pasar, daftar nama pasar, "
+                "pasar pada kecamatan tertentu, pasar yang sudah tera, "
+                "atau pasar yang belum melaksanakan tera ulang."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "tahun": {
                         "type": "integer",
-                        "description": "Tahun pelaksanaan, misalnya 2026.",
+                        "description": (
+                            "Tahun pelaksanaan, misalnya 2026."
+                        ),
                     },
+
+                    "kecamatan": {
+                        "type": "string",
+                        "description": (
+                            "Nama kecamatan, misalnya Balaraja, "
+                            "Cikupa, Curug, atau Pasar Kemis. "
+                            "Kosongkan untuk seluruh kabupaten."
+                        ),
+                    },
+
                     "mode": {
                         "type": "string",
                         "description": (
                             "Gunakan 'ringkasan' untuk jumlah sudah/belum tera, "
+                            "'daftar' untuk daftar seluruh pasar, "
+                            "'sudah_tera' untuk daftar pasar yang sudah tera, "
                             "atau 'belum_tera' untuk daftar pasar belum tera."
                         ),
                     },
@@ -596,11 +616,13 @@ TOOLS = [
         "function": {
             "name": "rekap_timbangan_pasar",
             "description": (
-                "Menghitung jumlah timbangan pada kegiatan tera ulang pasar. "
-                "Bisa menghitung total seluruh timbangan atau per jenis seperti "
-                "Timbangan Pegas, Timbangan Meja, Timbangan Elektronik, "
-                "Sentisimal, Bobot Ingsut, Neraca, atau Dacin. "
-                "Bisa difilter berdasarkan tahun dan nama pasar."
+                "Menghitung dan membandingkan jumlah timbangan "
+                "pada kegiatan tera ulang pasar. "
+                "Dapat menghitung total seluruh pasar, per pasar, "
+                "per jenis timbangan, serta membuat peringkat pasar "
+                "berdasarkan jumlah timbangan yang ditera. "
+                "Gunakan untuk pertanyaan seperti 'pasar mana yang "
+                "paling banyak memiliki timbangan ditera'."
             ),
             "parameters": {
                 "type": "object",
@@ -621,6 +643,22 @@ TOOLS = [
                         "type": "string",
                         "description": (
                             "Nama pasar. Kosongkan untuk seluruh pasar."
+                        ),
+                    },
+                    "mode": {
+                        "type": "string",
+                        "description": (
+                            "Gunakan 'jumlah' untuk menghitung total, "
+                            "atau 'peringkat' untuk menampilkan pasar "
+                            "dengan jumlah timbangan terbanyak."
+                        ),
+                    },
+
+                    "batas": {
+                        "type": "integer",
+                        "description": (
+                            "Jumlah pasar yang ditampilkan pada mode "
+                            "peringkat. Default 10."
                         ),
                     },
                 },
@@ -1429,29 +1467,78 @@ def _cari_id_perusahaan(supabase, nama):
 
 
 def tool_hitung_spbu(argumen, supabase):
-    kecamatan_mentah = str(argumen.get("kecamatan") or "").strip()
-    kecamatan = bersihkan_teks_ai(kecamatan_mentah)
+    kecamatan_mentah = str(
+        argumen.get("kecamatan") or ""
+    ).strip()
+
+    kecamatan = bersihkan_teks_ai(
+        kecamatan_mentah
+    )
 
     if kecamatan_mentah and not kecamatan:
-        return {"error": "Nama kecamatan tidak valid."}
+        return {
+            "error": "Nama kecamatan tidak valid."
+        }
 
-    query = supabase.table(SPBU["tabel"]).select("id", count="exact")
+    query = (
+        supabase
+        .table(SPBU["tabel"])
+        .select(
+            "id, nomor_spbu, nama_spbu, "
+            "alamat, kecamatan",
+            count="exact",
+        )
+    )
 
-    if kecamatan and SPBU.get("kolom_kecamatan"):
+    if kecamatan:
         query = query.ilike(
             SPBU["kolom_kecamatan"],
             f"%{kecamatan}%",
         )
 
-    response = query.execute()
+    response = (
+        query
+        .order("nomor_spbu")
+        .execute()
+    )
+
+    data = response.data or []
+
+    daftar = []
+
+    for row in data:
+        daftar.append({
+            "nomor_spbu": (
+                row.get("nomor_spbu")
+                or ""
+            ),
+            "nama_spbu": (
+                row.get("nama_spbu")
+                or ""
+            ),
+            "alamat": (
+                row.get("alamat")
+                or ""
+            ),
+            "kecamatan": (
+                row.get("kecamatan")
+                or ""
+            ),
+        })
 
     return {
-        "jumlah_spbu": response.count or 0,
-        "wilayah": kecamatan or "Kabupaten Tangerang (seluruh kecamatan)",
+        "jumlah_spbu": (
+            response.count
+            if response.count is not None
+            else len(data)
+        ),
+        "wilayah": (
+            kecamatan
+            or "Kabupaten Tangerang"
+        ),
+        "daftar_spbu": daftar,
         "sumber": "tabel spbu di database",
     }
-
-
 
 def tool_hitung_aset(argumen, supabase):
     kata_mentah = str(argumen.get("kata_kunci") or "").strip()
@@ -1566,6 +1653,32 @@ def tool_hitung_pengujian(argumen, supabase):
         "perusahaan": nama_perusahaan or "semua perusahaan",
     }
 
+def jenis_jawaban_pimpinan_ai(
+    pertanyaan,
+):
+
+    if st.session_state.get(
+        "ai_mode",
+        "Umum",
+    ) != "Pimpinan":
+        return "umum"
+
+    teks = str(
+        pertanyaan or ""
+    ).lower().strip()
+
+    # =====================================================
+    # EXECUTIVE SUMMARY HANYA UNTUK PERTANYAAN MENYELURUH
+    # =====================================================
+    if perlu_executive_summary_ai(
+        pertanyaan
+    ):
+        return "executive_summary"
+
+    # =====================================================
+    # SELAIN ITU = JAWABAN SPESIFIK
+    # =====================================================
+    return "spesifik"
 
 def tool_cari_pengujian(argumen, supabase):
     nomor_mentah = str(argumen.get("nomor") or "").strip()
@@ -1672,33 +1785,68 @@ def tool_status_pasar(
     supabase,
 ):
 
-    tahun_mentah = argumen.get(
-        "tahun"
-    )
-
     tahun = angka_bulat_ai(
-        tahun_mentah,
+        argumen.get("tahun"),
         hari_ini_wib().year,
         2000,
         2100,
     )
 
     mode = str(
-        argumen.get(
-            "mode"
-        )
+        argumen.get("mode")
         or "ringkasan"
     ).strip().lower()
 
+    kecamatan_mentah = str(
+        argumen.get("kecamatan")
+        or ""
+    ).strip()
+
+    kecamatan = bersihkan_teks_ai(
+        kecamatan_mentah
+    )
+
+    if kecamatan_mentah and not kecamatan:
+        return {
+            "error": "Nama kecamatan tidak valid."
+        }
+
+    mode_valid = {
+        "ringkasan",
+        "daftar",
+        "sudah_tera",
+        "belum_tera",
+    }
+
+    if mode not in mode_valid:
+        return {
+            "error": (
+                "Mode tidak dikenali. Gunakan "
+                "'ringkasan', 'daftar', "
+                "'sudah_tera', atau 'belum_tera'."
+            )
+        }
+
     # =====================================================
-    # MASTER PASAR
+    # 1. MASTER PASAR
     # =====================================================
-    response_pasar = (
+    query_pasar = (
         supabase
         .table("pasar")
         .select(
             "id, nama_pasar, kecamatan, status"
         )
+    )
+
+    if kecamatan:
+        query_pasar = query_pasar.ilike(
+            "kecamatan",
+            f"%{kecamatan}%",
+        )
+
+    response_pasar = (
+        query_pasar
+        .order("nama_pasar")
         .execute()
     )
 
@@ -1707,6 +1855,9 @@ def tool_status_pasar(
         or []
     )
 
+    # =====================================================
+    # 2. HANYA PASAR AKTIF
+    # =====================================================
     pasar_aktif = [
         p
         for p in daftar_pasar
@@ -1721,14 +1872,15 @@ def tool_status_pasar(
     ]
 
     # =====================================================
-    # DATA PELAKSANAAN TAHUN TERPILIH
+    # 3. DATA PELAKSANAAN TAHUN TERPILIH
     # =====================================================
     response_tahunan = (
         supabase
         .table("pasar_tahunan")
         .select(
-            "pasar_id, tahun, total_uttp, total_pedagang, "
-            "tanggal_pelaksanaan, jumlah_hari"
+            "pasar_id, tahun, total_uttp, "
+            "total_pedagang, tanggal_pelaksanaan, "
+            "jumlah_hari"
         )
         .eq(
             "tahun",
@@ -1742,64 +1894,160 @@ def tool_status_pasar(
         or []
     )
 
-    pasar_sudah = {
-        row.get(
-            "pasar_id"
-        )
+    peta_tahunan = {
+        row.get("pasar_id"): row
         for row in data_tahun
-        if row.get(
-            "pasar_id"
-        ) is not None
+        if row.get("pasar_id") is not None
     }
 
-    belum_tera = [
-        {
-            "nama_pasar": p.get(
-                "nama_pasar"
-            ),
-            "kecamatan": p.get(
-                "kecamatan"
-            ),
-        }
-        for p in pasar_aktif
-        if p.get(
-            "id"
+    # =====================================================
+    # 4. SUSUN DETAIL PASAR
+    # =====================================================
+    daftar_detail = []
+
+    for pasar in pasar_aktif:
+
+        pasar_id = pasar.get("id")
+
+        pelaksanaan = (
+            peta_tahunan.get(
+                pasar_id
+            )
+            or {}
         )
-        not in pasar_sudah
+
+        sudah_tera = (
+            pasar_id
+            in peta_tahunan
+        )
+
+        daftar_detail.append({
+            "nama_pasar": (
+                pasar.get("nama_pasar")
+                or ""
+            ),
+            "kecamatan": (
+                pasar.get("kecamatan")
+                or ""
+            ),
+            "status_tera_ulang": (
+                "Sudah Tera"
+                if sudah_tera
+                else "Belum Tera"
+            ),
+            "tanggal_pelaksanaan": (
+                pelaksanaan.get(
+                    "tanggal_pelaksanaan"
+                )
+            ),
+            "jumlah_uttp": (
+                pelaksanaan.get(
+                    "total_uttp"
+                )
+                or 0
+            ),
+            "jumlah_pedagang": (
+                pelaksanaan.get(
+                    "total_pedagang"
+                )
+                or 0
+            ),
+            "jumlah_hari": (
+                pelaksanaan.get(
+                    "jumlah_hari"
+                )
+                or 0
+            ),
+        })
+
+    # =====================================================
+    # 5. HITUNG STATUS
+    # =====================================================
+    daftar_sudah = [
+        row
+        for row in daftar_detail
+        if row.get(
+            "status_tera_ulang"
+        ) == "Sudah Tera"
     ]
 
-    jumlah_total = len(
-        pasar_aktif
-    )
+    daftar_belum = [
+        row
+        for row in daftar_detail
+        if row.get(
+            "status_tera_ulang"
+        ) == "Belum Tera"
+    ]
 
-    jumlah_sudah = len(
-        [
-            p
-            for p in pasar_aktif
-            if p.get("id")
-            in pasar_sudah
-        ]
-    )
+    # =====================================================
+    # 6. MODE DAFTAR
+    # =====================================================
+    if mode == "daftar":
 
-    jumlah_belum = len(
-        belum_tera
-    )
+        return {
+            "tahun": tahun,
+            "kecamatan": (
+                kecamatan
+                or "seluruh kecamatan"
+            ),
+            "jumlah_pasar": len(
+                daftar_detail
+            ),
+            "daftar": daftar_detail,
+        }
 
+    # =====================================================
+    # 7. MODE SUDAH TERA
+    # =====================================================
+    if mode == "sudah_tera":
+
+        return {
+            "tahun": tahun,
+            "kecamatan": (
+                kecamatan
+                or "seluruh kecamatan"
+            ),
+            "jumlah_sudah_tera": len(
+                daftar_sudah
+            ),
+            "daftar": daftar_sudah,
+        }
+
+    # =====================================================
+    # 8. MODE BELUM TERA
+    # =====================================================
     if mode == "belum_tera":
 
         return {
             "tahun": tahun,
-            "jumlah_belum_tera": (
-                jumlah_belum
+            "kecamatan": (
+                kecamatan
+                or "seluruh kecamatan"
             ),
-            "daftar": belum_tera,
+            "jumlah_belum_tera": len(
+                daftar_belum
+            ),
+            "daftar": daftar_belum,
         }
 
+    # =====================================================
+    # 9. MODE RINGKASAN
+    # =====================================================
     return {
         "tahun": tahun,
-        "total_pasar": jumlah_total,
-        "sudah_tera": jumlah_sudah,
-        "belum_tera": jumlah_belum,
+        "kecamatan": (
+            kecamatan
+            or "seluruh kecamatan"
+        ),
+        "total_pasar": len(
+            daftar_detail
+        ),
+        "sudah_tera": len(
+            daftar_sudah
+        ),
+        "belum_tera": len(
+            daftar_belum
+        ),
     }
 
 def tool_rekap_timbangan_pasar(
@@ -1841,7 +2089,17 @@ def tool_rekap_timbangan_pasar(
     nama_pasar = bersihkan_teks_ai(
         nama_pasar_mentah
     )
+    mode = str(
+        argumen.get("mode")
+        or "jumlah"
+    ).strip().lower()
 
+    batas = angka_bulat_ai(
+        argumen.get("batas"),
+        10,
+        1,
+        50,
+    )
     # =====================================================
     # MAPPING JENIS TIMBANGAN
     # =====================================================
@@ -1899,7 +2157,129 @@ def tool_rekap_timbangan_pasar(
                 "Data pasar tahun tersebut belum tersedia."
             ),
         }
+    # =====================================================
+    # MODE PERINGKAT PASAR
+    # =====================================================
+    if mode == "peringkat":
 
+        # Tentukan indikator yang akan diranking
+        if jenis:
+
+            kolom = mapping_jenis.get(
+                jenis
+            )
+
+            if not kolom:
+                return {
+                    "error": (
+                        f"Jenis timbangan "
+                        f"'{jenis_mentah}' "
+                        "belum dikenali."
+                    )
+                }
+
+            label_jenis = jenis_mentah
+
+        else:
+
+            kolom = "total_uttp"
+            label_jenis = "seluruh timbangan"
+
+        # =================================================
+        # MASTER NAMA PASAR
+        # =================================================
+        ids_pasar = list({
+            row.get("pasar_id")
+            for row in data
+            if row.get("pasar_id") is not None
+        })
+
+        response_pasar = (
+            supabase
+            .table("pasar")
+            .select(
+                "id, nama_pasar, kecamatan"
+            )
+            .in_(
+                "id",
+                ids_pasar,
+            )
+            .execute()
+        )
+
+        peta_pasar = {
+            row.get("id"): row
+            for row in (
+                response_pasar.data
+                or []
+            )
+        }
+
+        # =================================================
+        # HITUNG PER PASAR
+        # =================================================
+        hasil = []
+
+        for row in data:
+
+            pasar_id = row.get(
+                "pasar_id"
+            )
+
+            pasar = peta_pasar.get(
+                pasar_id,
+                {},
+            )
+
+            jumlah = angka_bulat_ai(
+                row.get(kolom),
+                0,
+                0,
+                None,
+            )
+
+            hasil.append({
+                "nama_pasar": (
+                    pasar.get("nama_pasar")
+                    or "Pasar tidak teridentifikasi"
+                ),
+                "kecamatan": (
+                    pasar.get("kecamatan")
+                    or ""
+                ),
+                "jumlah": (
+                    jumlah
+                    if jumlah is not None
+                    else 0
+                ),
+            })
+
+        # =================================================
+        # URUTKAN TERBANYAK
+        # =================================================
+        hasil.sort(
+            key=lambda x: x.get(
+                "jumlah",
+                0,
+            ),
+            reverse=True,
+        )
+
+        hasil = hasil[:batas]
+
+        return {
+            "tahun": tahun,
+            "jenis": label_jenis,
+            "jumlah_pasar": len(
+                hasil
+            ),
+            "hasil": hasil,
+            "pasar_terbanyak": (
+                hasil[0]
+                if hasil
+                else None
+            ),
+        }
     # =====================================================
     # FILTER NAMA PASAR
     # =====================================================
@@ -6469,7 +6849,7 @@ def tool_ringkasan_eksekutif_metrologi(
     )
 
     # =====================================================
-    # 4. PRIORITAS PENGAWASAN
+    # 4a. PRIORITAS PENGAWASAN
     # =====================================================
     pengawasan = tool_prioritas_pengawasan(
         {
@@ -6478,7 +6858,112 @@ def tool_ringkasan_eksekutif_metrologi(
         },
         supabase,
     )
+    # =====================================================
+    # 4b. CAKUPAN PELAYANAN WILAYAH
+    # =====================================================
+    cakupan = tool_analisis_cakupan_pelayanan_kecamatan(
+        {
+            "tahun": tahun,
+            "bulan": bulan,
+            "batas": 5,
+        },
+        supabase,
+    )
+    # =====================================================
+    # 4c. PERBANDINGAN KINERJA
+    # =====================================================
+    hari_ini = hari_ini_wib()
 
+    tren = None
+
+    if bulan:
+        if bulan == 1:
+            tahun_sebelumnya = tahun - 1
+            bulan_sebelumnya = 12
+        else:
+            tahun_sebelumnya = tahun
+            bulan_sebelumnya = bulan - 1
+
+        tren = tool_bandingkan_kinerja_pelayanan(
+            {
+                "tahun_1": tahun_sebelumnya,
+                "bulan_1": bulan_sebelumnya,
+                "tahun_2": tahun,
+                "bulan_2": bulan,
+            },
+            supabase,
+        )
+
+    elif tahun == hari_ini.year:
+        if hari_ini.month > 1:
+            tren = tool_bandingkan_kinerja_pelayanan(
+                {
+                    "tahun_1": tahun,
+                    "bulan_1": hari_ini.month - 1,
+                    "tahun_2": tahun,
+                    "bulan_2": hari_ini.month,
+                },
+                supabase,
+            )
+    # =====================================================
+    # HIGHLIGHT PASAR
+    # =====================================================
+    pasar = tool_status_pasar(
+        {
+            "tahun": tahun,
+            "mode": "ringkasan",
+        },
+        supabase,
+    )
+
+    timbangan_pasar = tool_rekap_timbangan_pasar(
+        {
+            "tahun": tahun,
+        },
+        supabase,
+    )
+
+    pedagang_pasar = tool_rekap_pedagang_pasar(
+        {
+            "tahun": tahun,
+            "jenis_rekap": "pedagang",
+        },
+        supabase,
+    )
+    # =====================================================
+    # HIGHLIGHT SPBU
+    # =====================================================
+    jumlah_spbu = tool_hitung_spbu(
+        {},
+        supabase,
+    )
+
+    pubbm = tool_rekap_pubbm(
+        {
+            "tahun": tahun,
+            "mode": "jumlah",
+        },
+        supabase,
+    )
+
+    spbu_jatuh_tempo = (
+        tool_monitor_jatuh_tempo_spbu(
+            {
+                "status": "akan_jatuh_tempo",
+                "hari": 30,
+            },
+            supabase,
+        )
+    )
+
+    spbu_terlambat = (
+        tool_monitor_jatuh_tempo_spbu(
+            {
+                "status": "terlambat",
+            },
+            supabase,
+        )
+    )
     # =====================================================
     # 5. RINGKASAN STATUS PENGAWASAN
     # =====================================================
@@ -6516,7 +7001,15 @@ def tool_ringkasan_eksekutif_metrologi(
             "pemilik_terbanyak"
         )
     )
-
+    # =====================================================
+    # JUMLAH FISIK METER kWh
+    # =====================================================
+    jumlah_meter_kwh = (
+        kinerja.get(
+            "jumlah_meter_kwh"
+        )
+        or 0
+    )
     # =====================================================
     # 7. HASIL
     # =====================================================
@@ -6590,6 +7083,80 @@ def tool_ringkasan_eksekutif_metrologi(
             ),
         },
 
+        "highlight_strategis": {
+
+            "pasar": {
+                "total_pasar": (
+                    pasar.get(
+                        "total_pasar"
+                    )
+                    or 0
+                ),
+                "sudah_tera": (
+                    pasar.get(
+                        "sudah_tera"
+                    )
+                    or 0
+                ),
+                "belum_tera": (
+                    pasar.get(
+                        "belum_tera"
+                    )
+                    or 0
+                ),
+                "jumlah_timbangan": (
+                    timbangan_pasar.get(
+                        "jumlah"
+                    )
+                    or 0
+                ),
+                "jumlah_pedagang": (
+                    pedagang_pasar.get(
+                        "jumlah"
+                    )
+                    or 0
+                ),
+            },
+
+            "spbu": {
+                "jumlah_spbu": (
+                    jumlah_spbu.get(
+                        "jumlah_spbu"
+                    )
+                    or 0
+                ),
+                "jumlah_nozzle_diuji": (
+                    pubbm.get(
+                        "jumlah_nozzle"
+                    )
+                    or 0
+                ),
+                "spbu_akan_jatuh_tempo": (
+                    spbu_jatuh_tempo.get(
+                        "jumlah"
+                    )
+                    or spbu_jatuh_tempo.get(
+                        "jumlah_spbu"
+                    )
+                    or 0
+                ),
+                "spbu_terlambat": (
+                    spbu_terlambat.get(
+                        "jumlah"
+                    )
+                    or spbu_terlambat.get(
+                        "jumlah_spbu"
+                    )
+                    or 0
+                ),
+            },
+
+            "meter_kwh": {
+                "jumlah_unit": (
+                    jumlah_meter_kwh
+                ),
+            },
+        },
         "pengawasan": {
             "jumlah_terlambat": (
                 jumlah_terlambat
@@ -6604,6 +7171,42 @@ def tool_ringkasan_eksekutif_metrologi(
                 or []
             ),
         },
+        "cakupan_wilayah": {
+            "cakupan_total_persen": (
+                cakupan.get(
+                    "cakupan_total_persen"
+                )
+            ),
+            "jumlah_kecamatan": (
+                cakupan.get(
+                    "jumlah_kecamatan"
+                )
+                or 0
+            ),
+            "wilayah_prioritas": (
+                cakupan.get(
+                    "hasil"
+                )
+                or []
+            ),
+            "catatan": (
+                cakupan.get(
+                    "catatan"
+                )
+            ),
+        },
+
+        "tren_kinerja": (
+            tren
+            if tren
+            else {
+                "tersedia": False,
+                "catatan": (
+                    "Perbandingan periode belum tersedia "
+                    "untuk periode yang diminta."
+                ),
+            }
+        ),
     }
 def tool_deteksi_anomali_data(
     argumen,
@@ -9179,19 +9782,150 @@ def ambil_konteks(pertanyaan, supabase, model, reranker=None):
     return "\n\n".join(potongan)
 
 
+# =========================================================
+# MODE AI PIMPINAN
+# =========================================================
+MODE_AI = {
+    "Umum": {
+        "ikon": "🤖",
+        "keterangan": (
+            "Tanya jawab umum mengenai metrologi, "
+            "pelayanan, pengawasan, dan data SMART METRO."
+        ),
+    },
 
+    "Pimpinan": {
+        "ikon": "📊",
+        "keterangan": (
+            "Analisis dan ringkasan eksekutif untuk bahan pimpinan, "
+            "termasuk laporan kepada Bupati, DPRD, dan Kementerian."
+        ),
+    },
+}
+def instruksi_mode_ai():
+    mode = st.session_state.get(
+        "ai_mode",
+        "Umum",
+    )
+
+    if mode == "Pimpinan":
+        return """
+    MODE: ASISTEN PIMPINAN SMART METRO
+
+    Posisikan jawaban sebagai bahan executive summary
+    bagi pimpinan Dinas Perindustrian dan Perdagangan
+    Kabupaten Tangerang.
+
+    Executive summary dapat digunakan sebagai bahan
+    laporan, rapat, paparan, briefing, atau penyampaian
+    informasi kepada pimpinan daerah, DPRD, maupun
+    instansi pemerintah lainnya.
+
+    Utamakan informasi strategis yang berasal dari
+    data SMART METRO.
+
+    Jika data tersedia, analisis:
+    1. capaian pelayanan;
+    2. jumlah kegiatan pengujian;
+    3. jumlah UTTP yang dilayani;
+    4. jumlah pemilik atau wajib tera yang dilayani;
+    5. jenis UTTP dominan;
+    6. kondisi pengawasan dan masa berlaku;
+    7. cakupan pelayanan wilayah;
+    8. tren atau perbandingan kinerja;
+    9. isu yang membutuhkan perhatian pimpinan;
+    10. rekomendasi tindak lanjut.
+
+    Gunakan struktur:
+
+    EXECUTIVE SUMMARY
+
+    1. Capaian Utama
+    2. Kondisi Pelayanan
+    3. Pengawasan
+    4. Cakupan Wilayah
+    5. Isu Strategis
+    6. Rekomendasi Tindak Lanjut
+    Jika pengguna meminta "Executive Summary" tanpa menyebut periode,
+    gunakan tahun berjalan sebagai periode utama.
+
+    Executive Summary tidak perlu memuat seluruh detail database.
+    Utamakan informasi yang material bagi pimpinan.
+
+    Jika terdapat daftar panjang, tampilkan paling banyak 5 item
+    yang paling relevan atau paling prioritas dan ringkas sisanya.
+
+    Rekomendasi harus langsung berkaitan dengan temuan data.
+    Jangan membuat rekomendasi generik yang tidak memiliki dasar data.
+    Gunakan gaya bahasa:
+    - ringkas;
+    - formal;
+    - mudah dipahami pimpinan;
+    - berbasis angka;
+    - tidak terlalu teknis.
+
+    Bedakan dengan jelas:
+    - fakta dari database;
+    - analisis berdasarkan data;
+    - rekomendasi.
+
+    Jangan mengarang angka, target, anggaran,
+    kebutuhan SDM, atau kesimpulan yang tidak
+    tersedia dalam database.
+
+    Jika suatu indikator belum tersedia,
+    nyatakan bahwa data tersebut belum tersedia
+    di SMART METRO.
+    
+    Untuk Executive Summary, prioritaskan DATA EXECUTIVE
+    SUMMARY RESMI yang diberikan oleh sistem.
+
+    Angka pada data tersebut merupakan hasil perhitungan
+    database SMART METRO dan tidak boleh diubah.
+
+    AI bertugas:
+    - merangkum;
+    - membandingkan;
+    - mengidentifikasi isu;
+    - menjelaskan implikasi;
+    - menyusun rekomendasi berbasis data.
+
+    AI tidak boleh menciptakan indikator atau angka tambahan.
+    Jika DATA EXECUTIVE SUMMARY menyediakan
+    highlight pasar, SPBU, atau Meter kWh,
+    gunakan hanya informasi yang material.
+
+    Jangan menampilkan seluruh rincian teknis.
+    Gunakan sebagai highlight strategis, misalnya:
+    - cakupan sidang tera ulang pasar;
+    - jumlah timbangan dan pedagang yang terlayani;
+    - kondisi pelayanan dan pengawasan SPBU;
+    - jumlah nozzle PUBBM yang tercatat;
+    - volume Meter kWh yang diuji.
+
+    Meter kWh harus dijelaskan terpisah dari statistik
+    utama apabila jumlahnya sangat besar, agar tidak
+    mendistorsi gambaran pelayanan UTTP lainnya.
+    """
 # =========================================================
 # PROMPT
 # =========================================================
 def buat_prompt_sistem(konteks):
     if not konteks.strip():
         konteks = "(Tidak ada dokumen relevan.)"
-
+    instruksi_mode = instruksi_mode_ai()
     return (
         "Anda adalah asisten SMART METRO "
         "(Dinas Perindustrian dan Perdagangan Kabupaten Tangerang).\n"
         f"Tanggal hari ini: {hari_ini_wib().isoformat()}\n"
+        f"\n{instruksi_mode}\n"
         "ATURAN:\n"
+        "1a. Jika pengguna meminta DAFTAR SPBU, SPBU APA SAJA, "
+        "SEBUTKAN SPBU, NAMA SPBU, atau SPBU pada kecamatan tertentu, "
+        "WAJIB menggunakan tool hitung_spbu. Jika tool mengembalikan "
+        "daftar_spbu, tampilkan nomor SPBU, nama SPBU, dan alamat "
+        "yang tersedia. Jangan hanya menyebut jumlah jika pengguna "
+        "meminta daftar.\n"
         "1. Pertanyaan JUMLAH, REKAP, atau STATISTIK: WAJIB memanggil "
         "tool. Untuk jumlah SPBU gunakan hitung_spbu, BUKAN hitung_aset. "
         "Jangan menghitung atau menebak sendiri.\n"
@@ -9221,6 +9955,12 @@ def buat_prompt_sistem(konteks):
         "12. Pertanyaan jumlah timbangan pasar, total UTTP pasar, atau jumlah "
         "per jenis timbangan seperti TP, TM, TE, Sentisimal, Bobot Ingsut, "
         "Neraca, dan Dacin WAJIB menggunakan tool rekap_timbangan_pasar.\n"
+        "12a. Jika pengguna meminta pasar dengan jumlah timbangan "
+        "terbanyak, paling banyak, tertinggi, peringkat pasar, "
+        "atau perbandingan jumlah timbangan antar pasar, WAJIB "
+        "menggunakan tool rekap_timbangan_pasar dengan "
+        "mode='peringkat'. Jangan mengatakan rincian per pasar "
+        "tidak tersedia apabila tool mengembalikan hasil peringkat.\n"
         "13. Pertanyaan jumlah pedagang pasar atau jumlah hari pelaksanaan "
         "sidang tera ulang pasar WAJIB menggunakan tool "
         "rekap_pedagang_pasar.\n"
@@ -9242,6 +9982,11 @@ def buat_prompt_sistem(konteks):
         "gunakan rekomendasi tersebut untuk menjelaskan tindakan yang disarankan. "
         "Jangan membuat status pelanggaran atau sanksi yang tidak tersedia "
         "dalam database.\n"
+        "18a. Jika pengguna meminta PASAR APA SAJA, DAFTAR PASAR, "
+        "NAMA PASAR, atau pasar pada kecamatan tertentu, WAJIB "
+        "menggunakan tool status_pasar dengan mode='daftar'. "
+        "Jika kecamatan disebutkan, kirim kecamatan tersebut sebagai filter. "
+        "Jangan hanya memberikan jumlah apabila pengguna meminta daftar nama pasar.\n"
         "19. Jika pengguna meminta ringkasan satu perusahaan atau SPBU, "
         "status metrologinya, daftar UTTP miliknya, pengujian terakhir, "
         "masa berlaku, atau apakah terdapat alat yang terlambat, "
@@ -9264,6 +10009,13 @@ def buat_prompt_sistem(konteks):
         "Jangan menyebut jumlah fisik Meter kWh sebagai jumlah kegiatan pelayanan. "
         "Jika pengguna tidak menentukan apakah kWh disertakan, gunakan statistik "
         "utama tanpa Meter kWh dan boleh menyebut jumlah Meter kWh secara terpisah.\n"
+        "20c. Jika pengguna menanyakan 'capaian utama', 'capaian pelayanan', "
+        "atau 'apa yang telah dicapai' dalam periode tertentu, gunakan "
+        "tool rekap_kinerja_pelayanan. Jawab secara ringkas dengan indikator "
+        "utama yang tersedia seperti jumlah kegiatan, jumlah UTTP, jumlah "
+        "pemilik/wajib tera, dan jenis UTTP dominan. "
+        "JANGAN mengubah pertanyaan tersebut menjadi Executive Summary "
+        "kecuali pengguna secara eksplisit meminta ringkasan menyeluruh.\n"
         "21. Jika pengguna meminta statistik penera, penera paling aktif, "
         "jumlah pengujian yang dilakukan penera tertentu, atau peringkat "
         "penera berdasarkan jumlah pengujian, WAJIB menggunakan tool "
@@ -9303,12 +10055,33 @@ def buat_prompt_sistem(konteks):
         "27. Jika tool bandingkan_kinerja_pelayanan mengembalikan persentase None, "
         "jangan menyebut persentase kenaikan karena periode awal bernilai nol. "
         "Cukup jelaskan perubahan dari 0 menjadi nilai periode berikutnya.\n"
-        "28. Jika pengguna meminta ringkasan eksekutif, gambaran umum kinerja "
-        "metrologi, kondisi pelayanan bulan ini, atau evaluasi singkat pelayanan "
-        "dan pengawasan, WAJIB menggunakan tool ringkasan_eksekutif_metrologi.\n"
-        "29. Untuk hasil ringkasan_eksekutif_metrologi, susun jawaban ringkas dan "
-        "terstruktur dengan urutan: Kinerja Pelayanan, Penera, Pemilik/Wajib Tera, "
-        "Pengawasan, dan Kesimpulan. Jangan menampilkan ID database internal.\n"
+        "28. Gunakan tool ringkasan_eksekutif_metrologi hanya apabila "
+        "pengguna meminta Executive Summary, ringkasan eksekutif, "
+        "ringkasan pimpinan, laporan/briefing pimpinan secara menyeluruh, "
+        "atau gambaran umum kondisi pelayanan metrologi. "
+        "Untuk pertanyaan yang hanya meminta indikator tertentu, "
+        "gunakan tool yang paling sesuai dengan indikator tersebut "
+        "dan jawab hanya informasi yang diminta. "
+        "Jika DATA EXECUTIVE SUMMARY RESMI sudah diberikan oleh sistem, "
+        "jangan memanggil tool tersebut kembali.\n"
+        "28a. Mode Pimpinan TIDAK berarti semua jawaban harus berupa "
+        "Executive Summary. Mode Pimpinan hanya mengubah gaya penyajian "
+        "menjadi lebih ringkas, formal, strategis, dan mudah dipahami pimpinan. "
+        "Selalu prioritaskan maksud spesifik pertanyaan pengguna.\n"
+        "29. Jika mode AI adalah Pimpinan dan pengguna meminta Executive Summary, "
+        "susun jawaban berdasarkan hasil tool ringkasan_eksekutif_metrologi "
+        "dengan struktur: Capaian Utama, Kondisi Pelayanan, Pengawasan, "
+        "Cakupan Wilayah, Isu Strategis, dan Rekomendasi Tindak Lanjut. "
+        "Gunakan bahasa formal, ringkas, dan mudah dipahami pimpinan. "
+        "Jangan menampilkan ID database internal.\n"
+
+        "29a. Isu Strategis dan Rekomendasi harus merupakan analisis dari data "
+        "yang dikembalikan tool. Jangan membuat persoalan, target, kebutuhan "
+        "anggaran, kebutuhan SDM, atau status pelanggaran yang tidak didukung data.\n"
+
+        "29b. Untuk cakupan wilayah, jangan menyebut kecamatan dengan cakupan "
+        "rendah sebagai wilayah tidak patuh. Sebut sebagai wilayah yang perlu "
+        "mendapat perhatian atau peningkatan cakupan pelayanan.\n"
         "30. Pertanyaan tentang MASA BERLAKU, JATUH TEMPO, "
         "TERLAMBAT TERA ULANG, KEDALUWARSA, atau status tera ulang SPBU "
         "WAJIB menggunakan tool monitor_jatuh_tempo_spbu. "
@@ -9356,8 +10129,152 @@ def buat_prompt_sistem(konteks):
         "KONTEKS>>>"
     )
 
+def perlu_executive_summary_ai(
+    pertanyaan,
+):
 
+    if st.session_state.get(
+        "ai_mode",
+        "Umum",
+    ) != "Pimpinan":
 
+        return False
+
+    teks = str(
+        pertanyaan or ""
+    ).lower().strip()
+    pertanyaan_spesifik = [
+        "berapa kegiatan",
+        "berapa jumlah kegiatan",
+        "berapa uttp",
+        "berapa jumlah uttp",
+        "berapa wajib tera",
+        "berapa pemilik",
+        "apa capaian utama",
+        "capaian utama pelayanan",
+        "capaian pelayanan",
+        "jenis uttp apa",
+        "siapa penera",
+        "pasar mana",
+        "spbu mana",
+        "kecamatan mana",
+    ]
+
+    if any(
+        kata in teks
+        for kata in pertanyaan_spesifik
+    ):
+        return False
+    # =====================================================
+    # PERMINTAAN EXECUTIVE SUMMARY SECARA EKSPLISIT
+    # =====================================================
+    kata_eksplisit = [
+        "executive summary",
+        "ringkasan eksekutif",
+        "ringkasan pimpinan",
+        "laporan pimpinan",
+        "briefing pimpinan",
+        "bahan briefing",
+        "gambaran umum pelayanan",
+        "gambaran umum metrologi",
+        "gambaran umum kemetrologian",
+    ]
+
+    if any(
+        kata in teks
+        for kata in kata_eksplisit
+    ):
+        return True
+
+    # =====================================================
+    # PERTANYAAN UMUM / MENYELURUH
+    # =====================================================
+    pertanyaan_umum = [
+        "bagaimana pelayanan metrologi",
+        "bagaimana pelayanan kemetrologian",
+        "bagaimana kondisi metrologi",
+        "bagaimana kondisi kemetrologian",
+        "bagaimana kondisi pelayanan metrologi",
+        "bagaimana kondisi pelayanan kemetrologian",
+    ]
+
+    if any(
+        kata in teks
+        for kata in pertanyaan_umum
+    ):
+        return True
+
+    # =====================================================
+    # SELAIN ITU = PERTANYAAN SPESIFIK
+    # =====================================================
+    return False
+def ambil_periode_pimpinan_ai(
+    pertanyaan,
+):
+    teks = str(
+        pertanyaan or ""
+    ).lower()
+
+    # =====================================================
+    # TAHUN
+    # =====================================================
+    cocok_tahun = re.search(
+        r"\b(20\d{2})\b",
+        teks,
+    )
+
+    tahun = (
+        int(cocok_tahun.group(1))
+        if cocok_tahun
+        else hari_ini_wib().year
+    )
+
+    # =====================================================
+    # BULAN
+    # =====================================================
+    mapping_bulan = {
+        "januari": 1,
+        "februari": 2,
+        "maret": 3,
+        "april": 4,
+        "mei": 5,
+        "juni": 6,
+        "juli": 7,
+        "agustus": 8,
+        "september": 9,
+        "oktober": 10,
+        "november": 11,
+        "desember": 12,
+    }
+
+    bulan = None
+
+    for nama_bulan, nomor_bulan in (
+        mapping_bulan.items()
+    ):
+        if nama_bulan in teks:
+            bulan = nomor_bulan
+            break
+
+    # Jika pengguna mengatakan "bulan ini"
+    if (
+        "bulan ini" in teks
+        or "bulan berjalan" in teks
+    ):
+        bulan = hari_ini_wib().month
+
+    # Jika eksplisit meminta tahun ini,
+    # biarkan bulan kosong = satu tahun berjalan.
+    if (
+        "tahun ini" in teks
+        and "bulan ini" not in teks
+    ):
+        bulan = None
+
+    return {
+        "tahun": tahun,
+        "bulan": bulan,
+    }
 # =========================================================
 # TANYA KE MODEL
 # =========================================================
@@ -9408,19 +10325,214 @@ def tanya_deepseek_stream(pertanyaan, riwayat=None):
     for m in potong_riwayat_ai(riwayat):
         pesan.append({"role": m["role"], "content": m["content"]})
 
-    pesan.append({"role": "user", "content": pertanyaan})
+    pesan.append({
+        "role": "user",
+        "content": pertanyaan,
+    })
+    jenis_jawaban = (
+        jenis_jawaban_pimpinan_ai(
+            pertanyaan_retrieval
+        )
+    )
+
+    if jenis_jawaban == "spesifik":
+
+        pesan.insert(
+            1,
+            {
+                "role": "system",
+                "content": (
+                    "JENIS JAWABAN: PERTANYAAN SPESIFIK.\n"
+                    "Jawab hanya informasi yang ditanyakan pengguna.\n"
+                    "JANGAN membuat Executive Summary.\n"
+                    "JANGAN menambahkan bagian Capaian Utama, "
+                    "Kondisi Pelayanan, Pengawasan, Cakupan Wilayah, "
+                    "Isu Strategis, atau Rekomendasi kecuali memang "
+                    "diminta pengguna.\n"
+                    "Gunakan gaya ringkas, formal, dan to the point."
+                ),
+            },
+        )
+
+    elif jenis_jawaban == "executive_summary":
+
+        pesan.insert(
+            1,
+            {
+                "role": "system",
+                "content": (
+                    "JENIS JAWABAN: EXECUTIVE SUMMARY.\n"
+                    "Gunakan struktur Executive Summary sesuai "
+                    "instruksi Mode Pimpinan."
+                ),
+            },
+        )
 
     log_tool = []
 
-    try:
-        for _ in range(3):
-            stream = client.chat.completions.create(
+    executive_prefetched = False
+
+    # =========================================================
+    # PREFETCH DATA UNTUK MODE PIMPINAN
+    # =========================================================
+    if perlu_executive_summary_ai(
+        pertanyaan_retrieval
+    ):
+        try:
+            periode_pimpinan = (
+                ambil_periode_pimpinan_ai(
+                    pertanyaan_retrieval
+                )
+            )
+
+            argumen_exec = {
+                "tahun": periode_pimpinan[
+                    "tahun"
+                ],
+                "jumlah_prioritas": 5,
+            }
+
+            if (
+                periode_pimpinan[
+                    "bulan"
+                ] is not None
+            ):
+                argumen_exec[
+                    "bulan"
+                ] = periode_pimpinan[
+                    "bulan"
+                ]
+
+            hasil_exec = (
+                tool_ringkasan_eksekutif_metrologi(
+                    argumen_exec,
+                    supabase,
+                )
+            )
+            executive_prefetched = True
+            log_tool.append(
+                "ringkasan_eksekutif_metrologi"
+                f"({argumen_exec}) -> "
+                f"{hasil_exec}"
+            )
+
+            pesan.insert(
+                1,
+                {
+                    "role": "system",
+                    "content": (
+                        "DATA EXECUTIVE SUMMARY RESMI "
+                        "DARI DATABASE SMART METRO.\n"
+                        "Data berikut telah dihitung oleh sistem dan "
+                        "merupakan sumber fakta utama jawaban:\n\n"
+                        + json.dumps(
+                            hasil_exec,
+                            ensure_ascii=False,
+                            default=str,
+                        )
+                        + "\n\nGunakan data ini sebagai "
+                        "sumber fakta utama Executive Summary. "
+                        "Jangan memanggil tool lain untuk menghitung ulang "
+                        "indikator yang sudah tersedia dalam data ini. "
+                        "Jangan mengubah atau menebak angka."
+                    ),
+                },
+            )
+
+        except Exception as exc:
+
+            error_detail = (
+                "Prefetch Executive Summary gagal: "
+                f"{type(exc).__name__}: {exc}"
+            )
+
+            log_tool.append(
+                error_detail
+            )
+
+            st.session_state[
+                "ai_error_detail"
+            ] = error_detail
+
+            st.session_state[
+                "ai_tool_log"
+            ] = log_tool
+
+            yield (
+                "⚠️ Executive Summary belum dapat dibuat.\n\n"
+                f"{error_detail}"
+            )
+
+            return
+
+    # =========================================================
+    # EXECUTIVE SUMMARY:
+    # DATA SUDAH DIPREFETCH -> BUAT JAWABAN FINAL LANGSUNG
+    # =========================================================
+    if executive_prefetched:
+
+        try:
+            respons_final = client.chat.completions.create(
                 model=CHAT_MODEL,
                 messages=pesan,
-                tools=TOOLS,
                 temperature=0.2,
                 timeout=120,
-                stream=True,
+                stream=False,
+            )
+
+            jawaban_final = str(
+                respons_final.choices[0].message.content
+                or ""
+            ).strip()
+
+            if jawaban_final:
+                yield jawaban_final
+            else:
+                yield (
+                    "Maaf, Executive Summary belum berhasil "
+                    "disusun dari data yang tersedia."
+                )
+
+            st.session_state[
+                "ai_tool_log"
+            ] = log_tool
+
+            return
+
+        except Exception as exc:
+
+            error_detail = (
+                f"{type(exc).__name__}: {exc}"
+            )
+
+            st.session_state[
+                "ai_error_detail"
+            ] = error_detail
+
+            yield (
+                "⚠️ Executive Summary gagal disusun.\n\n"
+                f"{error_detail}"
+            )
+
+            return
+    try:
+        for percobaan in range(3):
+            request_ai = {
+                "model": CHAT_MODEL,
+                "messages": pesan,
+                "temperature": 0.2,
+                "timeout": 120,
+                "stream": True,
+            }
+
+            # =========================================================
+            # MODE UMUM / PERTANYAAN NON-EXECUTIVE
+            # tetap mengizinkan AI memanggil tools
+            # =========================================================
+            request_ai["tools"] = TOOLS
+
+            stream = client.chat.completions.create(
+                **request_ai
             )
 
             isi_balasan = []
@@ -9434,8 +10546,9 @@ def tanya_deepseek_stream(pertanyaan, riwayat=None):
                 delta = pilihan.delta
 
                 if delta.content:
-                    isi_balasan.append(delta.content)
-                    yield delta.content
+                    isi_balasan.append(
+                        delta.content
+                    )
 
                 for panggil_delta in (delta.tool_calls or []):
                     indeks = getattr(panggil_delta, "index", 0) or 0
@@ -9461,11 +10574,20 @@ def tanya_deepseek_stream(pertanyaan, riwayat=None):
                             panggilan[indeks]["function"]["arguments"] += fungsi.arguments
 
             if not panggilan:
-                if not isi_balasan:
+
+                jawaban_final = "".join(
+                    isi_balasan
+                ).strip()
+
+                if jawaban_final:
+                    yield jawaban_final
+
+                else:
                     yield (
                         "Maaf, saya belum bisa menjawab pertanyaan itu. "
                         "Silakan coba dengan kalimat lain."
                     )
+
                 break
 
             for indeks in sorted(panggilan):
@@ -9512,9 +10634,14 @@ def tanya_deepseek_stream(pertanyaan, riwayat=None):
                         default=str,
                     ),
                 })
+        else:
 
-        if ai_debug_aktif():
-            st.session_state["ai_tool_log"] = log_tool
+            yield (
+                "⚠️ AI belum berhasil menyelesaikan jawaban "
+                "setelah beberapa kali pemanggilan data. "
+                "Silakan coba kembali."
+            )
+        st.session_state["ai_tool_log"] = log_tool
 
     except Exception as exc:
 
@@ -10530,6 +11657,14 @@ def inisialisasi_chat_ai():
     if "ai_session_id" not in st.session_state:
         st.session_state.ai_session_id = str(uuid.uuid4())
 
+    if "ai_mode" not in st.session_state:
+        st.session_state.ai_mode = "Umum"
+
+    if "ai_mode_terakhir" not in st.session_state:
+        st.session_state.ai_mode_terakhir = (
+            st.session_state.ai_mode
+        )
+
 def buat_saran_lanjutan_ai(
     pertanyaan,
     jawaban,
@@ -10539,7 +11674,101 @@ def buat_saran_lanjutan_ai(
         f"{pertanyaan or ''} "
         f"{jawaban or ''}"
     ).lower()
+    mode = st.session_state.get(
+        "ai_mode",
+        "Umum",
+    )
 
+    # =====================================================
+    # MODE PIMPINAN
+    # =====================================================
+    if mode == "Pimpinan":
+
+        # Executive Summary / kinerja umum
+        if any(
+            kata in teks
+            for kata in [
+                "executive summary",
+                "ringkasan",
+                "kinerja",
+                "pelayanan",
+                "capaian",
+            ]
+        ):
+            return [
+                "Bandingkan dengan periode sebelumnya",
+                "Wilayah mana yang perlu mendapat perhatian?",
+                "Apa rekomendasi utama untuk pimpinan?",
+            ]
+
+        # Pengawasan
+        if any(
+            kata in teks
+            for kata in [
+                "pengawasan",
+                "terlambat",
+                "jatuh tempo",
+                "prioritas",
+            ]
+        ):
+            return [
+                "Apa 5 prioritas tindak lanjut pimpinan?",
+                "Wilayah mana yang paling perlu diperhatikan?",
+                "Masukkan kondisi ini ke Executive Summary",
+            ]
+
+        # Cakupan wilayah
+        if any(
+            kata in teks
+            for kata in [
+                "cakupan",
+                "kecamatan",
+                "wilayah",
+                "sebaran",
+            ]
+        ):
+            return [
+                "Apa penyebab yang dapat dibaca dari data?",
+                "Wilayah mana yang perlu diprioritaskan?",
+                "Susun rekomendasi peningkatan cakupan",
+            ]
+
+        # Isu strategis
+        if any(
+            kata in teks
+            for kata in [
+                "isu strategis",
+                "perhatian pimpinan",
+                "masalah",
+            ]
+        ):
+            return [
+                "Urutkan isu berdasarkan urgensi",
+                "Apa tindak lanjut untuk masing-masing isu?",
+                "Masukkan isu tersebut ke Executive Summary",
+            ]
+
+        # Rekomendasi
+        if any(
+            kata in teks
+            for kata in [
+                "rekomendasi",
+                "tindak lanjut",
+                "strategi",
+            ]
+        ):
+            return [
+                "Mana yang perlu diprioritaskan terlebih dahulu?",
+                "Apa dasar data dari rekomendasi tersebut?",
+                "Susun menjadi Executive Summary 1 halaman",
+            ]
+
+        # Default mode pimpinan
+        return [
+            "Buat Executive Summary tahun ini",
+            "Tampilkan isu yang perlu perhatian pimpinan",
+            "Berikan rekomendasi tindak lanjut",
+        ]
     # =====================================================
     # RINGKASAN / KINERJA
     # =====================================================
@@ -10705,41 +11934,126 @@ def render_saran_lanjutan_ai(
                 
 def render_pertanyaan_cepat_ai():
 
+    mode = st.session_state.get(
+        "ai_mode",
+        "Umum",
+    )
+
     st.markdown(
         "#### 💡 Pertanyaan Cepat"
     )
 
-    st.caption(
-        "Pilih salah satu untuk mulai bertanya."
-    )
+    # =====================================================
+    # MODE PIMPINAN
+    # =====================================================
+    if mode == "Pimpinan":
 
-    daftar = [
-        (
-            "📊 Kinerja",
-            "Bagaimana kinerja metrologi bulan ini?"
-        ),
-        (
-            "⚠️ Pengawasan",
-            "Tampilkan 5 prioritas pengawasan"
-        ),
-        (
-            "⛽ SPBU",
-            "Bagaimana kondisi pengawasan SPBU saat ini?"
-        ),
-        (
-            "🏪 Pasar",
-            "Bagaimana kondisi pelayanan pasar tahun ini?"
-        ),
-        (
-            "👨‍🔧 Penera",
-            "Siapa penera paling aktif tahun ini?"
-        ),
-        (
-            "🏢 Perusahaan",
-            "Tampilkan 10 perusahaan yang paling banyak dilayani tahun ini"
-        ),
-    ]
+        st.caption(
+            "Pilih ringkasan strategis yang ingin disiapkan."
+        )
 
+        daftar = [
+            (
+                "📊 Executive Summary",
+                (
+                    "Buat executive summary pelayanan kemetrologian "
+                    "Kabupaten Tangerang berdasarkan data SMART METRO "
+                    "tahun ini. Tampilkan capaian utama, jumlah kegiatan, "
+                    "jumlah UTTP, jumlah pemilik atau wajib tera yang dilayani, "
+                    "jenis UTTP dominan, kondisi pengawasan, cakupan wilayah, "
+                    "isu yang perlu perhatian pimpinan, dan rekomendasi tindak lanjut."
+                ),
+            ),
+
+            (
+                "📈 Kinerja Pelayanan",
+                (
+                    "Buat executive summary yang fokus pada kinerja pelayanan "
+                    "kemetrologian tahun ini, termasuk jumlah kegiatan, "
+                    "jumlah UTTP, jumlah pemilik yang dilayani, jenis UTTP "
+                    "terbanyak, dan perkembangan kinerja."
+                ),
+            ),
+
+            (
+                "⚠️ Pengawasan",
+                (
+                    "Buat executive summary yang fokus pada kondisi pengawasan "
+                    "kemetrologian, termasuk UTTP terlambat tera ulang, "
+                    "yang akan jatuh tempo, dan prioritas tindak lanjut."
+                ),
+            ),
+
+            (
+                "🗺️ Cakupan Wilayah",
+                (
+                    "Buat executive summary mengenai cakupan pelayanan "
+                    "kemetrologian per kecamatan dan identifikasi wilayah "
+                    "yang masih perlu mendapat perhatian pelayanan."
+                ),
+            ),
+
+            (
+                "🔎 Isu Strategis",
+                (
+                    "Identifikasi isu strategis utama pelayanan kemetrologian "
+                    "berdasarkan data SMART METRO dan jelaskan alasan "
+                    "mengapa isu tersebut perlu mendapat perhatian pimpinan."
+                ),
+            ),
+
+            (
+                "🎯 Rekomendasi",
+                (
+                    "Berdasarkan data SMART METRO, susun executive summary "
+                    "berisi rekomendasi tindak lanjut prioritas bagi pimpinan "
+                    "Dinas Perindustrian dan Perdagangan."
+                ),
+            ),
+        ]
+
+    # =====================================================
+    # MODE UMUM
+    # =====================================================
+    else:
+
+        st.caption(
+            "Pilih salah satu untuk mulai bertanya."
+        )
+
+        daftar = [
+            (
+                "📊 Kinerja",
+                "Bagaimana kinerja metrologi bulan ini?"
+            ),
+            (
+                "⚠️ Pengawasan",
+                "Tampilkan 5 prioritas pengawasan"
+            ),
+            (
+                "⛽ SPBU",
+                "Bagaimana kondisi pengawasan SPBU saat ini?"
+            ),
+            (
+                "🏪 Pasar",
+                "Bagaimana kondisi pelayanan pasar tahun ini?"
+            ),
+            (
+                "👨‍🔧 Penera",
+                "Siapa penera paling aktif tahun ini?"
+            ),
+            (
+                "🏢 Perusahaan",
+                (
+                    "Tampilkan 10 perusahaan yang paling banyak "
+                    "dilayani tahun ini"
+                )
+            ),
+        ]
+
+    # =====================================================
+    # TAMPILKAN TOMBOL
+    # =====================================================
     col1, col2, col3 = st.columns(3)
 
     kolom = [
@@ -10761,6 +12075,7 @@ def render_pertanyaan_cepat_ai():
                 label,
                 key=(
                     f"ai_quick_"
+                    f"{mode}_"
                     f"{i}"
                 ),
                 use_container_width=True,
@@ -10771,10 +12086,122 @@ def render_pertanyaan_cepat_ai():
                 ] = pertanyaan
 
                 st.rerun()
-                
+
+def ganti_mode_ai():
+    mode_baru = st.session_state.get(
+        "ai_mode",
+        "Umum",
+    )
+
+    mode_lama = st.session_state.get(
+        "ai_mode_terakhir",
+        "Umum",
+    )
+
+    if mode_baru != mode_lama:
+        arsipkan_chat_aktif_ai()
+
+        st.session_state.ai_riwayat = []
+        st.session_state.ai_session_id = str(uuid.uuid4())
+
+        for kunci in (
+            "ai_sumber_terakhir",
+            "ai_query_rewrite",
+            "ai_tool_log",
+            "ai_error_detail",
+            "ai_pertanyaan_awal",
+            "ai_saran_dipilih",
+        ):
+            st.session_state.pop(
+                kunci,
+                None,
+            )
+
+        st.session_state.ai_mode_terakhir = mode_baru           
+
+def render_jawaban_pimpinan(
+    jawaban,
+    index,
+):
+
+    st.markdown(
+        """
+        <div style="
+            padding: 14px 18px;
+            border: 1px solid rgba(128,128,128,0.25);
+            border-radius: 12px;
+            margin-bottom: 10px;
+        ">
+            <div style="
+                font-size: 0.85rem;
+                opacity: 0.7;
+                margin-bottom: 2px;
+            ">
+                SMART METRO • AI PIMPINAN
+            </div>
+
+            <div style="
+                font-size: 1.25rem;
+                font-weight: 700;
+            ">
+                📊 Executive Summary
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        jawaban
+    )
+
+    # =====================================================
+    # DOWNLOAD EXECUTIVE SUMMARY
+    # =====================================================
+    tanggal = hari_ini_wib().strftime(
+        "%Y-%m-%d"
+    )
+
+    nama_file = (
+        f"executive_summary_smart_metro_"
+        f"{tanggal}.md"
+    )
+
+    st.download_button(
+        "⬇️ Unduh Executive Summary",
+        data=str(jawaban or ""),
+        file_name=nama_file,
+        mime="text/markdown",
+        key=f"download_exec_summary_{index}",
+        use_container_width=False,
+    )
 def render_chat(tampilkan_di_sidebar=True):
     inisialisasi_chat_ai()
+    st.markdown("### 🎯 Mode Asisten")
 
+    mode_ai = st.radio(
+        "Pilih mode",
+        options=[
+            "Umum",
+            "Pimpinan",
+        ],
+        horizontal=True,
+        key="ai_mode",
+        on_change=ganti_mode_ai,
+        label_visibility="collapsed",
+    )
+
+    konfigurasi_mode = MODE_AI.get(
+        mode_ai,
+        MODE_AI["Umum"],
+    )
+
+    st.caption(
+        f"{konfigurasi_mode['ikon']} "
+        f"{konfigurasi_mode['keterangan']}"
+    )
+
+    st.divider()
     kolom_judul, kolom_baru = st.columns([5, 1])
 
     with kolom_judul:
@@ -10805,9 +12232,26 @@ def render_chat(tampilkan_di_sidebar=True):
             m["role"]
         ):
 
-            st.markdown(
-                m["content"]
-            )
+            if (
+                m["role"] == "assistant"
+                and m.get("mode") == "Pimpinan"
+                and m.get(
+                    "executive_summary",
+                    False,
+                )
+            ):
+                render_jawaban_pimpinan(
+                    m.get(
+                        "content",
+                        "",
+                    ),
+                    index,
+                )
+
+            else:
+                st.markdown(
+                    m["content"]
+                )
 
             if m["role"] == "assistant":
 
@@ -10934,8 +12378,38 @@ def render_chat(tampilkan_di_sidebar=True):
 
     with st.chat_message("user"):
         st.markdown(pertanyaan)
+    mode_aktif = st.session_state.get(
+        "ai_mode",
+        "Umum",
+    )
 
+    is_executive_summary = (
+        perlu_executive_summary_ai(
+            pertanyaan
+        )
+    )
     with st.chat_message("assistant"):
+
+        if (
+            mode_aktif == "Pimpinan"
+            and is_executive_summary
+        ):
+
+            st.markdown(
+                "### 📊 Executive Summary"
+            )
+
+            st.caption(
+                "SMART METRO • AI Pimpinan • "
+                "Dinas Perindustrian dan Perdagangan "
+                "Kabupaten Tangerang"
+            )
+
+        elif mode_aktif == "Pimpinan":
+
+            st.caption(
+                "📊 SMART METRO • AI Pimpinan"
+            )
         status = st.status(
             "Menyiapkan jawaban...",
             expanded=False,
@@ -10976,9 +12450,16 @@ def render_chat(tampilkan_di_sidebar=True):
     st.session_state.ai_riwayat.append({
         "role": "assistant",
         "content": jawaban,
+        "executive_summary": (
+            is_executive_summary
+        ),
         "log_id": log_id,
         "feedback": None,
         "sumber": sumber,
+        "mode": st.session_state.get(
+        "ai_mode",
+        "Umum",
+    ),
 
         # Simpan pertanyaan hanya di session
         # agar tersedia jika pengguna melaporkan jawaban.
