@@ -2572,7 +2572,7 @@ def simpan_pengujian_uttp_umum_ke_supabase(
                 "pengujian_uttp"
             )
             .select(
-                "id, uttp_id"
+                "id, uttp_id, data_detail"
             )
             .eq(
                 "pengujian_id",
@@ -2621,6 +2621,48 @@ def simpan_pengujian_uttp_umum_ke_supabase(
             # RELASI SUDAH ADA
             # =============================================
             if relasi_lama_item:
+            
+                # ==========================================
+                # PERTAHANKAN DATA CERAPAN LAMA
+                # ==========================================
+                detail_lama = dict(
+                    relasi_lama_item.get("data_detail")
+                    or {}
+                )
+
+                detail_baru = dict(
+                    relasi.get("data_detail")
+                    or {}
+                )
+
+                # Baca cerapan lama dari Supabase
+                cerapan_lama = (
+                    detail_lama.get("cerapan")
+                    or {}
+                )
+
+                # Kompatibilitas format data lama
+                if (
+                    not cerapan_lama
+                    and detail_lama.get("visual")
+                ):
+                    cerapan_lama = detail_lama
+
+                cerapan_baru = (
+                    detail_baru.get("cerapan")
+                    or {}
+                )
+
+                # Jika input tidak membawa cerapan,
+                # gunakan cerapan yang sudah tersimpan
+                if not cerapan_baru and cerapan_lama:
+                    detail_baru["cerapan"] = cerapan_lama
+
+                # Pertahankan field lain yang sudah ada
+                detail_lama.update(detail_baru)
+
+                # Gunakan hasil penggabungan
+                relasi["data_detail"] = detail_lama
 
                 response_relasi_item = (
                     supabase
@@ -6249,8 +6291,18 @@ def run():
                     "nilai_n": nilai_n,
                     "nama_pemilik": nama_pemilik_lpg,
                     "alamat": alamat_lpg,
-
-
+                    
+                    # Pertahankan cerapan dari riwayat
+                    "sample_cerapan": bool(
+                        data_lama.get("sample_cerapan")
+                        or data_lama.get("data_cerapan")
+                        or data_lama.get("cerapan")
+                    ),
+                    "data_cerapan": (
+                        data_lama.get("data_cerapan")
+                        or data_lama.get("cerapan")
+                        or {}
+                    ),
                 })
 
         col_tambah, col_copy, col_hapus, _ = st.columns(
@@ -6568,126 +6620,87 @@ def run():
                             f"{exc_pemilik_lpg}"
                         )
             
-            # =================================================
-            # SIMPAN DATA FORM KE SESSION STATE
-            # =================================================
-            st.session_state.uttp_saved_data = {
-                "_edit_pengujian_id": (
-                    st.session_state.get(
-                        "uttp_edit_pengujian_id"
-                    )
-                ),
-
-                "pemilik": pemilik,
-                "alamat": alamat,
-
-                "daftar_alat_uttp": (
-                    daftar_alat_uttp
-                ),
-
-                "daftar_rincian_uttp": (
-                    daftar_rincian_uttp
-                ),
-
-                "alat_standar": (
-                    alat_standar
-                ),
-                "daftar_alat_standar_peminjaman": (
-                    daftar_alat_standar_peminjaman
-                ),
-                "nama_alat": (
-                    daftar_alat_uttp[0][
-                        "nama_alat"
-                    ]
-                ),
-
-                "jumlah_alat": (
-                    daftar_alat_uttp[0][
-                        "jumlah"
-                    ]
-                ),
-
-                "jenis_pengujian": (
-                    jenis_pengujian
-                ),
-
-                "lokasi_pengujian": (
-                    lokasi_pengujian
-                ),
-
-                "tanggal_pengujian": (
-                    tanggal_pengujian.strftime(
-                        "%Y-%m-%d"
-                    )
-                ),
-
-                "tanggal_sertifikat": (
-                    tanggal_sertifikat.strftime(
-                        "%Y-%m-%d"
-                    )
-                ),
-
-                "nomor_sertifikat": (
-                    nomor_sertifikat
-                ),
-
-                "nomor_order": (
-                    nomor_order
-                ),
-
-                "jumlah_penera": (
-                    jumlah_penera
-                ),
-
-                "penera_1": (
-                    penera_1
-                ),
-
-                "nip_penera_1": (
-                    nip_penera_1
-                ),
-
-                "golongan_penera_1": (
-                    golongan_penera_1
-                ),
-
-                "penera_2": (
-                    penera_2
-                ),
-
-                "nip_penera_2": (
-                    nip_penera_2
-                ),
-
-                "golongan_penera_2": (
-                    golongan_penera_2
-                ),
-            }
-
-            # =================================================
-            # DATA BERUBAH → DOKUMEN LAMA TIDAK BERLAKU
-            # =================================================
-            st.session_state[
-                "uttp_generated_files"
-            ] = {}
-
-            # =================================================
-            # DATA BARU / HASIL EDIT BELUM DIKIRIM KE DATABASE
-            # =================================================
-            st.session_state[
-                "uttp_sudah_disimpan_db"
-            ] = False
-
-            st.session_state[
-                "uttp_last_pengujian_id"
-            ] = None
-
-            st.success(
-                "✅ Data berhasil disimpan! "
-                "Silakan buka Preview & Generate Data."
+            # ===============================================
+            # PERTAHANKAN CERAPAN DARI SESSION SEBELUMNYA
+            # ===============================================
+            data_sebelumnya = (
+                st.session_state.get("uttp_saved_data")
+                or {}
             )
 
-            st.balloons()
+            rincian_sebelumnya = (
+                data_sebelumnya.get("daftar_rincian_uttp")
+                or []
+            )
+
+            for index, rincian in enumerate(daftar_rincian_uttp):
+                if not isinstance(rincian, dict):
+                    continue
+
+                # Cerapan yang sudah ada pada form
+                cerapan_sekarang = (
+                    rincian.get("data_cerapan")
+                    or rincian.get("cerapan")
+                    or {}
+                )
+
+                # Cadangan dari data sebelum Simpan Data
+                if (
+                    not cerapan_sekarang
+                    and index < len(rincian_sebelumnya)
+                ):
+                    rincian_lama = rincian_sebelumnya[index]
+
+                    if isinstance(rincian_lama, dict):
+                        # Pastikan alat yang dibandingkan sama
+                        id_baru = rincian.get("_uttp_id")
+                        id_lama = rincian_lama.get("_uttp_id")
+
+                        if (
+                            id_baru is not None
+                            and str(id_baru) == str(id_lama)
+                        ):
+                            cerapan_sekarang = (
+                                rincian_lama.get("data_cerapan")
+                                or rincian_lama.get("cerapan")
+                                or {}
+                            )
+
+                if cerapan_sekarang:
+                    rincian["data_cerapan"] = cerapan_sekarang
+                    rincian["sample_cerapan"] = True
+            
+            # ================================================
+            # PERTAHANKAN PARAMETER CERAPAN SEBELUM SIMPAN
+            # ================================================
+            data_sebelumnya = (
+                st.session_state.get("uttp_saved_data") or {}
+            )
+
+            metode_disimpan = (
+                data_sebelumnya.get("metode")
+                or st.session_state.get("uttp_cerapan_metode")
+                or "Beban Substitusi Tunggal"
+            )
+
+            lokasi_lama = str(
+                data_sebelumnya.get("lokasi") or ""
+            ).strip()
+
+            if lokasi_pengujian == "Dalam Kantor":
+                lokasi_cerapan_disimpan = "Dalam Kantor"
+            elif lokasi_pengujian == "Perusahaan":
+                # Pertahankan nama lokasi khusus jika ada
+                lokasi_cerapan_disimpan = (
+                    lokasi_lama
+                    if lokasi_lama not in (
+                        "", "Perusahaan", "Dalam Kantor"
+                    )
+                    else "Perusahaan"
+                )
+            else:
+                lokasi_cerapan_disimpan = lokasi_pengujian
+
             st.session_state.uttp_saved_data = {
                 "_edit_pengujian_id": (
                     st.session_state.get(
@@ -6729,6 +6742,11 @@ def run():
                 ),
                 "jenis_pengujian": jenis_pengujian,
                 "lokasi_pengujian": lokasi_pengujian,
+
+                # Parameter yang dipakai mode Cerapan
+                "lokasi": lokasi_cerapan_disimpan,
+                "metode": metode_disimpan,
+
                 "jenis_layanan": (
                     jenis_layanan_uttp
                 ),
@@ -6748,6 +6766,18 @@ def run():
                 "nip_penera_2": nip_penera_2,
                 "golongan_penera_2": golongan_penera_2,
             }
+            
+            # ================================================
+            # RESET WIDGET CERAPAN SETELAH SIMPAN DATA
+            # ================================================
+            for kunci in (
+                "uttp_cerapan_lokasi",
+                "uttp_cerapan_lokasi_beda",
+                "uttp_cerapan_lokasi_nama",
+                "uttp_cerapan_metode",
+                "uttp_cerapan_standar",
+            ):
+                st.session_state.pop(kunci, None)
 
             st.session_state.uttp_generated_files = {}
 
@@ -6764,7 +6794,7 @@ def run():
                 "✅ Data berhasil disimpan!"
             )
             st.balloons()
-
+            
     elif mode == "📄 Preview & Generate Data":
         st.header("Preview dan Generate Sertifikat")
         col_kembali, col_kosong = st.columns(
@@ -7570,11 +7600,11 @@ def run():
             lokasi_options = ["Perusahaan", "Dalam Kantor"]
 
             lokasi_tersimpan = str(
-                data_cerapan_hal.get(
-                    "lokasi",
-                    ""
+                data_cerapan_hal.get("lokasi")
+                or data_cerapan_hal.get(
+                    "lokasi_pengujian"
                 )
-                or ""
+                or "Perusahaan"
             ).strip()
 
             if (
@@ -7674,8 +7704,13 @@ def run():
                 placeholder="Pilih satu atau lebih kelas standar",
             )
 
+        # Sinkronkan lokasi dasar dan lokasi cerapan
+        data_cerapan_hal["lokasi_pengujian"] = lokasi_pilihan
         data_cerapan_hal["lokasi"] = lokasi_final
+
+        # Pertahankan metode pilihan pengguna
         data_cerapan_hal["metode"] = metode_pilihan
+
         data_cerapan_hal["alat_standar"] = list(standar_pilihan)
         data_cerapan_hal["at_standar"] = ", ".join(standar_pilihan)
 
