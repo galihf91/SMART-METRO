@@ -2183,15 +2183,40 @@ def simpan_pengujian_uttp_umum_ke_supabase(
     # =====================================================
     data_pengujian_header = {
         "schema_uttp_umum": 1,
+
         "jenis_layanan": str(
-            data.get("jenis_layanan", "UTTP Umum")
+            data.get(
+                "jenis_layanan",
+                "UTTP Umum"
+            )
             or "UTTP Umum"
         ).strip(),
 
-
+        # ================================================
+        # DATA FORM UTAMA
+        # ================================================
         "lokasi_pengujian": (
             lokasi_pengujian
         ),
+
+        # ================================================
+        # DATA CERAPAN
+        # ================================================
+        "lokasi": str(
+            data.get(
+                "lokasi",
+                ""
+            )
+            or ""
+        ).strip(),
+
+        "metode": str(
+            data.get(
+                "metode",
+                ""
+            )
+            or ""
+        ).strip(),
 
         "alat_standar": (
             data.get(
@@ -4602,6 +4627,24 @@ def gunakan_data_lama_untuk_edit_uttp(
                 "Perusahaan"
             )
         ),
+
+        # ================================================
+        # DATA CERAPAN
+        # ================================================
+        "lokasi": (
+            detail.get(
+                "lokasi",
+                ""
+            )
+        ),
+
+        "metode": (
+            detail.get(
+                "metode",
+                ""
+            )
+        ),
+
         "jenis_layanan": (
             detail.get(
                 "jenis_layanan",
@@ -4888,6 +4931,24 @@ def gunakan_riwayat_untuk_pengujian_baru_uttp(
                 "Perusahaan"
             )
         ),
+
+        # ================================================
+        # DATA CERAPAN
+        # ================================================
+        "lokasi": (
+            detail.get(
+                "lokasi",
+                ""
+            )
+        ),
+
+        "metode": (
+            detail.get(
+                "metode",
+                ""
+            )
+        ),
+
         "jenis_layanan": (
             detail.get(
                 "jenis_layanan",
@@ -7509,18 +7570,43 @@ def run():
             lokasi_options = ["Perusahaan", "Dalam Kantor"]
 
             lokasi_tersimpan = str(
-                data_cerapan_hal.get("lokasi", "") or ""
+                data_cerapan_hal.get(
+                    "lokasi",
+                    ""
+                )
+                or ""
             ).strip()
 
-            if lokasi_tersimpan not in lokasi_options:
-                if lokasi_tersimpan:
-                    st.session_state["uttp_cerapan_lokasi"] = "Perusahaan"
-                    st.session_state["uttp_cerapan_lokasi_beda"] = True
+            if (
+                "uttp_cerapan_lokasi"
+                not in st.session_state
+            ):
+
+                if lokasi_tersimpan in lokasi_options:
+
+                    st.session_state[
+                        "uttp_cerapan_lokasi"
+                    ] = lokasi_tersimpan
+
+                elif lokasi_tersimpan:
+
+                    st.session_state[
+                        "uttp_cerapan_lokasi"
+                    ] = "Perusahaan"
+
+                    st.session_state[
+                        "uttp_cerapan_lokasi_beda"
+                    ] = True
+
                     st.session_state[
                         "uttp_cerapan_lokasi_nama"
                     ] = lokasi_tersimpan
+
                 else:
-                    st.session_state["uttp_cerapan_lokasi"] = "Perusahaan"
+
+                    st.session_state[
+                        "uttp_cerapan_lokasi"
+                    ] = "Perusahaan"
 
             lokasi_pilihan = st.selectbox(
                 "Lokasi Pengujian",
