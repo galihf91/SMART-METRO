@@ -1,6 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 import textwrap
+import re
 from reportlab.platypus import Table, TableStyle, Paragraph
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
@@ -694,6 +695,154 @@ def draw_wrapped_text(
     return y - max(0, len(lines) - 1) * line_height
 
 
+def draw_wrapped_address(
+    c,
+    text,
+    x,
+    y,
+    max_width,
+    font_name="Helvetica",
+    font_size=12,
+    line_height=0.45 * cm,
+):
+    # Rapikan teks alamat
+    text = re.sub(
+        r"\s+",
+        " ",
+        str(text or "").replace("\n", " ")
+    ).strip()
+
+    if not text:
+        return y
+
+    # Kenali komponen alamat
+    pola = re.compile(
+        r"(?<!\w)"
+        r"(?:Jalan|Jln\.?|Jl\.?|"
+        r"Kampung|Kp\.?|"
+        r"Desa|Ds\.?|"
+        r"Kelurahan|Kel\.?|"
+        r"Kecamatan|Kec\.?|"
+        r"Kabupaten|Kab\.?|Kota)"
+        r"(?=\s|,|$)",
+        re.IGNORECASE
+    )
+
+    posisi = list(pola.finditer(text))
+    bagian = []
+
+    if posisi:
+        awal = text[:posisi[0].start()].strip()
+
+        if awal:
+            bagian.extend(awal.split())
+
+        for i, match in enumerate(posisi):
+            start = match.start()
+            end = (
+                posisi[i + 1].start()
+                if i + 1 < len(posisi)
+                else len(text)
+            )
+
+            potongan = text[start:end].strip()
+
+            if potongan:
+                bagian.append(potongan)
+    else:
+        bagian = text.split()
+
+    # Ukur lebar teks berdasarkan font PDF
+    def muat(teks):
+        return (
+            c.stringWidth(
+                teks,
+                font_name,
+                font_size
+            ) <= max_width
+        )
+
+    lines = []
+    current = ""
+
+    for komponen in bagian:
+        candidate = (
+            f"{current} {komponen}".strip()
+        )
+
+        if muat(candidate):
+            current = candidate
+            continue
+
+        if current:
+            lines.append(current)
+            current = ""
+
+        if muat(komponen):
+            current = komponen
+            continue
+
+        
+        # Jika komponen terlalu panjang,
+        # lindungi kata penanda + nama pertamanya
+        daftar_kata = komponen.split()
+
+        if (
+            len(daftar_kata) > 1
+            and pola.fullmatch(daftar_kata[0])
+        ):
+            # Contoh: "Jalan Raya" tidak boleh terpisah
+            # Begitu juga "Desa Bunder", "Kecamatan Cikupa"
+            satuan = [
+                " ".join(daftar_kata[:2])
+            ] + daftar_kata[2:]
+        else:
+            satuan = daftar_kata
+
+        for kata in satuan:
+            candidate = (
+                f"{current} {kata}".strip()
+            )
+
+            if muat(candidate):
+                current = candidate
+            else:
+                if current:
+                    lines.append(current)
+                    current = ""
+
+                if muat(kata):
+                    current = kata
+                else:
+                    # Antisipasi teks yang lebih lebar
+                    # daripada kolom sertifikat
+                    for huruf in kata:
+                        if muat(current + huruf):
+                            current += huruf
+                        else:
+                            if current:
+                                lines.append(current)
+                            current = huruf
+
+
+    if current:
+        lines.append(current)
+
+    # Cetak alamat
+    c.setFont(font_name, font_size)
+
+    for index, line in enumerate(lines):
+        c.drawString(
+            x,
+            y - index * line_height,
+            line
+        )
+
+    # Kembalikan posisi baris terakhir
+    return (
+        y - max(0, len(lines) - 1) * line_height
+    )
+
 def draw_bullet_notes(
     c,
     text,
@@ -896,15 +1045,29 @@ def draw_halaman_1(c, width, height, data, total_pages):
         c.setFont("Helvetica", 12)
         c.drawString(colon_x, y_value, ":")
 
-        low_y = draw_wrapped_text(
-            c,
-            value,
-            value_x,
-            y_value,
-            right_limit - value_x,
-            font_name=value_font,
-            font_size=value_font_size,
-        )
+        if label == "Alamat":
+
+            low_y = draw_wrapped_address(
+                c,
+                value,
+                value_x,
+                y_value,
+                right_limit - value_x,
+                font_name=value_font,
+                font_size=value_font_size,
+            )
+
+        else:
+
+            low_y = draw_wrapped_text(
+                c,
+                value,
+                value_x,
+                y_value,
+                right_limit - value_x,
+                font_name=value_font,
+                font_size=value_font_size,
+            )
 
         return min(
             low_y - 0.5 * cm,
