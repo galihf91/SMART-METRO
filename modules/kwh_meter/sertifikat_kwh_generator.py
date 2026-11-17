@@ -8,6 +8,7 @@ from datetime import datetime, date
 from pathlib import Path
 import pandas as pd
 import textwrap
+import re
 
 def find_assets_dir():
     current = Path(__file__).resolve()
@@ -71,6 +72,134 @@ def draw_wrapped_lines(c, text, x, y, max_width, font="Helvetica", size=9.2, lea
         c.drawString(x, y - i * leading, line)
     return y - max(len(lines_out), 1) * leading
 
+
+def draw_wrapped_address(
+    c,
+    alamat,
+    x,
+    y,
+    max_width,
+    font="Helvetica-Bold",
+    size=11,
+    leading=0.42 * cm,
+):
+    teks = re.sub(
+        r"\s+",
+        " ",
+        safe_text(alamat).replace("\n", " ")
+    ).strip()
+
+    if not teks:
+        return y
+
+    # Kenali penanda alamat
+    pola = re.compile(
+        r"(?<!\w)"
+        r"(?:Jalan|Jln\.?|Jl\.?|"
+        r"Kampung|Kp\.?|"
+        r"Desa|Ds\.?|"
+        r"Kelurahan|Kel\.?|"
+        r"Kecamatan|Kec\.?|"
+        r"Kabupaten|Kab\.?|Kota)"
+        r"(?=\s|,|$)",
+        re.IGNORECASE
+    )
+
+    posisi = list(pola.finditer(teks))
+    bagian = []
+
+    if posisi:
+        awal = teks[:posisi[0].start()].strip()
+
+        if awal:
+            bagian.extend(awal.split())
+
+        for i, match in enumerate(posisi):
+            akhir = (
+                posisi[i + 1].start()
+                if i + 1 < len(posisi)
+                else len(teks)
+            )
+
+            komponen = teks[match.start():akhir].strip()
+
+            if komponen:
+                bagian.append(komponen)
+    else:
+        bagian = teks.split()
+
+    def muat(nilai):
+        return (
+            c.stringWidth(nilai, font, size)
+            <= max_width
+        )
+
+    lines = []
+    current = ""
+
+    for komponen in bagian:
+        candidate = f"{current} {komponen}".strip()
+
+        if muat(candidate):
+            current = candidate
+            continue
+
+        if current:
+            lines.append(current)
+            current = ""
+
+        if muat(komponen):
+            current = komponen
+            continue
+
+        # Lindungi penanda alamat dengan kata pertama
+        daftar_kata = komponen.split()
+
+        if (
+            len(daftar_kata) > 1
+            and pola.fullmatch(daftar_kata[0])
+        ):
+            satuan = [
+                " ".join(daftar_kata[:2])
+            ] + daftar_kata[2:]
+        else:
+            satuan = daftar_kata
+
+        for kata in satuan:
+            candidate = f"{current} {kata}".strip()
+
+            if muat(candidate):
+                current = candidate
+            else:
+                if current:
+                    lines.append(current)
+                    current = ""
+
+                if muat(kata):
+                    current = kata
+                else:
+                    # Antisipasi kata yang sangat panjang
+                    for huruf in kata:
+                        if muat(current + huruf):
+                            current += huruf
+                        else:
+                            if current:
+                                lines.append(current)
+                            current = huruf
+
+    if current:
+        lines.append(current)
+
+    c.setFont(font, size)
+
+    for i, line in enumerate(lines):
+        c.drawString(
+            x,
+            y - i * leading,
+            line
+        )
+
+    return y - len(lines) * leading
 
 def draw_header(c, width, height):
     margin_old = 1.5 * cm
@@ -517,16 +646,55 @@ def draw_sertifikat_satu_halaman(c, data, width, height):
     # Isi Pemilik tetap sejajar aturan x_value dan dibatasi margin kanan
     max_width_pemilik = width - x_value - right_margin
     
-    y_after_pemilik = draw_wrapped_lines(
-        c,
-        gabungan_pemilik,
-        x_value,
-        y,
-        max_width_pemilik,
-        font="Helvetica-Bold",
-        size=11,
-        leading=line_height
-    )
+    
+    # Nama pemilik, alamat, dan keterangan
+    # tetap tampil dalam satu bagian
+    y_after_pemilik = y
+
+    # 1. Nama pemilik
+    if pemilik_text:
+        y_after_pemilik = draw_wrapped_lines(
+            c,
+            pemilik_text,
+            x_value,
+            y_after_pemilik,
+            max_width_pemilik,
+            font="Helvetica-Bold",
+            size=11,
+            leading=line_height,
+        )
+
+    # 2. Alamat dengan pemenggalan khusus
+    if alamat:
+        y_after_pemilik = draw_wrapped_address(
+            c,
+            alamat,
+            x_value,
+            y_after_pemilik,
+            max_width_pemilik,
+            font="Helvetica-Bold",
+            size=11,
+            leading=line_height,
+        )
+
+    # 3. Keterangan pengguna
+    if untuk:
+        teks_untuk = untuk.strip()
+
+        if not teks_untuk.lower().startswith("untuk"):
+            teks_untuk = "Untuk " + teks_untuk
+
+        y_after_pemilik = draw_wrapped_lines(
+            c,
+            teks_untuk,
+            x_value,
+            y_after_pemilik,
+            max_width_pemilik,
+            font="Helvetica-Bold",
+            size=11,
+            leading=line_height,
+        )
+
     
     y = min(y_after_pemilik, y - 0.95 * cm)
     y -= 0.34 * cm
