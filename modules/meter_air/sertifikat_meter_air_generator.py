@@ -4,6 +4,7 @@ from reportlab.lib.units import cm
 from datetime import datetime
 from pathlib import Path
 import textwrap
+import re
 from reportlab.lib.utils import ImageReader
 
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -91,6 +92,125 @@ def ambil_tahun_pengujian(data):
 
     return datetime.now().year
 
+
+def pecah_alamat_sertifikat(
+    c,
+    alamat,
+    max_width,
+    font_name="Helvetica",
+    font_size=12,
+):
+    teks = re.sub(
+        r"\s+",
+        " ",
+        str(alamat or "").replace("\n", " ")
+    ).strip()
+
+    if not teks:
+        return []
+
+    # Penanda komponen alamat
+    pola = re.compile(
+        r"(?<!\w)"
+        r"(?:Jalan|Jln\.?|Jl\.?|"
+        r"Kampung|Kp\.?|"
+        r"Desa|Ds\.?|"
+        r"Kelurahan|Kel\.?|"
+        r"Kecamatan|Kec\.?|"
+        r"Kabupaten|Kab\.?|Kota)"
+        r"(?=\s|,|$)",
+        re.IGNORECASE
+    )
+
+    posisi = list(pola.finditer(teks))
+    bagian = []
+
+    if posisi:
+        awal = teks[:posisi[0].start()].strip()
+
+        if awal:
+            bagian.extend(awal.split())
+
+        for i, match in enumerate(posisi):
+            akhir = (
+                posisi[i + 1].start()
+                if i + 1 < len(posisi)
+                else len(teks)
+            )
+
+            potongan = teks[match.start():akhir].strip()
+
+            if potongan:
+                bagian.append(potongan)
+    else:
+        bagian = teks.split()
+
+    def muat(nilai):
+        return (
+            c.stringWidth(
+                nilai,
+                font_name,
+                font_size
+            ) <= max_width
+        )
+
+    lines = []
+    current = ""
+
+    for komponen in bagian:
+        candidate = f"{current} {komponen}".strip()
+
+        if muat(candidate):
+            current = candidate
+            continue
+
+        if current:
+            lines.append(current)
+            current = ""
+
+        if muat(komponen):
+            current = komponen
+            continue
+
+        # Jaga penanda alamat bersama nama pertama
+        daftar_kata = komponen.split()
+
+        if (
+            len(daftar_kata) > 1
+            and pola.fullmatch(daftar_kata[0])
+        ):
+            satuan = [
+                " ".join(daftar_kata[:2])
+            ] + daftar_kata[2:]
+        else:
+            satuan = daftar_kata
+
+        for kata in satuan:
+            candidate = f"{current} {kata}".strip()
+
+            if muat(candidate):
+                current = candidate
+            else:
+                if current:
+                    lines.append(current)
+                    current = ""
+
+                if muat(kata):
+                    current = kata
+                else:
+                    # Pengaman jika satu kata sangat panjang
+                    for huruf in kata:
+                        if muat(current + huruf):
+                            current += huruf
+                        else:
+                            if current:
+                                lines.append(current)
+                            current = huruf
+
+    if current:
+        lines.append(current)
+
+    return lines
 
 def generate_sertifikat_meter_air_pdf(data, filename):
     width, height = A4
@@ -809,23 +929,18 @@ def generate_sertifikat_meter_air_pdf(data, filename):
         - 0.3 * cm
     )
 
-    char_width = c.stringWidth(
-        "a",
-        "Helvetica",
-        12
+    
+    # Pemenggalan alamat berdasarkan komponen wilayah
+    alamat = data.get("alamat", "")
+
+    wrapped_lines = pecah_alamat_sertifikat(
+        c=c,
+        alamat=alamat,
+        max_width=max_width_alamat,
+        font_name="Helvetica",
+        font_size=12,
     )
 
-    chars_per_line = (
-        int(max_width_alamat / char_width)
-        if char_width > 0
-        else 40
-    )
-
-    alamat = str(data.get("alamat", ""))
-    wrapped_lines = textwrap.wrap(
-        alamat,
-        width=chars_per_line
-    )
 
     if wrapped_lines:
         start_x = colon_fixed_shifted + 0.3 * cm
