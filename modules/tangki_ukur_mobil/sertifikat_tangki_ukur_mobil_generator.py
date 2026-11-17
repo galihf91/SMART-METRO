@@ -6,6 +6,7 @@ from reportlab.lib.utils import ImageReader
 from reportlab.platypus import Table, TableStyle
 from datetime import datetime, date
 from pathlib import Path
+import re
 
 
 # =========================================================
@@ -159,6 +160,125 @@ def _draw_wrapped_text(
     return yy
 
 
+def _draw_wrapped_address(
+    c, text, x, y, max_width,
+    font="Helvetica",
+    size=10,
+    leading=0.42 * cm,
+):
+    teks = re.sub(
+        r"\s+", " ",
+        str(text or "").replace("\n", " ")
+    ).strip()
+
+    if not teks:
+        return y - leading
+
+    pola = re.compile(
+        r"(?<!\w)"
+        r"(?:Jalan|Jln\.?|Jl\.?|"
+        r"Kampung|Kp\.?|"
+        r"Desa|Ds\.?|"
+        r"Kelurahan|Kel\.?|"
+        r"Kecamatan|Kec\.?|"
+        r"Kabupaten|Kab\.?|Kota)"
+        r"(?=\s|,|$)",
+        re.IGNORECASE
+    )
+
+    posisi = list(pola.finditer(teks))
+    bagian = []
+
+    if posisi:
+        awal = teks[:posisi[0].start()].strip()
+        if awal:
+            bagian.extend(awal.split())
+
+        for i, match in enumerate(posisi):
+            akhir = (
+                posisi[i + 1].start()
+                if i + 1 < len(posisi)
+                else len(teks)
+            )
+
+            komponen = teks[match.start():akhir].strip()
+            if komponen:
+                bagian.append(komponen)
+    else:
+        bagian = teks.split()
+
+    def muat(nilai):
+        return c.stringWidth(
+            nilai, font, size
+        ) <= max_width
+
+    lines = []
+    current = ""
+
+    for komponen in bagian:
+        candidate = f"{current} {komponen}".strip()
+
+        if muat(candidate):
+            current = candidate
+            continue
+
+        if current:
+            lines.append(current)
+            current = ""
+
+        if muat(komponen):
+            current = komponen
+            continue
+
+        daftar_kata = komponen.split()
+
+        # Lindungi penanda + nama pertama
+        if (
+            len(daftar_kata) > 1
+            and pola.fullmatch(daftar_kata[0])
+        ):
+            satuan = [
+                " ".join(daftar_kata[:2])
+            ] + daftar_kata[2:]
+        else:
+            satuan = daftar_kata
+
+        for kata in satuan:
+            candidate = f"{current} {kata}".strip()
+
+            if muat(candidate):
+                current = candidate
+            else:
+                if current:
+                    lines.append(current)
+                    current = ""
+
+                if muat(kata):
+                    current = kata
+                else:
+                    for huruf in kata:
+                        if muat(current + huruf):
+                            current += huruf
+                        else:
+                            if current:
+                                lines.append(current)
+                            current = huruf
+
+    if current:
+        lines.append(current)
+
+    c.setFont(font, size)
+
+    for i, line in enumerate(lines):
+        c.drawString(
+            x,
+            y - i * leading,
+            line
+        )
+
+    return y - len(lines) * leading
+
+
 def _draw_field(
     c,
     label,
@@ -187,16 +307,32 @@ def _draw_field(
         ":"
     )
 
-    new_y = _draw_wrapped_text(
-        c,
-        value,
-        value_x,
-        y,
-        right_x - value_x,
-        font="Helvetica",
-        size=font_size,
-        leading=0.42 * cm,
-    )
+    
+    # Alamat menggunakan pemenggalan khusus
+    # Field lainnya tetap seperti sebelumnya
+    if label == "Alamat":
+        new_y = _draw_wrapped_address(
+            c,
+            value,
+            value_x,
+            y,
+            right_x - value_x,
+            font="Helvetica",
+            size=font_size,
+            leading=0.42 * cm,
+        )
+    else:
+        new_y = _draw_wrapped_text(
+            c,
+            value,
+            value_x,
+            y,
+            right_x - value_x,
+            font="Helvetica",
+            size=font_size,
+            leading=0.42 * cm,
+        )
+
 
     # Jarak antar field
     used_height = max(
@@ -586,20 +722,20 @@ def generate_sertifikat_tangki_ukur_mobil_pdf(
             ""
         )
     ).strip()
-    
+
     if isi_nominal_raw:
-    
+
         bagian_nominal = [
             item.strip()
             for item in isi_nominal_raw.split("/")
             if item.strip()
         ]
-    
+
         isi_nominal = " / ".join(
             f"{_fmt_number(item)} L"
             for item in bagian_nominal
         )
-    
+
     else:
         isi_nominal = ""
 
