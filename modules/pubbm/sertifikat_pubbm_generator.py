@@ -9,6 +9,7 @@ from pathlib import Path
 import pandas as pd
 import os
 import textwrap
+import re
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 ASSETS_DIR = BASE_DIR / "assets"
@@ -255,6 +256,122 @@ def draw_wrapped_bullet_text(c, text, x, y, max_width, font_name="Helvetica", fo
         y -= leading
 
     return y
+
+def pecah_alamat_sertifikat(
+    c,
+    alamat,
+    max_width,
+    font_name="Helvetica",
+    font_size=12,
+):
+    teks = re.sub(
+        r"\s+",
+        " ",
+        str(alamat or "").replace("\n", " ")
+    ).strip()
+
+    if not teks:
+        return []
+
+    # Penanda wilayah dan alamat
+    pola = re.compile(
+        r"(?<!\w)"
+        r"(?:Jalan|Jln\.?|Jl\.?|"
+        r"Kampung|Kp\.?|"
+        r"Desa|Ds\.?|"
+        r"Kelurahan|Kel\.?|"
+        r"Kecamatan|Kec\.?|"
+        r"Kabupaten|Kab\.?|Kota)"
+        r"(?=\s|,|$)",
+        re.IGNORECASE
+    )
+
+    posisi = list(pola.finditer(teks))
+    bagian = []
+
+    if posisi:
+        awal = teks[:posisi[0].start()].strip()
+
+        if awal:
+            bagian.extend(awal.split())
+
+        for i, match in enumerate(posisi):
+            end = (
+                posisi[i + 1].start()
+                if i + 1 < len(posisi)
+                else len(teks)
+            )
+
+            potongan = teks[match.start():end].strip()
+            if potongan:
+                bagian.append(potongan)
+    else:
+        bagian = teks.split()
+
+    def muat(nilai):
+        return (
+            c.stringWidth(
+                nilai, font_name, font_size
+            ) <= max_width
+        )
+
+    lines = []
+    current = ""
+
+    for komponen in bagian:
+        candidate = f"{current} {komponen}".strip()
+
+        if muat(candidate):
+            current = candidate
+            continue
+
+        if current:
+            lines.append(current)
+            current = ""
+
+        if muat(komponen):
+            current = komponen
+            continue
+
+        # Lindungi penanda alamat + kata pertama
+        daftar_kata = komponen.split()
+
+        if (
+            len(daftar_kata) > 1
+            and pola.fullmatch(daftar_kata[0])
+        ):
+            satuan = [
+                " ".join(daftar_kata[:2])
+            ] + daftar_kata[2:]
+        else:
+            satuan = daftar_kata
+
+        for kata in satuan:
+            candidate = f"{current} {kata}".strip()
+
+            if muat(candidate):
+                current = candidate
+            else:
+                if current:
+                    lines.append(current)
+                    current = ""
+
+                if muat(kata):
+                    current = kata
+                else:
+                    for huruf in kata:
+                        if muat(current + huruf):
+                            current += huruf
+                        else:
+                            if current:
+                                lines.append(current)
+                            current = huruf
+
+    if current:
+        lines.append(current)
+
+    return lines
+
 def draw_halaman_1_pubbm(c, width, height, data):
     # ===== MARGIN =====
     margin_old = 1.5 * cm
@@ -342,14 +459,43 @@ def draw_halaman_1_pubbm(c, width, height, data):
         start_x = colon_fixed_shifted + 0.3 * cm
         max_width_value = right_limit_content - start_x
 
-        y_low = draw_wrapped_text(
-            value,
-            start_x,
-            y,
-            max_width_value,
-            font_name=value_font,
-            font_size=value_font_size
-        )
+        
+        # Alamat menggunakan logika khusus
+        if label == "Alamat":
+            wrapped_lines = pecah_alamat_sertifikat(
+                c=c,
+                alamat=value,
+                max_width=max_width_value,
+                font_name=value_font,
+                font_size=value_font_size,
+            )
+
+            c.setFont(value_font, value_font_size)
+            line_height = 0.45 * cm
+
+            for i, line in enumerate(wrapped_lines):
+                c.drawString(
+                    start_x,
+                    y - i * line_height,
+                    line
+                )
+
+            y_low = (
+                y - max(0, len(wrapped_lines) - 1)
+                * line_height
+            )
+
+        else:
+            # Field lain tetap menggunakan fungsi lama
+            y_low = draw_wrapped_text(
+                value,
+                start_x,
+                y,
+                max_width_value,
+                font_name=value_font,
+                font_size=value_font_size
+            )
+
 
         return min(y_low - 0.5 * cm, y - 0.9 * cm)
 
