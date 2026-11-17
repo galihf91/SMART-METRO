@@ -555,15 +555,38 @@ TOOLS = [
             "name": "cari_pengujian",
             "description": (
                 "Mencari detail pengujian berdasarkan nomor order, nomor "
-                "sertifikat, tahun, atau nama perusahaan."
+                "sertifikat, tahun, nama perusahaan, atau nama penera. "
+                "Gunakan batas=1 untuk pertanyaan tentang pengujian terakhir "
+                "yang dilakukan penera tertentu."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "nomor": {"type": "string"},
-                    "nama_perusahaan": {"type": "string"},
-                    "tahun": {"type": "integer"},
-                    "batas": {"type": "integer"},
+
+                    "nama_perusahaan": {
+                        "type": "string"
+                    },
+
+                    "nama_penera": {
+                        "type": "string",
+                        "description": (
+                            "Nama penera untuk mencari pengujian yang dilakukan "
+                            "oleh penera tersebut, misalnya Martoni."
+                        ),
+                    },
+
+                    "tahun": {
+                        "type": "integer"
+                    },
+
+                    "batas": {
+                        "type": "integer",
+                        "description": (
+                            "Jumlah hasil yang ditampilkan. "
+                            "Gunakan 1 untuk pengujian terakhir."
+                        ),
+                    },
                 },
             },
         },
@@ -673,7 +696,9 @@ TOOLS = [
             "description": (
                 "Menghitung total pedagang atau jumlah hari pelaksanaan "
                 "sidang tera ulang pasar berdasarkan tahun. "
-                "Bisa difilter berdasarkan nama pasar."
+                "Bisa difilter berdasarkan nama pasar dan dapat membuat "
+                "peringkat pasar berdasarkan jumlah pedagang terlayani "
+                "atau jumlah hari pelaksanaan."
             ),
             "parameters": {
                 "type": "object",
@@ -693,6 +718,22 @@ TOOLS = [
                         "description": (
                             "Gunakan 'pedagang' untuk total pedagang, "
                             "atau 'hari' untuk jumlah hari pelaksanaan."
+                        ),
+                    },
+                    "mode": {
+                        "type": "string",
+                        "description": (
+                            "Gunakan 'jumlah' untuk menghitung total, "
+                            "atau 'peringkat' untuk menampilkan pasar "
+                            "dengan jumlah terbesar."
+                        ),
+                    },
+
+                    "batas": {
+                        "type": "integer",
+                        "description": (
+                            "Jumlah pasar yang ditampilkan pada mode "
+                            "peringkat. Default 10."
                         ),
                     },
                 },
@@ -1685,6 +1726,14 @@ def tool_cari_pengujian(argumen, supabase):
     nomor = bersihkan_filter_or_ai(nomor_mentah)
     nama_mentah = str(argumen.get("nama_perusahaan") or "").strip()
     nama_perusahaan = bersihkan_teks_ai(nama_mentah)
+    nama_penera_mentah = str(
+        argumen.get("nama_penera")
+        or ""
+    ).strip()
+
+    nama_penera = bersihkan_teks_ai(
+        nama_penera_mentah
+    )
     tahun_mentah = argumen.get("tahun")
     tahun = angka_bulat_ai(tahun_mentah, None, 2000, 2100)
     batas = angka_bulat_ai(argumen.get("batas"), 10, 1, 50)
@@ -1694,7 +1743,10 @@ def tool_cari_pengujian(argumen, supabase):
 
     if nama_mentah and not nama_perusahaan:
         return {"error": "Nama perusahaan tidak valid."}
-
+    if nama_penera_mentah and not nama_penera:
+        return {
+            "error": "Nama penera tidak valid."
+        }
     if tahun_mentah not in (None, "") and tahun is None:
         return {
             "error": "Tahun tidak valid. Gunakan tahun 2000 sampai 2100."
@@ -1704,8 +1756,10 @@ def tool_cari_pengujian(argumen, supabase):
         batas = 10
 
     query = supabase.table("pengujian").select(
-        "id, nomor_order, nomor_sertifikat, tanggal_pengujian, "
-        "tanggal_sertifikat, jenis_pengujian, perusahaan_id"
+        "id, nomor_order, nomor_sertifikat, "
+        "tanggal_pengujian, tanggal_sertifikat, "
+        "jenis_pengujian, hasil, perusahaan_id, "
+        "penera_1, penera_2"
     )
 
     if nomor:
@@ -1713,7 +1767,12 @@ def tool_cari_pengujian(argumen, supabase):
             f"nomor_sertifikat.ilike.%{nomor}%,"
             f"nomor_order.ilike.%{nomor}%"
         )
+    if nama_penera:
 
+        query = query.or_(
+            f"penera_1.ilike.%{nama_penera}%,"
+            f"penera_2.ilike.%{nama_penera}%"
+        )
     if tahun:
         query = (
             query
@@ -1780,6 +1839,31 @@ def tool_cari_pengujian(argumen, supabase):
 
     return {"jumlah_ditemukan": len(baris_hasil), "hasil": baris_hasil}
 
+def ambil_data_pasar_tahunan(
+    supabase,
+    tahun,
+):
+
+    response = (
+        supabase
+        .table("pasar_tahunan")
+        .select(
+            "pasar_id, tahun, "
+            "tanggal_pelaksanaan, "
+            "total_pedagang, jumlah_hari, "
+            "timb_pegas, timb_meja, "
+            "timb_elektronik, timb_sentisimal, "
+            "timb_bobot_ingsut, neraca, dacin, "
+            "total_uttp"
+        )
+        .eq(
+            "tahun",
+            tahun,
+        )
+        .execute()
+    )
+
+    return response.data or []
 def tool_status_pasar(
     argumen,
     supabase,
@@ -2128,26 +2212,10 @@ def tool_rekap_timbangan_pasar(
         "dacin": "dacin",
     }
 
-    # =====================================================
-    # DATA PASAR
-    # =====================================================
-    response = (
-        supabase
-        .table("pasar_tahunan")
-        .select(
-            "pasar_id, tahun, "
-            "timb_pegas, timb_meja, timb_elektronik, "
-            "timb_sentisimal, timb_bobot_ingsut, "
-            "neraca, dacin, total_uttp"
-        )
-        .eq(
-            "tahun",
-            tahun,
-        )
-        .execute()
+    data = ambil_data_pasar_tahunan(
+        supabase,
+        tahun,
     )
-
-    data = response.data or []
 
     if not data:
         return {
@@ -2437,7 +2505,20 @@ def tool_rekap_pedagang_pasar(
         )
         or "pedagang"
     ).strip().lower()
+    
+    mode = str(
+        argumen.get(
+            "mode"
+        )
+        or "jumlah"
+    ).strip().lower()
 
+    batas = angka_bulat_ai(
+        argumen.get("batas"),
+        10,
+        1,
+        50,
+    )
     if jenis_rekap not in {
         "pedagang",
         "hari",
@@ -2449,24 +2530,10 @@ def tool_rekap_pedagang_pasar(
             )
         }
 
-    # =====================================================
-    # DATA TAHUNAN PASAR
-    # =====================================================
-    response = (
-        supabase
-        .table("pasar_tahunan")
-        .select(
-            "pasar_id, tahun, "
-            "total_pedagang, jumlah_hari"
-        )
-        .eq(
-            "tahun",
-            tahun,
-        )
-        .execute()
+    data = ambil_data_pasar_tahunan(
+        supabase,
+        tahun,
     )
-
-    data = response.data or []
 
     if not data:
         return {
@@ -2476,7 +2543,103 @@ def tool_rekap_pedagang_pasar(
                 "Data pasar tahun tersebut belum tersedia."
             ),
         }
+    # =====================================================
+    # MODE PERINGKAT
+    # =====================================================
+    if mode == "peringkat":
 
+        kolom = (
+            "total_pedagang"
+            if jenis_rekap == "pedagang"
+            else "jumlah_hari"
+        )
+
+        ids_pasar = list({
+            row.get("pasar_id")
+            for row in data
+            if row.get("pasar_id") is not None
+        })
+
+        response_pasar = (
+            supabase
+            .table("pasar")
+            .select(
+                "id, nama_pasar, kecamatan"
+            )
+            .in_(
+                "id",
+                ids_pasar,
+            )
+            .execute()
+        )
+
+        peta_pasar = {
+            row.get("id"): row
+            for row in (
+                response_pasar.data
+                or []
+            )
+        }
+
+        hasil = []
+
+        for row in data:
+
+            pasar_id = row.get(
+                "pasar_id"
+            )
+
+            pasar = peta_pasar.get(
+                pasar_id,
+                {},
+            )
+
+            nilai = angka_bulat_ai(
+                row.get(kolom),
+                0,
+                0,
+                None,
+            )
+
+            hasil.append({
+                "nama_pasar": (
+                    pasar.get("nama_pasar")
+                    or "Pasar tidak teridentifikasi"
+                ),
+                "kecamatan": (
+                    pasar.get("kecamatan")
+                    or ""
+                ),
+                "jumlah": (
+                    nilai
+                    if nilai is not None
+                    else 0
+                ),
+            })
+
+        hasil.sort(
+            key=lambda x: x.get(
+                "jumlah",
+                0,
+            ),
+            reverse=True,
+        )
+
+        hasil = hasil[:batas]
+
+        return {
+            "tahun": tahun,
+            "jenis_rekap": jenis_rekap,
+            "jumlah_pasar": len(
+                hasil
+            ),
+            "hasil": hasil,
+            "pasar_terbanyak": (
+                hasil[0]
+                if hasil
+                else None
+            ),
+        }
     # =====================================================
     # FILTER PASAR
     # =====================================================
@@ -5702,12 +5865,6 @@ def tool_rekap_uttp_kecamatan(
                 uttp_id,
                 {},
             )
-        )
-
-        jenis_lower = (
-            jenis
-            .strip()
-            .lower()
         )
 
         jenis_lower = (
@@ -9964,6 +10121,11 @@ def buat_prompt_sistem(konteks):
         "13. Pertanyaan jumlah pedagang pasar atau jumlah hari pelaksanaan "
         "sidang tera ulang pasar WAJIB menggunakan tool "
         "rekap_pedagang_pasar.\n"
+        "13a. Jika pengguna meminta pasar dengan jumlah pedagang "
+        "terlayani paling banyak, terbanyak, tertinggi, atau meminta "
+        "peringkat pasar berdasarkan jumlah pedagang, WAJIB menggunakan "
+        "tool rekap_pedagang_pasar dengan jenis_rekap='pedagang' "
+        "dan mode='peringkat'. Jangan hanya memberikan total seluruh pasar.\n"
         "14. Pertanyaan UTTP yang terlambat tera ulang, sudah habis masa berlaku, "
         "atau akan jatuh tempo WAJIB menggunakan tool "
         "monitor_masa_berlaku_uttp. Gunakan data pengujian terbaru setiap UTTP, "
@@ -10020,6 +10182,15 @@ def buat_prompt_sistem(konteks):
         "jumlah pengujian yang dilakukan penera tertentu, atau peringkat "
         "penera berdasarkan jumlah pengujian, WAJIB menggunakan tool "
         "statistik_penera.\n"
+        "21a. Jika pengguna menanyakan pengujian terakhir, "
+        "pengujian terbaru, kegiatan terakhir, atau pelayanan terakhir "
+        "yang dilakukan oleh penera tertentu, WAJIB menggunakan tool "
+        "cari_pengujian dengan nama_penera dan batas=1. "
+        "JANGAN menggunakan statistik_penera karena pengguna meminta "
+        "detail pengujian, bukan rekap statistik.\n"
+        "21b. Jika pengguna meminta 'terakhir' atau 'terbaru', "
+        "jawab hanya data pengujian paling baru yang ditemukan. "
+        "Jangan menambahkan rekap tahunan kecuali diminta pengguna.\n"
         "22. Jika tool statistik_penera mengembalikan field jenis_uttp, "
         "gunakan data tersebut untuk menjelaskan rincian jenis UTTP yang "
         "ditangani penera. Jangan mengatakan rincian jenis UTTP tidak tersedia "
