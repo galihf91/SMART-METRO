@@ -27,6 +27,7 @@ from modules.timbangan.form_peminjaman_ctt_timbangan_generator import (
     generate_form_peminjaman_ctt_timbangan_pdf
 )
 from modules.utils_perusahaan import ambil_kecamatan_dari_alamat
+from modules.utils_supabase import ambil_semua_baris
 
 def find_project_root():
     current = Path(__file__).resolve()
@@ -3813,18 +3814,15 @@ def load_data_perusahaan():
     try:
         supabase = get_supabase()
 
-        response = (
-            supabase
-            .table("perusahaan")
-            .select(
-                "id, nama_perusahaan, alamat, "
-                "kecamatan, telepon, email"
-            )
-            .order("nama_perusahaan")
-            .execute()
-        )
+        data = ambil_semua_baris(
 
-        data = response.data or []
+            supabase,
+
+            "perusahaan",
+
+            "id, nama_perusahaan, alamat, kecamatan, telepon, email",
+
+        )
 
         if not data:
             return pd.DataFrame(
@@ -4411,8 +4409,8 @@ def init_timbangan_state():
         if key not in st.session_state:
             st.session_state[key] = value
 
-    if "tb_data_perusahaan" not in st.session_state:
-        st.session_state.tb_data_perusahaan = load_data_perusahaan()
+    # Cache @st.cache_data(ttl=60) menjaga efisiensi dan menyegarkan master berkala.
+    st.session_state.tb_data_perusahaan = load_data_perusahaan()
 
     if "tb_data_penera" not in st.session_state:
         st.session_state.tb_data_penera = load_data_penera()
@@ -10273,30 +10271,9 @@ def run():
     
         try:
             supabase = get_supabase()
-    
+            
             # =====================================================
             # 1. AMBIL SEMUA UTTP JENIS TIMBANGAN
-            # =====================================================
-            response_uttp = (
-                supabase
-                .table("uttp")
-                .select(
-                    "id, perusahaan_id, jenis_uttp, merk, tipe, "
-                    "nomor_seri, kapasitas, lokasi, status"
-                )
-                .order(
-                    "jenis_uttp"
-                )
-                .execute()
-            )
-    
-            semua_uttp = (
-                response_uttp.data
-                or []
-            )
-    
-            # =====================================================
-            # FILTER HANYA MODUL TIMBANGAN
             # =====================================================
             jenis_timbangan = {
                 "Timbangan Elektronik",
@@ -10308,19 +10285,16 @@ def run():
                 "Neraca Obat",
                 "Timbangan Neraca Obat",
             }
-    
-            daftar_uttp = [
-                item
-                for item in semua_uttp
-                if str(
-                    item.get(
-                        "jenis_uttp",
-                        ""
-                    )
-                ).strip()
-                in jenis_timbangan
-            ]
-    
+
+            daftar_uttp = ambil_semua_baris(
+                supabase,
+                "uttp",
+                "id, perusahaan_id, jenis_uttp, merk, tipe, "
+                "nomor_seri, kapasitas, lokasi, status",
+                filter_kolom="jenis_uttp",
+                filter_nilai=sorted(jenis_timbangan),
+            )
+
             if not daftar_uttp:
                 st.info(
                     "Belum ada data Timbangan "
@@ -10328,39 +10302,24 @@ def run():
                 )
                 st.stop()
     
+            
             # =====================================================
             # 2. AMBIL PERUSAHAAN TERKAIT
             # =====================================================
             daftar_perusahaan_id = list({
                 item.get("perusahaan_id")
                 for item in daftar_uttp
-                if item.get(
-                    "perusahaan_id"
-                ) is not None
+                if item.get("perusahaan_id") is not None
             })
-    
-            if daftar_perusahaan_id:
-                response_perusahaan = (
-                    supabase
-                    .table("perusahaan")
-                    .select(
-                        "id, nama_perusahaan, alamat"
-                    )
-                    .in_(
-                        "id",
-                        daftar_perusahaan_id
-                    )
-                    .execute()
-                )
-    
-                daftar_perusahaan = (
-                    response_perusahaan.data
-                    or []
-                )
-    
-            else:
-                daftar_perusahaan = []
-    
+
+            daftar_perusahaan = ambil_semua_baris(
+                supabase,
+                "perusahaan",
+                "id, nama_perusahaan, alamat",
+                filter_kolom="id",
+                filter_nilai=daftar_perusahaan_id,
+            )
+
             perusahaan_by_id = {
                 item["id"]: item
                 for item in daftar_perusahaan
@@ -10557,26 +10516,20 @@ def run():
             # =====================================================
             # 7. AMBIL RIWAYAT PENGUJIAN
             # =====================================================
-            response_riwayat = (
-                supabase
-                .table("pengujian")
-                .select("*")
-                .eq(
-                    "uttp_id",
-                    alat["id"]
-                )
-                .order(
-                    "tanggal_pengujian",
-                    desc=True
-                )
-                .execute()
+            riwayat = ambil_semua_baris(
+                supabase,
+                "pengujian",
+                "*",
+                filter_eq={"uttp_id": alat["id"]},
             )
-    
-            riwayat = (
-                response_riwayat.data
-                or []
+            riwayat.sort(
+                key=lambda row: (
+                    str(row.get("tanggal_pengujian") or ""),
+                    int(row.get("id") or 0),
+                ),
+                reverse=True,
             )
-    
+
             st.markdown("---")
             st.subheader(
                 "Riwayat Tera / Tera Ulang"
