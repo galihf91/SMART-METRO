@@ -1,4 +1,6 @@
 import streamlit as st
+from modules.utils_supabase import ambil_semua_baris
+# PUBBM_PAGINATION_TERPADU_V1
 import pandas as pd
 from supabase import create_client
 from modules.pubbm.sertifikat_pubbm_generator import generate_sertifikat_pubbm
@@ -1888,6 +1890,29 @@ def simpan_pengujian_pubbm_ke_supabase(
 
     return hasil_simpan
 
+def _pubbm_ambil_media_spbu_berhalaman(supabase):
+    """Pagination master media tanpa mengasumsikan kolom id."""
+    rows = []
+    offset = 0
+    ukuran_halaman = 500
+    while True:
+        response = (
+            supabase.table("media_spbu")
+            .select("kategori_spbu, media, status")
+            .eq("status", "aktif")
+            .order("kategori_spbu")
+            .order("media")
+            .range(offset, offset + ukuran_halaman - 1)
+            .execute()
+        )
+        page = response.data or []
+        rows.extend(page)
+        if len(page) < ukuran_halaman:
+            break
+        offset += ukuran_halaman
+    return rows
+
+
 def bulan_singkat_id(tanggal):
     bulan = {
         1: "JAN", 2: "FEB", 3: "MAR", 4: "APR",
@@ -2342,32 +2367,11 @@ def ambil_riwayat_kegiatan_pubbm(
     # =====================================================
     # 2. MASTER UTTP PUBBM MILIK SPBU
     # =====================================================
-    response_uttp = (
-        supabase
-        .table("uttp")
-        .select(
-            "id, "
-            "spbu_id, "
-            "perusahaan_id, "
-            "jenis_uttp, "
-            "merk, "
-            "tipe, "
-            "nomor_seri"
-        )
-        .eq(
-            "spbu_id",
-            spbu_id
-        )
-        .eq(
-            "jenis_uttp",
-            "Pompa Ukur BBM"
-        )
-        .execute()
-    )
-
-    daftar_uttp = (
-        response_uttp.data
-        or []
+    daftar_uttp = ambil_semua_baris(
+        supabase,
+        "uttp",
+        "id, spbu_id, perusahaan_id, jenis_uttp, merk, tipe, nomor_seri",
+        filter_eq={"spbu_id": spbu_id, "jenis_uttp": "Pompa Ukur BBM"},
     )
 
     uttp_map = {
@@ -2381,24 +2385,18 @@ def ambil_riwayat_kegiatan_pubbm(
     # =====================================================
     # 3. AMBIL PENGUJIAN BERDASARKAN SPBU
     # =====================================================
-    response_pengujian = (
-        supabase
-        .table("pengujian")
-        .select("*")
-        .eq(
-            "spbu_id",
-            spbu_id
-        )
-        .order(
-            "tanggal_pengujian",
-            desc=True
-        )
-        .execute()
+    semua_pengujian = ambil_semua_baris(
+        supabase,
+        "pengujian",
+        "*",
+        filter_eq={"spbu_id": spbu_id},
     )
-
-    semua_pengujian = (
-        response_pengujian.data
-        or []
+    semua_pengujian.sort(
+        key=lambda row: (
+            str(row.get("tanggal_pengujian") or ""),
+            int(row.get("id") or 0),
+        ),
+        reverse=True,
     )
 
     if not semua_pengujian:
@@ -2452,32 +2450,13 @@ def ambil_riwayat_kegiatan_pubbm(
         ) is not None
     ]
 
-    response_relasi = (
-        supabase
-        .table(
-            "pengujian_uttp"
-        )
-        .select(
-            "id, "
-            "pengujian_id, "
-            "uttp_id, "
-            "no_dispenser, "
-            "posisi, "
-            "media, "
-            "k_faktor, "
-            "urutan, "
-            "hasil"
-        )
-        .in_(
-            "pengujian_id",
-            daftar_header_id
-        )
-        .execute()
-    )
-
-    daftar_relasi = (
-        response_relasi.data
-        or []
+    daftar_relasi = ambil_semua_baris(
+        supabase,
+        "pengujian_uttp",
+        "id, pengujian_id, uttp_id, no_dispenser, posisi, media, "
+        "k_faktor, urutan, hasil",
+        filter_kolom="pengujian_id",
+        filter_nilai=daftar_header_id,
     )
 
     relasi_per_pengujian = {}
@@ -2917,6 +2896,30 @@ def _tanggal_pubbm(value):
     return datetime.today()
 
 
+def _pubbm_ambil_nomor_berhalaman(supabase, kolom, pola):
+    """Ambil nomor order/sertifikat lengkap dengan filter PostgREST."""
+    if kolom not in {"nomor_order", "nomor_sertifikat"}:
+        raise ValueError("Kolom nomor dokumen tidak dikenali")
+    rows = []
+    offset = 0
+    ukuran_halaman = 500
+    while True:
+        response = (
+            supabase.table("pengujian")
+            .select(f"id, {kolom}")
+            .ilike(kolom, pola)
+            .order("id")
+            .range(offset, offset + ukuran_halaman - 1)
+            .execute()
+        )
+        page = response.data or []
+        rows.extend(page)
+        if len(page) < ukuran_halaman:
+            break
+        offset += ukuran_halaman
+    return rows
+
+
 def ambil_nomor_order_berikutnya(tanggal, supabase=None):
     """
     Nomor order berikutnya: NNNN/SCD/{ROMAWI}/{TAHUN}
@@ -2939,17 +2942,13 @@ def ambil_nomor_order_berikutnya(tanggal, supabase=None):
         re.IGNORECASE,
     )
 
-    response = (
-        supabase
-        .table("pengujian")
-        .select("nomor_order")
-        .ilike("nomor_order", f"%/SCD/{romawi}/{tahun}")
-        .execute()
+    semua_nomor = _pubbm_ambil_nomor_berhalaman(
+        supabase, "nomor_order", f"%/SCD/{romawi}/{tahun}"
     )
 
     terbesar = 0
 
-    for row in (response.data or []):
+    for row in semua_nomor:
         cocok = pola.match(str(row.get("nomor_order") or ""))
 
         if cocok:
@@ -2980,20 +2979,15 @@ def ambil_nomor_sertifikat_berikutnya(tanggal, supabase=None):
         re.IGNORECASE,
     )
 
-    response = (
-        supabase
-        .table("pengujian")
-        .select("nomor_sertifikat")
-        .ilike(
-            "nomor_sertifikat",
-            f"500.2.3.15/%/BID-K/{romawi}/{tahun}",
-        )
-        .execute()
+    semua_nomor = _pubbm_ambil_nomor_berhalaman(
+        supabase,
+        "nomor_sertifikat",
+        f"500.2.3.15/%/BID-K/{romawi}/{tahun}",
     )
 
     terbesar = 0
 
-    for row in (response.data or []):
+    for row in semua_nomor:
         cocok = pola.match(str(row.get("nomor_sertifikat") or ""))
 
         if cocok:
@@ -3093,6 +3087,28 @@ def _ambil_nama_perusahaan_form_pubbm():
 
     return ""
 
+def _pubbm_ambil_spbu_mirip_berhalaman(supabase, nama_spbu):
+    """Pencarian calon SPBU untuk fallback nama hasil normalisasi."""
+    hasil = []
+    offset = 0
+    ukuran_halaman = 500
+    while True:
+        response = (
+            supabase.table("spbu")
+            .select("id, nama_spbu")
+            .ilike("nama_spbu", f"%{nama_spbu}%")
+            .order("id")
+            .range(offset, offset + ukuran_halaman - 1)
+            .execute()
+        )
+        halaman = response.data or []
+        hasil.extend(halaman)
+        if len(halaman) < ukuran_halaman:
+            break
+        offset += ukuran_halaman
+    return hasil
+
+
 def _pubbm_cari_spbu_id(supabase, nama_spbu="", nomor_spbu=""):
     """
     Cari id master SPBU.
@@ -3126,14 +3142,10 @@ def _pubbm_cari_spbu_id(supabase, nama_spbu="", nomor_spbu=""):
 
     if nama_spbu:
         target = _pubbm_nama_normal(nama_spbu)
-        res_mirip = (
-            supabase.table("spbu")
-            .select("id, nama_spbu")
-            .ilike("nama_spbu", f"%{nama_spbu}%")
-            .limit(50)
-            .execute()
+        hasil_spbu_mirip = _pubbm_ambil_spbu_mirip_berhalaman(
+            supabase, nama_spbu
         )
-        for baris in (res_mirip.data or []):
+        for baris in hasil_spbu_mirip:
             if _pubbm_nama_normal(baris.get("nama_spbu")) == target:
                 return baris["id"]
 
@@ -3178,17 +3190,17 @@ def cari_nomor_order_sebelumnya_pubbm(
             return None
 
         # 2. semua pengujian SPBU ini pada tanggal tersebut
-        res_pengujian = (
-            supabase.table("pengujian")
-            .select("id, nomor_order, spbu_id")
-            .eq("spbu_id", spbu_id)
-            .eq("tanggal_pengujian", tanggal_iso)
-            .order("id", desc=False)
-            .limit(100)
-            .execute()
+        daftar_pengujian_hari_ini = ambil_semua_baris(
+            supabase,
+            "pengujian",
+            "id, nomor_order, spbu_id",
+            filter_eq={
+                "spbu_id": spbu_id,
+                "tanggal_pengujian": tanggal_iso,
+            },
         )
 
-        for baris in (res_pengujian.data or []):
+        for baris in daftar_pengujian_hari_ini:
             nomor = baris.get("nomor_order")
             if _pubbm_nomor_order_siap_pakai(nomor):
                 return str(nomor).strip()
@@ -3229,27 +3241,8 @@ def run():
         try:
             supabase = get_supabase_pubbm()
     
-            response = (
-                supabase
-                .table("media_spbu")
-                .select(
-                    "kategori_spbu, media, status"
-                )
-                .eq(
-                    "status",
-                    "aktif"
-                )
-                .order(
-                    "kategori_spbu"
-                )
-                .execute()
-            )
-    
-            rows = (
-                response.data
-                or []
-            )
-    
+            rows = _pubbm_ambil_media_spbu_berhalaman(supabase)
+
             if not rows:
                 return pd.DataFrame(
                     columns=[
@@ -3470,36 +3463,14 @@ def run():
         try:
             supabase = get_supabase_pubbm()
     
-            response = (
-                supabase
-                .table("bejana")
-                .select(
-                    "id, "
-                    "standar_volume, "
-                    "merk, "
-                    "tipe, "
-                    "nomor_seri, "
-                    "kelas, "
-                    "kapasitas, "
-                    "daya_baca, "
-                    "telusuran, "
-                    "status"
-                )
-                .eq(
-                    "status",
-                    "aktif"
-                )
-                .order(
-                    "merk"
-                )
-                .execute()
+            rows = ambil_semua_baris(
+                supabase,
+                "bejana",
+                "id, standar_volume, merk, tipe, nomor_seri, kelas, "
+                "kapasitas, daya_baca, telusuran, status",
+                filter_eq={"status": "aktif"},
             )
-    
-            rows = (
-                response.data
-                or []
-            )
-    
+
             if not rows:
                 return pd.DataFrame(
                     columns=kolom_target
@@ -3784,24 +3755,13 @@ def run():
         try:
             supabase = get_supabase_pubbm()
     
-            response = (
-                supabase
-                .table("penera")
-                .select(
-                    "id, nama, nip, golongan, status"
-                )
-                .eq(
-                    "status",
-                    "aktif"
-                )
-                .order(
-                    "nama"
-                )
-                .execute()
+            data = ambil_semua_baris(
+                supabase,
+                "penera",
+                "id, nama, nip, golongan, status",
+                filter_eq={"status": "aktif"},
             )
-    
-            data = response.data or []
-    
+
             if not data:
                 return pd.DataFrame(
                     columns=[
@@ -3906,34 +3866,14 @@ def run():
         try:
             supabase = get_supabase_pubbm()
     
-            response = (
-                supabase
-                .table("spbu")
-                .select(
-                    "id, "
-                    "nama_spbu, "
-                    "nomor_spbu, "
-                    "alamat, "
-                    "jenis_lokasi, "
-                    "kecamatan, "
-                    "media_bbm, "
-                    "status"
-                )
-                .eq(
-                    "status",
-                    "aktif"
-                )
-                .order(
-                    "nama_spbu"
-                )
-                .execute()
+            rows = ambil_semua_baris(
+                supabase,
+                "spbu",
+                "id, nama_spbu, nomor_spbu, alamat, jenis_lokasi, "
+                "kecamatan, media_bbm, status",
+                filter_eq={"status": "aktif"},
             )
-    
-            rows = (
-                response.data
-                or []
-            )
-    
+
             if not rows:
                 return pd.DataFrame(
                     columns=[
@@ -4173,6 +4113,13 @@ def run():
     if "media_bbm_master_pubbm" not in st.session_state:
         st.session_state.media_bbm_master_pubbm = ""
         
+    # Gunakan cache_data(ttl=60), tetapi segarkan referensi di session_state.
+    # Tidak mengubah isian form pengguna atau master di Supabase.
+    st.session_state["data_spbu"] = load_data_spbu()
+    st.session_state["data_bejana"] = load_data_bejana()
+    st.session_state["data_media_spbu"] = load_data_media_spbu()
+    st.session_state["data_penera"] = load_data_penera()
+
     def pulihkan_data_pubbm():
         data = st.session_state.get("data_pubbm", {})
     
@@ -8518,28 +8465,13 @@ def run():
             # 1. AMBIL SPBU YANG SUDAH PERNAH TERA ULANG
             # =====================================================
             
-            response_pengujian_spbu = (
-                supabase
-                .table("pengujian")
-                .select(
-                    "spbu_id, jenis_pengujian"
-                )
-                .eq(
-                    "jenis_pengujian",
-                    "Tera Ulang"
-                )
-                .not_.is_(
-                    "spbu_id",
-                    "null"
-                )
-                .execute()
+            daftar_pengujian_spbu = ambil_semua_baris(
+                supabase,
+                "pengujian",
+                "id, spbu_id, jenis_pengujian",
+                filter_eq={"jenis_pengujian": "Tera Ulang"},
             )
-            
-            daftar_pengujian_spbu = (
-                response_pengujian_spbu.data
-                or []
-            )
-            
+
             # Ambil ID SPBU unik
             id_spbu_tera_ulang = sorted({
                 row.get("spbu_id")
@@ -8559,38 +8491,19 @@ def run():
             # 2. AMBIL MASTER SPBU BERDASARKAN ID TERSEBUT
             # =====================================================
             
-            response_spbu = (
-                supabase
-                .table("spbu")
-                .select(
-                    "id, "
-                    "nama_spbu, "
-                    "nomor_spbu, "
-                    "alamat, "
-                    "jenis_lokasi, "
-                    "kecamatan, "
-                    "media_bbm, "
-                    "status"
-                )
-                .in_(
-                    "id",
-                    id_spbu_tera_ulang
-                )
-                .eq(
-                    "status",
-                    "aktif"
-                )
-                .order(
-                    "nama_spbu"
-                )
-                .execute()
+            daftar_spbu = ambil_semua_baris(
+                supabase,
+                "spbu",
+                "id, nama_spbu, nomor_spbu, alamat, jenis_lokasi, "
+                "kecamatan, media_bbm, status",
+                filter_kolom="id",
+                filter_nilai=id_spbu_tera_ulang,
+                filter_eq={"status": "aktif"},
             )
-            
-            daftar_spbu = (
-                response_spbu.data
-                or []
+            daftar_spbu.sort(
+                key=lambda row: str(row.get("nama_spbu") or "").casefold()
             )
-            
+
             if not daftar_spbu:
                 st.info(
                     "Belum ada SPBU aktif yang memiliki "
