@@ -4,6 +4,8 @@ from pathlib import Path
 from supabase import create_client
 import pandas as pd
 import streamlit as st
+from modules.utils_supabase import ambil_semua_baris
+# TUM_PAGINATION_TERPADU_V1
 from modules.tangki_ukur_mobil.cerapan_tangki_ukur_mobil_generator import (
     generate_cerapan_tangki_ukur_mobil_pdf
 )
@@ -1463,20 +1465,18 @@ def ambil_riwayat_tum():
     # =====================================================
     # 1. AMBIL SEMUA PENGUJIAN
     # =====================================================
-    response_pengujian = (
-        supabase
-        .table("pengujian")
-        .select("*")
-        .order(
-            "tanggal_pengujian",
-            desc=True
-        )
-        .execute()
+    semua_pengujian = ambil_semua_baris(
+        supabase,
+        "pengujian",
+        "*",
     )
-
-    semua_pengujian = (
-        response_pengujian.data
-        or []
+    # Urutan riwayat: tanggal terbaru dulu, ID terakhir sebagai tie-breaker.
+    semua_pengujian.sort(
+        key=lambda row: (
+            str(row.get("tanggal_pengujian") or ""),
+            int(row.get("id") or 0),
+        ),
+        reverse=True,
     )
 
     # =====================================================
@@ -1518,23 +1518,12 @@ def ambil_riwayat_tum():
         if row.get("id") is not None
     ]
 
-    response_relasi = (
-        supabase
-        .table("pengujian_uttp")
-        .select(
-            "id, pengujian_id, uttp_id, "
-            "urutan, hasil, data_detail"
-        )
-        .in_(
-            "pengujian_id",
-            daftar_pengujian_id
-        )
-        .execute()
-    )
-
-    semua_relasi = (
-        response_relasi.data
-        or []
+    semua_relasi = ambil_semua_baris(
+        supabase,
+        "pengujian_uttp",
+        "id, pengujian_id, uttp_id, urutan, hasil, data_detail",
+        filter_kolom="pengujian_id",
+        filter_nilai=daftar_pengujian_id,
     )
 
     relasi_map = {}
@@ -1557,32 +1546,15 @@ def ambil_riwayat_tum():
 
     uttp_map = {}
 
-    if daftar_uttp_id:
-
-        response_uttp = (
-            supabase
-            .table("uttp")
-            .select(
-                "id, perusahaan_id, jenis_uttp, "
-                "merk, tipe, nomor_seri, "
-                "kapasitas, satuan_kapasitas, "
-                "jumlah_kompartemen, "
-                "lokasi, status"
-            )
-            .in_(
-                "id",
-                daftar_uttp_id
-            )
-            .execute()
-        )
-
-        uttp_map = {
-            row["id"]: row
-            for row in (
-                response_uttp.data
-                or []
-            )
-        }
+    data_master_uttp = ambil_semua_baris(
+        supabase,
+        "uttp",
+        "id, perusahaan_id, jenis_uttp, merk, tipe, nomor_seri, "
+        "kapasitas, satuan_kapasitas, jumlah_kompartemen, lokasi, status",
+        filter_kolom="id",
+        filter_nilai=daftar_uttp_id,
+    )
+    uttp_map = {row["id"]: row for row in data_master_uttp}
 
     # =====================================================
     # 4. AMBIL MASTER PERUSAHAAN
@@ -1595,28 +1567,14 @@ def ambil_riwayat_tum():
 
     perusahaan_map = {}
 
-    if daftar_perusahaan_id:
-
-        response_perusahaan = (
-            supabase
-            .table("perusahaan")
-            .select(
-                "id, nama_perusahaan, alamat"
-            )
-            .in_(
-                "id",
-                daftar_perusahaan_id
-            )
-            .execute()
-        )
-
-        perusahaan_map = {
-            row["id"]: row
-            for row in (
-                response_perusahaan.data
-                or []
-            )
-        }
+    data_master_perusahaan = ambil_semua_baris(
+        supabase,
+        "perusahaan",
+        "id, nama_perusahaan, alamat",
+        filter_kolom="id",
+        filter_nilai=daftar_perusahaan_id,
+    )
+    perusahaan_map = {row["id"]: row for row in data_master_perusahaan}
 
     # =====================================================
     # 5. BANGUN DATA RIWAYAT
@@ -1971,6 +1929,31 @@ def generate_nomor_order(tanggal):
         f"{bulan_ke_romawi(t.month)}/{t.year}"
     )
 
+def _tum_ambil_nomor_berhalaman(supabase, nama_kolom, pola):
+    """Query nomor dokumen dengan filter server dan pagination stabil."""
+    if nama_kolom not in {"nomor_order", "nomor_sertifikat"}:
+        raise ValueError("Kolom nomor dokumen tidak didukung")
+
+    semua = []
+    offset = 0
+    ukuran_halaman = 500
+    while True:
+        response = (
+            supabase.table("pengujian")
+            .select(f"id, {nama_kolom}")
+            .ilike(nama_kolom, pola)
+            .order("id")
+            .range(offset, offset + ukuran_halaman - 1)
+            .execute()
+        )
+        halaman = response.data or []
+        semua.extend(halaman)
+        if len(halaman) < ukuran_halaman:
+            break
+        offset += ukuran_halaman
+    return semua
+
+
 def ambil_nomor_order_tum_berikutnya(
     tanggal,
     supabase=None,
@@ -1988,23 +1971,13 @@ def ambil_nomor_order_tum_berikutnya(
 
     tahun = tanggal.year
 
-    response = (
-        supabase
-        .table("pengujian")
-        .select("nomor_order")
-        .ilike(
-            "nomor_order",
-            f"%/SCD/{romawi}/{tahun}"
-        )
-        .execute()
+    semua_nomor = _tum_ambil_nomor_berhalaman(
+        supabase, "nomor_order", f"%/SCD/{romawi}/{tahun}"
     )
 
     tertinggi = 0
 
-    for row in (
-        response.data
-        or []
-    ):
+    for row in semua_nomor:
         nomor = str(
             row.get(
                 "nomor_order",
@@ -2053,28 +2026,13 @@ def ambil_nomor_sertifikat_tum_berikutnya(
 
     tahun = tanggal.year
 
-    response = (
-        supabase
-        .table("pengujian")
-        .select(
-            "nomor_sertifikat"
-        )
-        .ilike(
-            "nomor_sertifikat",
-            (
-                "%/BID-K/"
-                f"{romawi}/{tahun}"
-            )
-        )
-        .execute()
+    semua_nomor = _tum_ambil_nomor_berhalaman(
+        supabase, "nomor_sertifikat", f"%/BID-K/{romawi}/{tahun}"
     )
 
     tertinggi = 0
 
-    for row in (
-        response.data
-        or []
-    ):
+    for row in semua_nomor:
         nomor = str(
             row.get(
                 "nomor_sertifikat",
@@ -2113,19 +2071,11 @@ def load_data_perusahaan():
     try:
         supabase = get_supabase_tum()
 
-        response = (
-            supabase
-            .table("perusahaan")
-            .select(
-                "id, nama_perusahaan, alamat"
-            )
-            .order(
-                "nama_perusahaan"
-            )
-            .execute()
+        data = ambil_semua_baris(
+            supabase,
+            "perusahaan",
+            "id, nama_perusahaan, alamat",
         )
-
-        data = response.data or []
 
         if not data:
             return pd.DataFrame(
@@ -2194,24 +2144,12 @@ def load_data_penera():
     try:
         supabase = get_supabase_tum()
 
-        response = (
-            supabase
-            .table("penera")
-            .select(
-                "id, nama, nip, "
-                "golongan, status"
-            )
-            .eq(
-                "status",
-                "aktif"
-            )
-            .order(
-                "nama"
-            )
-            .execute()
+        data = ambil_semua_baris(
+            supabase,
+            "penera",
+            "id, nama, nip, golongan, status",
+            filter_eq={"status": "aktif"},
         )
-
-        data = response.data or []
 
         if not data:
             return pd.DataFrame(
@@ -2486,6 +2424,11 @@ def init_tum_state():
                 key
             ] = value
     
+    # Selalu ambil cache terbaru (Streamlit cache_data TTL 60 detik).
+    # Form pengguna tetap aman; hanya dataframe referensi yang disegarkan.
+    st.session_state["tum_data_perusahaan"] = load_data_perusahaan()
+    st.session_state["tum_data_penera"] = load_data_penera()
+
     # =====================================================
     # PENGAMAN NOMOR DOKUMEN
     # Jika state sudah ada tetapi kosong,
