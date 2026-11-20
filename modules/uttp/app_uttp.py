@@ -1,5 +1,6 @@
 import re
 import traceback
+from time import monotonic
 from datetime import date
 from pathlib import Path
 from supabase import create_client
@@ -22,6 +23,7 @@ from modules.timbangan.form_peminjaman_ctt_timbangan_generator import (
     generate_form_peminjaman_ctt_timbangan_pdf
 )
 from modules.utils_perusahaan import ambil_kecamatan_dari_alamat
+from modules.utils_supabase import ambil_semua_baris
 
 def find_project_root():
     current = Path(__file__).resolve()
@@ -2841,20 +2843,9 @@ def ambil_riwayat_uttp_umum():
     # =====================================================
     # 1. AMBIL HEADER PENGUJIAN
     # =====================================================
-    response_pengujian = (
-        supabase
-        .table("pengujian")
-        .select("*")
-        .order(
-            "tanggal_pengujian",
-            desc=True
-        )
-        .execute()
-    )
-
-    semua_pengujian = (
-        response_pengujian.data
-        or []
+    # Baca seluruh header dengan pagination stabil berdasarkan ID.
+    semua_pengujian = ambil_semua_baris(
+        supabase, "pengujian", "*"
     )
 
     # =====================================================
@@ -2896,24 +2887,13 @@ def ambil_riwayat_uttp_umum():
         if row.get("id") is not None
     ]
 
-    response_relasi = (
-        supabase
-        .table("pengujian_uttp")
-        .select(
-            "id, pengujian_id, "
-            "uttp_id, urutan, hasil, data_detail"
-
-        )
-        .in_(
-            "pengujian_id",
-            daftar_pengujian_id
-        )
-        .execute()
-    )
-
-    semua_relasi = (
-        response_relasi.data
-        or []
+    # Batch daftar ID dan pagination untuk relasi > 1.000 baris.
+    semua_relasi = ambil_semua_baris(
+        supabase,
+        "pengujian_uttp",
+        "id, pengujian_id, uttp_id, urutan, hasil, data_detail",
+        filter_kolom="pengujian_id",
+        filter_nilai=daftar_pengujian_id,
     )
 
     relasi_per_pengujian = {}
@@ -2944,31 +2924,17 @@ def ambil_riwayat_uttp_umum():
 
     if daftar_uttp_id:
 
-        response_uttp = (
-            supabase
-            .table("uttp")
-            .select(
-                "id, perusahaan_id, jenis_uttp, "
-                "merk, tipe, nomor_seri, "
-                "kapasitas, satuan_kapasitas, "
-                "daya_baca, satuan_daya_baca, "
-                "interval_skala_verifikasi, "
-                "kelas, lokasi, status"
-            )
-            .in_(
-                "id",
-                daftar_uttp_id
-            )
-            .execute()
+        data_master_uttp = ambil_semua_baris(
+            supabase,
+            "uttp",
+            "id, perusahaan_id, jenis_uttp, merk, tipe, nomor_seri, "
+            "kapasitas, satuan_kapasitas, daya_baca, satuan_daya_baca, "
+            "interval_skala_verifikasi, kelas, lokasi, status",
+            filter_kolom="id",
+            filter_nilai=daftar_uttp_id,
         )
 
-        uttp_map = {
-            row["id"]: row
-            for row in (
-                response_uttp.data
-                or []
-            )
-        }
+        uttp_map = {row["id"]: row for row in data_master_uttp}
 
     # =====================================================
     # 4. MASTER PERUSAHAAN
@@ -2983,25 +2949,16 @@ def ambil_riwayat_uttp_umum():
 
     if daftar_perusahaan_id:
 
-        response_perusahaan = (
-            supabase
-            .table("perusahaan")
-            .select(
-                "id, nama_perusahaan, alamat"
-            )
-            .in_(
-                "id",
-                daftar_perusahaan_id
-            )
-            .execute()
+        data_master_perusahaan = ambil_semua_baris(
+            supabase,
+            "perusahaan",
+            "id, nama_perusahaan, alamat",
+            filter_kolom="id",
+            filter_nilai=daftar_perusahaan_id,
         )
 
         perusahaan_map = {
-            row["id"]: row
-            for row in (
-                response_perusahaan.data
-                or []
-            )
+            row["id"]: row for row in data_master_perusahaan
         }
 
     # =====================================================
@@ -3233,6 +3190,14 @@ def ambil_riwayat_uttp_umum():
             kegiatan
         )
 
+    # Pertahankan urutan tampilan lama: tanggal terbaru di atas.
+    hasil.sort(
+        key=lambda row: (
+            str(row.get("tanggal_pengujian") or ""),
+            int(row.get("id") or 0),
+        ),
+        reverse=True,
+    )
     return hasil
 
 def bulan_ke_romawi(bulan):
@@ -3638,8 +3603,14 @@ def load_data_perusahaan():
     cache_key = "uttp_cache_data_perusahaan"
 
     cache = st.session_state.get(cache_key)
+    waktu_cache = st.session_state.get(cache_key + "_waktu", 0.0)
 
-    if isinstance(cache, pd.DataFrame) and not cache.empty:
+    # Cache hanya berlaku 60 detik agar perusahaan baru cepat terlihat.
+    if (
+        isinstance(cache, pd.DataFrame)
+        and not cache.empty
+        and monotonic() - waktu_cache < 60
+    ):
         return cache
 
     df = pd.DataFrame(
@@ -3649,15 +3620,11 @@ def load_data_perusahaan():
     try:
         supabase = get_supabase_uttp()
 
-        response = (
-            supabase
-            .table("perusahaan")
-            .select("nama_perusahaan, alamat")
-            .limit(5000)
-            .execute()
+        rows = ambil_semua_baris(
+            supabase,
+            "perusahaan",
+            "id, nama_perusahaan, alamat",
         )
-
-        rows = response.data or []
 
         if rows:
             df = pd.DataFrame(rows)
@@ -3719,6 +3686,7 @@ def load_data_perusahaan():
 
     if not df.empty:
         st.session_state[cache_key] = df
+        st.session_state[cache_key + "_waktu"] = monotonic()
 
     return df
 
@@ -4152,6 +4120,12 @@ def init_uttp_state():
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
+
+    # Gunakan hasil master perusahaan terbaru saat cache kadaluwarsa.
+    # load_data_perusahaan() sudah dipanggil saat menyusun defaults.
+    st.session_state["uttp_data_perusahaan"] = defaults[
+        "uttp_data_perusahaan"
+    ]
     
     # =====================================================
     # REFRESH MASTER PENERA UTTP
@@ -5479,18 +5453,32 @@ def run():
         if nama_alat_tersimpan not in opsi_nama_alat:
             nama_alat_tersimpan = opsi_nama_alat[0]
 
+        
+        # Mode Pangkalan GAS LPG: Nama Alat selalu Timbangan
+        if is_lpg:
+            st.session_state["uttp_nama_alat"] = "Timbangan"
+
         with st.container(border=True):
             col_alat, col_jumlah = st.columns([3, 1])
 
             with col_alat:
-                nama_alat = st.selectbox(
-                    "Nama Alat",
-                    options=opsi_nama_alat,
-                    index=opsi_nama_alat.index(
-                        nama_alat_tersimpan
-                    ),
-                    key="uttp_nama_alat",
-                )
+                if is_lpg:
+                    nama_alat = st.selectbox(
+                        "Nama Alat",
+                        options=["Timbangan"],
+                        key="uttp_nama_alat",
+                        disabled=True,
+                    )
+                else:
+                    nama_alat = st.selectbox(
+                        "Nama Alat",
+                        options=opsi_nama_alat,
+                        index=opsi_nama_alat.index(
+                            nama_alat_tersimpan
+                        ),
+                        key="uttp_nama_alat",
+                    )
+
 
             with col_jumlah:
                 jumlah_alat = int(
