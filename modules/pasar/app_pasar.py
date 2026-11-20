@@ -1,5 +1,9 @@
 import os
+import re
 from datetime import datetime, timezone
+
+from modules.utils_supabase import ambil_semua_baris
+
 
 import pandas as pd
 import streamlit as st
@@ -159,38 +163,58 @@ def parse_tanggal_pelaksanaan(teks, fallback_year=None):
 @st.cache_data(ttl=60, show_spinner=False)
 def load_master_pasar():
     try:
-        data = (
-            get_supabase()
-            .table("pasar")
-            .select("id,nama_pasar,alamat,kecamatan,latitude,longitude,status,created_at")
-            .order("nama_pasar")
-            .execute()
-            .data
-            or []
+        data = ambil_semua_baris(
+            get_supabase(),
+            "pasar",
+            (
+                "id,nama_pasar,alamat,kecamatan,"
+                "latitude,longitude,status,created_at"
+            ),
+            ukuran_halaman=500,
         )
-        return pd.DataFrame(data)
+
+        df = pd.DataFrame(data)
+
+        if df.empty:
+            return df
+
+        return (
+            df.sort_values("nama_pasar")
+            .reset_index(drop=True)
+        )
+
     except Exception as e:
         st.error(f"Gagal membaca master pasar: {e}")
         return pd.DataFrame()
 
-
 @st.cache_data(ttl=60, show_spinner=False)
 def load_pasar_tahunan():
     try:
-        data = (
-            get_supabase()
-            .table("pasar_tahunan")
-            .select("*")
-            .order("tahun", desc=True)
-            .execute()
-            .data
-            or []
+        data = ambil_semua_baris(
+            get_supabase(),
+            "pasar_tahunan",
+            "*",
+            ukuran_halaman=500,
         )
-        return pd.DataFrame(data)
-    except Exception as e:
-        st.error(f"Gagal membaca data pasar tahunan: {e}")
-        return pd.DataFrame()
 
+        df = pd.DataFrame(data)
+
+        if df.empty:
+            return df
+
+        return (
+            df.sort_values(
+                "tahun",
+                ascending=False,
+            )
+            .reset_index(drop=True)
+        )
+
+    except Exception as e:
+        st.error(
+            f"Gagal membaca data pasar tahunan: {e}"
+        )
+        return pd.DataFrame()
 
 def clear_cache_pasar():
     load_master_pasar.clear()
@@ -407,32 +431,28 @@ def render_data_tahunan():
             "Tanggal Pelaksanaan",
             value=(default_mulai, default_selesai),
             format="DD/MM/YYYY"
-        )
-        if isinstance(tanggal_range, (tuple, list)) and len(tanggal_range) == 2:
-            tanggal_mulai = tanggal_range[0]
-            tanggal_selesai = tanggal_range[1]
+        )       
+        if isinstance(tanggal_range, (tuple, list)):
+            if len(tanggal_range) != 2:
+                st.info(
+                    "Pilih tanggal awal dan akhir pelaksanaan."
+                )
+                return
+
+            tanggal_mulai, tanggal_selesai = tanggal_range
+
         else:
             tanggal_mulai = tanggal_range
             tanggal_selesai = tanggal_range
-        
+
         jumlah_hari_otomatis = (
             tanggal_selesai - tanggal_mulai
         ).days + 1
-        
+
         tanggal_pelaksanaan = format_tanggal_pelaksanaan(
             tanggal_mulai,
-            tanggal_selesai
+            tanggal_selesai,
         )
-        if isinstance(tanggal_range, (tuple, list)) and len(tanggal_range) == 2:
-            tanggal_mulai = tanggal_range[0]
-            tanggal_selesai = tanggal_range[1]
-        else:
-            tanggal_mulai = tanggal_range
-            tanggal_selesai = tanggal_range
-        
-        jumlah_hari_otomatis = (
-            tanggal_selesai - tanggal_mulai
-        ).days + 1
 
         st.markdown("#### Jumlah Timbangan")
 
