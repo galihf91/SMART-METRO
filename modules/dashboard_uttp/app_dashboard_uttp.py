@@ -16,6 +16,8 @@ import pandas as pd
 import streamlit as st
 import altair as alt
 from supabase import create_client
+from modules.utils_supabase import ambil_semua_baris
+# DASHBOARD_UTTP_AUDIT_PAGINATION_V1
 
 
 # =========================================================
@@ -115,45 +117,12 @@ def get_supabase_dashboard_uttp():
     )
 
 
-def fetch_all_rows(
-    table_name,
-    select_columns,
-    page_size=1000,
-):
-    """
-    Ambil seluruh data dari Supabase dengan pagination.
-    """
-
-    supabase = get_supabase_dashboard_uttp()
-
-    rows = []
-    start = 0
-
-    while True:
-
-        response = (
-            supabase
-            .table(table_name)
-            .select(select_columns)
-            .range(
-                start,
-                start + page_size - 1,
-            )
-            .execute()
-        )
-
-        batch = response.data or []
-
-        rows.extend(
-            batch
-        )
-
-        if len(batch) < page_size:
-            break
-
-        start += page_size
-
-    return rows
+def fetch_all_rows(table_name, select_columns, page_size=500):
+    """Pembacaan lengkap, dengan urutan ID stabil dan pagination."""
+    return ambil_semua_baris(
+        get_supabase_dashboard_uttp(), table_name, select_columns,
+        ukuran_halaman=page_size, urut_berdasarkan="id",
+    )
 
 
 @st.cache_data(
@@ -1683,6 +1652,9 @@ def build_monitoring_data(
 
     # =====================================================
     # PENGUJIAN SELURUH MODUL UTTP
+    # Semua master mempunyai satu unit dasar, meski belum ada riwayat.
+    # kWh dengan pengujian akan memakai jumlah_alat pengujian terbaru.
+    monitor["jumlah_unit_dashboard"] = 1
     #
     # Dashboard tidak lagi bergantung pada schema tertentu.
     # Selama pengujian terhubung ke master UTTP,
@@ -2320,40 +2292,6 @@ def render_detail_perusahaan(
         ].sum()
     )
 
-    akan_habis = int(
-        (
-            company_df[
-                "status_tera"
-            ]
-            == STATUS_JATUH_TEMPO
-        ).sum()
-    )
-
-    kedaluwarsa = int(
-        (
-            company_df[
-                "status_tera"
-            ]
-            == STATUS_KEDALUWARSA
-        ).sum()
-    )
-
-    belum_uji = int(
-        (
-            company_df[
-                "status_tera"
-            ]
-            == STATUS_BELUM_UJI
-        ).sum()
-    )
-    data_kurang = int(
-        (
-            company_df[
-                "status_tera"
-            ]
-            == STATUS_DATA_KURANG
-        ).sum()
-    )
     c1, c2, c3, c4, c5, c6 = (
         st.columns(6)
     )
@@ -3874,9 +3812,17 @@ def build_data_laporan_bulanan(
         ).fillna(0)
 
     # =====================================================
+    # Nomor order kosong tidak boleh menggabungkan kegiatan berbeda.
+    laporan["_kunci_order"] = laporan["No. Order"].fillna("").astype(str).str.strip()
+    kosong = laporan["_kunci_order"].eq("")
+    laporan.loc[kosong, "_kunci_order"] = [
+        f"__TANPA_ORDER__{idx}" for idx in laporan.index[kosong]
+    ]
+
     # ATUR CARA AGREGASI
     # =====================================================
     agregasi = {
+        "No. Order": "first",
         "Tanggal": "first",
         "Nama Perusahaan": "first",
         "Kecamatan": "first",
@@ -3896,13 +3842,14 @@ def build_data_laporan_bulanan(
     laporan = (
         laporan
         .groupby(
-            "No. Order",
+            "_kunci_order",
             as_index=False,
             dropna=False,
         )
         .agg(
             agregasi
         )
+        .drop(columns=["_kunci_order"])
     )
     # =====================================================
     # PASTIKAN SEMUA KOLOM LAPORAN TERSEDIA
@@ -4963,12 +4910,12 @@ def render_dashboard_uttp():
         # =================================================
         # DAFTAR TAHUN DARI DATA PENGUJIAN
         # =================================================
-        tanggal_laporan = pd.to_datetime(
-            df_pengujian[
-                "tanggal_pengujian"
-            ],
-            errors="coerce",
-        )
+        if "tanggal_pengujian" in df_pengujian.columns:
+            tanggal_laporan = pd.to_datetime(
+                df_pengujian["tanggal_pengujian"], errors="coerce"
+            )
+        else:
+            tanggal_laporan = pd.Series(dtype="datetime64[ns]")
 
         tahun_tersedia = sorted(
             tanggal_laporan
