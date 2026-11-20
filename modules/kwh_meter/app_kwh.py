@@ -1,5 +1,7 @@
 import re
 import streamlit as st
+from modules.utils_supabase import ambil_semua_baris
+# KWH_PAGINATION_TERPADU_V1
 import pandas as pd
 
 from datetime import date, datetime
@@ -100,21 +102,12 @@ def load_data_penera():
     try:
         supabase = get_supabase_kwh()
 
-        response = (
-            supabase
-            .table("penera")
-            .select(
-                "id, nama, nip, golongan, status"
-            )
-            .eq(
-                "status",
-                "aktif",
-            )
-            .order("nama")
-            .execute()
+        data = ambil_semua_baris(
+            supabase,
+            "penera",
+            "id, nama, nip, golongan, status",
+            filter_eq={"status": "aktif"},
         )
-
-        data = response.data or []
 
         if not data:
             return pd.DataFrame(
@@ -184,19 +177,11 @@ def load_data_perusahaan():
     try:
         supabase = get_supabase_kwh()
 
-        response = (
-            supabase
-            .table("perusahaan")
-            .select(
-                "id, nama_perusahaan, alamat"
-            )
-            .order(
-                "nama_perusahaan"
-            )
-            .execute()
+        data = ambil_semua_baris(
+            supabase,
+            "perusahaan",
+            "id, nama_perusahaan, alamat",
         )
-
-        data = response.data or []
 
         if not data:
             return pd.DataFrame(
@@ -491,6 +476,11 @@ def init_state():
         if key not in st.session_state:
             st.session_state[key] = value
 
+    # Cache data pada fungsi di atas TTL=60; perbarui referensi tiap rerun.
+    # Isian aktif / draft pengujian tidak diubah.
+    st.session_state["data_penera_kwh"] = load_data_penera()
+    st.session_state["data_perusahaan_kwh"] = load_data_perusahaan()
+
 def update_nomor_dokumen_kwh():
     tanggal = st.session_state.get(
         "tanggal_pengujian_kwh",
@@ -618,6 +608,30 @@ def reset_form_kwh():
         ):
             st.session_state.pop(key, None)
             
+def _kwh_ambil_nomor_berhalaman(supabase, nama_kolom, pola):
+    """Ambil semua nomor dokumen yang cocok, tetap filter di database."""
+    if nama_kolom not in {"nomor_order", "nomor_sertifikat"}:
+        raise ValueError("Kolom nomor dokumen kWh tidak dikenal")
+    hasil = []
+    offset = 0
+    ukuran = 500
+    while True:
+        respons = (
+            supabase.table("pengujian")
+            .select(f"id, {nama_kolom}")
+            .ilike(nama_kolom, pola)
+            .order("id")
+            .range(offset, offset + ukuran - 1)
+            .execute()
+        )
+        baris = respons.data or []
+        hasil.extend(baris)
+        if len(baris) < ukuran:
+            break
+        offset += ukuran
+    return hasil
+
+
 def ambil_nomor_order_kwh_berikutnya(
     tanggal,
     supabase=None,
@@ -635,18 +649,8 @@ def ambil_nomor_order_kwh_berikutnya(
 
     tahun = tanggal.year
 
-    response = (
-        supabase
-        .table("pengujian")
-        .select("nomor_order")
-        .ilike(
-            "nomor_order",
-            (
-                f"%/UAPV/SCD/"
-                f"{romawi}/{tahun}"
-            ),
-        )
-        .execute()
+    semua_nomor = _kwh_ambil_nomor_berhalaman(
+        supabase, "nomor_order", f"%/UAPV/SCD/{romawi}/{tahun}"
     )
 
     pola = re.compile(
@@ -657,10 +661,7 @@ def ambil_nomor_order_kwh_berikutnya(
 
     tertinggi = 0
 
-    for row in (
-        response.data
-        or []
-    ):
+    for row in semua_nomor:
         cocok = pola.match(
             str(
                 row.get(
@@ -702,20 +703,8 @@ def ambil_nomor_sertifikat_kwh_berikutnya(
 
     tahun = tanggal.year
 
-    response = (
-        supabase
-        .table("pengujian")
-        .select(
-            "nomor_sertifikat"
-        )
-        .ilike(
-            "nomor_sertifikat",
-            (
-                "%/BID-K/"
-                f"{romawi}/{tahun}"
-            ),
-        )
-        .execute()
+    semua_nomor = _kwh_ambil_nomor_berhalaman(
+        supabase, "nomor_sertifikat", f"%/BID-K/{romawi}/{tahun}"
     )
 
     pola = re.compile(
@@ -727,10 +716,7 @@ def ambil_nomor_sertifikat_kwh_berikutnya(
 
     tertinggi = 0
 
-    for row in (
-        response.data
-        or []
-    ):
+    for row in semua_nomor:
         cocok = pola.match(
             str(
                 row.get(
@@ -1955,20 +1941,17 @@ def ambil_riwayat_kwh():
     # =====================================================
     # 1. HEADER PENGUJIAN
     # =====================================================
-    response_pengujian = (
-        supabase
-        .table("pengujian")
-        .select("*")
-        .order(
-            "tanggal_pengujian",
-            desc=True,
-        )
-        .execute()
+    semua_pengujian = ambil_semua_baris(
+        supabase,
+        "pengujian",
+        "*",
     )
-
-    semua_pengujian = (
-        response_pengujian.data
-        or []
+    semua_pengujian.sort(
+        key=lambda row: (
+            str(row.get("tanggal_pengujian") or ""),
+            int(row.get("id") or 0),
+        ),
+        reverse=True,
     )
 
     # Hanya kWh Meter struktur baru
@@ -2006,23 +1989,12 @@ def ambil_riwayat_kwh():
         if row.get("id") is not None
     ]
 
-    response_relasi = (
-        supabase
-        .table("pengujian_uttp")
-        .select(
-            "id, pengujian_id, uttp_id, "
-            "urutan, hasil, data_detail"
-        )
-        .in_(
-            "pengujian_id",
-            daftar_pengujian_id,
-        )
-        .execute()
-    )
-
-    semua_relasi = (
-        response_relasi.data
-        or []
+    semua_relasi = ambil_semua_baris(
+        supabase,
+        "pengujian_uttp",
+        "id, pengujian_id, uttp_id, urutan, hasil, data_detail",
+        filter_kolom="pengujian_id",
+        filter_nilai=daftar_pengujian_id,
     )
 
     relasi_map = {}
@@ -2069,36 +2041,16 @@ def ambil_riwayat_kwh():
                 uttp_id
             )
 
-    uttp_map = {}
-
-    if daftar_uttp_id:
-
-        response_uttp = (
-            supabase
-            .table("uttp")
-            .select(
-                "id, perusahaan_id, jenis_uttp, "
-                "merk, tipe, "
-                "tegangan, satuan_tegangan, "
-                "arus, satuan_arus, "
-                "phase, kelas, "
-                "konstanta, satuan_konstanta, "
-                "status"
-            )
-            .in_(
-                "id",
-                daftar_uttp_id,
-            )
-            .execute()
-        )
-
-        uttp_map = {
-            row["id"]: row
-            for row in (
-                response_uttp.data
-                or []
-            )
-        }
+    data_master_uttp = ambil_semua_baris(
+        supabase,
+        "uttp",
+        "id, perusahaan_id, jenis_uttp, merk, tipe, "
+        "tegangan, satuan_tegangan, arus, satuan_arus, "
+        "phase, kelas, konstanta, satuan_konstanta, status",
+        filter_kolom="id",
+        filter_nilai=daftar_uttp_id,
+    )
+    uttp_map = {row["id"]: row for row in data_master_uttp}
 
     # =====================================================
     # 4. MASTER PERUSAHAAN
@@ -2113,30 +2065,14 @@ def ambil_riwayat_kwh():
         ) is not None
     })
 
-    perusahaan_map = {}
-
-    if daftar_perusahaan_id:
-
-        response_perusahaan = (
-            supabase
-            .table("perusahaan")
-            .select(
-                "id, nama_perusahaan, alamat"
-            )
-            .in_(
-                "id",
-                daftar_perusahaan_id,
-            )
-            .execute()
-        )
-
-        perusahaan_map = {
-            row["id"]: row
-            for row in (
-                response_perusahaan.data
-                or []
-            )
-        }
+    data_master_perusahaan = ambil_semua_baris(
+        supabase,
+        "perusahaan",
+        "id, nama_perusahaan, alamat",
+        filter_kolom="id",
+        filter_nilai=daftar_perusahaan_id,
+    )
+    perusahaan_map = {row["id"]: row for row in data_master_perusahaan}
 
     # =====================================================
     # 5. GABUNGKAN
