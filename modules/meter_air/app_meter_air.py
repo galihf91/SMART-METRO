@@ -5,6 +5,8 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+from modules.utils_supabase import ambil_semua_baris
+# METER_AIR_PAGINATION_TERPADU_V1
 from supabase import create_client
 from modules.utils_perusahaan import ambil_kecamatan_dari_alamat
 
@@ -111,6 +113,30 @@ def generate_nomor_order(tanggal):
     t = parse_date_value(tanggal)
     return f"0000/SCD/{bulan_ke_romawi(t.month)}/{t.year}"
 
+def _ma_ambil_nomor_berhalaman(supabase, nama_kolom, pola):
+    """Baca seluruh nomor dokumen sesuai pola tanpa terpotong limit PostgREST."""
+    if nama_kolom not in {"nomor_order", "nomor_sertifikat"}:
+        raise ValueError("Kolom nomor dokumen Meter Air tidak didukung.")
+    hasil = []
+    offset = 0
+    ukuran = 500
+    while True:
+        response = (
+            supabase.table("pengujian")
+            .select(f"id, {nama_kolom}")
+            .ilike(nama_kolom, pola)
+            .order("id")
+            .range(offset, offset + ukuran - 1)
+            .execute()
+        )
+        baris = response.data or []
+        hasil.extend(baris)
+        if len(baris) < ukuran:
+            break
+        offset += ukuran
+    return hasil
+
+
 def ambil_nomor_order_berikutnya(
     tanggal,
     supabase=None,
@@ -128,15 +154,10 @@ def ambil_nomor_order_berikutnya(
 
     tahun = tanggal.year
 
-    response = (
-        supabase
-        .table("pengujian")
-        .select("nomor_order")
-        .ilike(
-            "nomor_order",
-            f"%/SCD/{romawi}/{tahun}",
-        )
-        .execute()
+    semua_nomor = _ma_ambil_nomor_berhalaman(
+        supabase,
+        "nomor_order",
+        f"%/SCD/{romawi}/{tahun}",
     )
 
     pola = re.compile(
@@ -147,10 +168,7 @@ def ambil_nomor_order_berikutnya(
 
     tertinggi = 0
 
-    for row in (
-        response.data
-        or []
-    ):
+    for row in semua_nomor:
         nomor = str(
             row.get(
                 "nomor_order"
@@ -193,20 +211,10 @@ def ambil_nomor_sertifikat_berikutnya(
 
     tahun = tanggal.year
 
-    response = (
-        supabase
-        .table("pengujian")
-        .select(
-            "nomor_sertifikat"
-        )
-        .ilike(
-            "nomor_sertifikat",
-            (
-                "%/BID-K/"
-                f"{romawi}/{tahun}"
-            ),
-        )
-        .execute()
+    semua_nomor = _ma_ambil_nomor_berhalaman(
+        supabase,
+        "nomor_sertifikat",
+        f"%/BID-K/{romawi}/{tahun}",
     )
 
     pola = re.compile(
@@ -218,10 +226,7 @@ def ambil_nomor_sertifikat_berikutnya(
 
     tertinggi = 0
 
-    for row in (
-        response.data
-        or []
-    ):
+    for row in semua_nomor:
         nomor = str(
             row.get(
                 "nomor_sertifikat"
@@ -1270,18 +1275,11 @@ def load_data_perusahaan():
     try:
         supabase = get_supabase()
 
-        response = (
-            supabase
-            .table("perusahaan")
-            .select(
-                "id, nama_perusahaan, alamat, "
-                "kecamatan, telepon, email"
-            )
-            .order("nama_perusahaan")
-            .execute()
+        data = ambil_semua_baris(
+            supabase,
+            "perusahaan",
+            "id, nama_perusahaan, alamat, kecamatan, telepon, email",
         )
-
-        data = response.data or []
 
         if not data:
             return pd.DataFrame(
@@ -1366,21 +1364,12 @@ def load_data_penera():
     try:
         supabase = get_supabase()
 
-        response = (
-            supabase
-            .table("penera")
-            .select(
-                "id, nama, nip, golongan, status"
-            )
-            .eq(
-                "status",
-                "aktif",
-            )
-            .order("nama")
-            .execute()
+        data = ambil_semua_baris(
+            supabase,
+            "penera",
+            "id, nama, nip, golongan, status",
+            filter_eq={"status": "aktif"},
         )
-
-        data = response.data or []
 
         if not data:
             return pd.DataFrame(
@@ -1558,6 +1547,11 @@ def init_meter_air_state():
         if key not in st.session_state:
             st.session_state[key] = value
 
+    # Perbarui daftar referensi melalui cache_data(ttl=60).
+    # Tidak menyentuh input isian atau data pengujian aktif.
+    st.session_state["ma_data_perusahaan"] = load_data_perusahaan()
+    st.session_state["ma_data_penera"] = load_data_penera()
+
 
 def validasi_data_meter_air(data):
     wajib = {
@@ -1593,20 +1587,17 @@ def ambil_riwayat_meter_air():
     # =====================================================
     # 1. HEADER PENGUJIAN
     # =====================================================
-    response_pengujian = (
-        supabase
-        .table("pengujian")
-        .select("*")
-        .order(
-            "tanggal_pengujian",
-            desc=True,
-        )
-        .execute()
+    semua_pengujian = ambil_semua_baris(
+        supabase,
+        "pengujian",
+        "*",
     )
-
-    semua_pengujian = (
-        response_pengujian.data
-        or []
+    semua_pengujian.sort(
+        key=lambda row: (
+            str(row.get("tanggal_pengujian") or ""),
+            int(row.get("id") or 0),
+        ),
+        reverse=True,
     )
 
     daftar_pengujian = []
@@ -1643,23 +1634,12 @@ def ambil_riwayat_meter_air():
         if row.get("id") is not None
     ]
 
-    response_relasi = (
-        supabase
-        .table("pengujian_uttp")
-        .select(
-            "id, pengujian_id, uttp_id, "
-            "urutan, hasil, data_detail"
-        )
-        .in_(
-            "pengujian_id",
-            daftar_pengujian_id,
-        )
-        .execute()
-    )
-
-    semua_relasi = (
-        response_relasi.data
-        or []
+    semua_relasi = ambil_semua_baris(
+        supabase,
+        "pengujian_uttp",
+        "id, pengujian_id, uttp_id, urutan, hasil, data_detail",
+        filter_kolom="pengujian_id",
+        filter_nilai=daftar_pengujian_id,
     )
 
     relasi_map = {}
@@ -1676,38 +1656,20 @@ def ambil_riwayat_meter_air():
     # =====================================================
     daftar_uttp_id = list({
         row.get("uttp_id")
-        for row in semua_relasi
+        for row in (semua_relasi + daftar_pengujian)
         if row.get("uttp_id") is not None
     })
 
-    uttp_map = {}
-
-    if daftar_uttp_id:
-
-        response_uttp = (
-            supabase
-            .table("uttp")
-            .select(
-                "id, perusahaan_id, jenis_uttp, "
-                "merk, tipe, nomor_seri, "
-                "kapasitas, satuan_kapasitas, "
-                "diameter, satuan_diameter, "
-                "kelas, status"
-            )
-            .in_(
-                "id",
-                daftar_uttp_id,
-            )
-            .execute()
-        )
-
-        uttp_map = {
-            row["id"]: row
-            for row in (
-                response_uttp.data
-                or []
-            )
-        }
+    data_master_uttp = ambil_semua_baris(
+        supabase,
+        "uttp",
+        "id, perusahaan_id, jenis_uttp, merk, tipe, nomor_seri, "
+        "kapasitas, satuan_kapasitas, diameter, satuan_diameter, "
+        "kelas, status",
+        filter_kolom="id",
+        filter_nilai=daftar_uttp_id,
+    )
+    uttp_map = {row["id"]: row for row in data_master_uttp}
 
     # =====================================================
     # 4. MASTER PERUSAHAAN
@@ -1718,30 +1680,14 @@ def ambil_riwayat_meter_air():
         if row.get("perusahaan_id") is not None
     })
 
-    perusahaan_map = {}
-
-    if daftar_perusahaan_id:
-
-        response_perusahaan = (
-            supabase
-            .table("perusahaan")
-            .select(
-                "id, nama_perusahaan, alamat"
-            )
-            .in_(
-                "id",
-                daftar_perusahaan_id,
-            )
-            .execute()
-        )
-
-        perusahaan_map = {
-            row["id"]: row
-            for row in (
-                response_perusahaan.data
-                or []
-            )
-        }
+    data_master_perusahaan = ambil_semua_baris(
+        supabase,
+        "perusahaan",
+        "id, nama_perusahaan, alamat",
+        filter_kolom="id",
+        filter_nilai=daftar_perusahaan_id,
+    )
+    perusahaan_map = {row["id"]: row for row in data_master_perusahaan}
 
     # =====================================================
     # 5. GABUNGKAN DATA
@@ -1772,11 +1718,7 @@ def ambil_riwayat_meter_air():
             or {}
         )
 
-        uttp_id = (
-            relasi.get(
-                "uttp_id"
-            )
-        )
+        uttp_id = relasi.get("uttp_id") or header.get("uttp_id")
 
         alat = (
             uttp_map.get(
