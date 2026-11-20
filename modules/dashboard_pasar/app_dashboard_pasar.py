@@ -1,3 +1,4 @@
+import html
 import streamlit as st
 import pandas as pd
 import folium
@@ -19,12 +20,8 @@ import json
 import glob
 import os
 from supabase import create_client
+from modules.utils_supabase import ambil_semua_baris  # DASHBOARD_PASAR_AUDIT_V1
 
-st.set_page_config(
-    page_title="Dashboard Pasar – SMART METRO",
-    page_icon="🏪",
-    layout="wide"
-)
 
 # =========================
 # KONSTANTA DASHBOARD PASAR
@@ -146,56 +143,26 @@ def marker_color(year, selected_year):
 # =========================
 # LOAD DATA PASAR
 # =========================
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=60, show_spinner=False)
 def load_master_pasar_supabase():
+    """Master pasar lengkap. Pagination dijalankan dengan urutan ID tetap."""
     sb = get_supabase()
-
-    data = (
-        sb.table("pasar")
-        .select(
-            "id,nama_pasar,alamat,kecamatan,latitude,longitude,status"
-        )
-        .execute()
-        .data
-        or []
+    rows = ambil_semua_baris(
+        sb, "pasar",
+        "id,nama_pasar,alamat,kecamatan,latitude,longitude,status",
+        ukuran_halaman=500,
     )
-
-    df = pd.DataFrame(data)
-
-    if df.empty:
-        return df
-
-    df["lat"] = pd.to_numeric(
-        df["latitude"],
-        errors="coerce"
-    )
-
-    df["lon"] = pd.to_numeric(
-        df["longitude"],
-        errors="coerce"
-    )
-
-    df["nama_pasar"] = (
-        df["nama_pasar"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
-
-    df["kecamatan"] = (
-        df["kecamatan"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
-
-    df["alamat"] = (
-        df["alamat"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
-
+    kolom = ["id", "nama_pasar", "alamat", "kecamatan",
+             "latitude", "longitude", "status"]
+    df = pd.DataFrame(rows, columns=kolom)
+    df["lat"] = pd.to_numeric(df["latitude"], errors="coerce")
+    df["lon"] = pd.to_numeric(df["longitude"], errors="coerce")
+    valid = df["lat"].between(-90, 90) & df["lon"].between(-180, 180)
+    valid &= ~((df["lat"] == 0) & (df["lon"] == 0))
+    df.loc[~valid, ["lat", "lon"]] = float("nan")
+    for c in ["nama_pasar", "kecamatan", "alamat"]:
+        df[c] = df[c].fillna("").astype(str).str.strip()
+    df["kecamatan"] = df["kecamatan"].str.title()
     return df
 @st.cache_resource
 def get_supabase():
@@ -238,63 +205,38 @@ def get_supabase():
         st.stop()
 
     return create_client(url, key)
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=60, show_spinner=False)
 def load_pasar_supabase():
+    """Baca semua kegiatan pasar_tahunan dan gabungkan master pasar."""
     sb = get_supabase()
-
-    pasar = (
-        sb.table("pasar")
-        .select("id,nama_pasar,alamat,kecamatan,latitude,longitude,status")
-        .execute()
-        .data
-        or []
-    )
-
-    tahunan = (
-        sb.table("pasar_tahunan")
-        .select("*")
-        .execute()
-        .data
-        or []
-    )
-
-    df_pasar = pd.DataFrame(pasar)
+    df_pasar = load_master_pasar_supabase()
+    tahunan = ambil_semua_baris(sb, "pasar_tahunan", "*", ukuran_halaman=500)
     df_tahunan = pd.DataFrame(tahunan)
 
+    # Kembalikan skema konsisten supaya filter tahun dan grafik tidak KeyError.
+    kolom_kosong = [
+        "pasar_id", "tahun", "tera_ulang_tahun", "nama_pasar", "alamat",
+        "kecamatan", "lat", "lon", "total_uttp", "total_pedagang",
+        "jumlah_timbangan_tera_ulang", "tanggal_pelaksanaan", "jumlah_hari",
+        "timb_pegas", "timb_meja", "timb_elektronik", "timb_sentisimal",
+        "timb_bobot_ingsut", "neraca", "dacin", "Timb. Pegas", "Timb. Meja",
+        "Timb. Elektronik", "Timb. Sentisimal", "Timb. Bobot Ingsut",
+        "Neraca", "Dacin",
+    ]
     if df_pasar.empty or df_tahunan.empty:
-        return pd.DataFrame()
+        return pd.DataFrame(columns=kolom_kosong)
+    if "pasar_id" not in df_tahunan:
+        raise ValueError("Kolom pasar_id tidak ditemukan pada pasar_tahunan")
 
     df = df_tahunan.merge(
-        df_pasar,
-        left_on="pasar_id",
-        right_on="id",
-        how="left"
+        df_pasar, left_on="pasar_id", right_on="id", how="left",
+        validate="many_to_one",
     )
-
-    df["lat"] = pd.to_numeric(
-        df["latitude"],
-        errors="coerce"
-    )
-
-    df["lon"] = pd.to_numeric(
-        df["longitude"],
-        errors="coerce"
-    )
-
-    df["tera_ulang_tahun"] = pd.to_numeric(
-        df["tahun"],
-        errors="coerce"
-    )
-
+    df["tera_ulang_tahun"] = pd.to_numeric(df["tahun"], errors="coerce")
     df["jumlah_timbangan_tera_ulang"] = pd.to_numeric(
-        df["total_uttp"],
-        errors="coerce"
+        df["total_uttp"] if "total_uttp" in df else 0, errors="coerce"
     ).fillna(0)
-    # =====================================================
-    # MAPPING KOLOM SUPABASE -> FORMAT DASHBOARD
-    # =====================================================
-    
-    mapping_timbangan = {
+    mapping = {
         "timb_pegas": "Timb. Pegas",
         "timb_meja": "Timb. Meja",
         "timb_elektronik": "Timb. Elektronik",
@@ -303,321 +245,74 @@ def load_pasar_supabase():
         "neraca": "Neraca",
         "dacin": "Dacin",
     }
-    
-    for kolom_asal, kolom_dashboard in mapping_timbangan.items():
-        if kolom_asal in df.columns:
-            df[kolom_dashboard] = pd.to_numeric(
-                df[kolom_asal],
-                errors="coerce"
-            ).fillna(0)
-        else:
-            df[kolom_dashboard] = 0
-    if "total_pedagang" not in df.columns:
-        df["total_pedagang"] = 0
-    else:
-        df["total_pedagang"] = pd.to_numeric(
-            df["total_pedagang"],
-            errors="coerce"
+    for asal, tujuan in mapping.items():
+        df[tujuan] = pd.to_numeric(
+            df[asal] if asal in df else 0, errors="coerce"
         ).fillna(0)
-    df["nama_pasar"] = df["nama_pasar"].fillna("").astype(str).str.strip()
-    df["kecamatan"] = df["kecamatan"].fillna("").astype(str).str.strip()
-    df["alamat"] = df["alamat"].fillna("").astype(str).str.strip()
+    df["total_pedagang"] = pd.to_numeric(
+        df["total_pedagang"] if "total_pedagang" in df else 0,
+        errors="coerce",
+    ).fillna(0)
+    for c in ["nama_pasar", "kecamatan", "alamat"]:
+        df[c] = df[c].fillna("").astype(str).str.strip()
     return df
-def build_export_pasar(
-    df,
-    tahun,
-):
-
+def build_export_pasar(df, tahun):
+    """Rekap tahunan; angka NULL/NaN menjadi 0, tidak menyebabkan ValueError."""
     if df.empty:
         return pd.DataFrame()
-
     tahun = int(tahun)
-
-    data_tahun = df[
-        pd.to_numeric(
-            df["tera_ulang_tahun"],
-            errors="coerce",
-        ) == tahun
+    data_tahun = df.loc[
+        pd.to_numeric(df["tera_ulang_tahun"], errors="coerce") == tahun
     ].copy()
-
     if data_tahun.empty:
         return pd.DataFrame()
 
+    def angka(value):
+        v = pd.to_numeric(value, errors="coerce")
+        return int(v) if pd.notna(v) else 0
+
     hasil = []
-
     for _, row in data_tahun.iterrows():
+        hasil.append({
+            "Nama Pasar": row.get("nama_pasar", ""),
+            f"Pelaksanaan {tahun}": row.get("tanggal_pelaksanaan", ""),
+            "TP": angka(row.get("timb_pegas")),
+            "TM": angka(row.get("timb_meja")),
+            "TE": angka(row.get("timb_elektronik")),
+            "Sentisimal": angka(row.get("timb_sentisimal")),
+            "Bobot Ingsut": angka(row.get("timb_bobot_ingsut")),
+            "Neraca": angka(row.get("neraca")),
+            "Total UTTP": angka(row.get("total_uttp")),
+            "Total Pedagang": angka(row.get("total_pedagang")),
+            "Jumlah Hari": angka(row.get("jumlah_hari")),
+        })
 
-        pasar_id = row.get(
-            "pasar_id"
-        )
-
-        hasil.append(
-            {
-                "Nama Pasar": row.get(
-                    "nama_pasar",
-                    "",
-                ),
-
-                f"Pelaksanaan {tahun}": row.get(
-                    "tanggal_pelaksanaan",
-                    "",
-                ),
-
-                "TP": int(
-                    pd.to_numeric(
-                        row.get(
-                            "timb_pegas",
-                            0,
-                        ),
-                        errors="coerce",
-                    )
-                    or 0
-                ),
-
-                "TM": int(
-                    pd.to_numeric(
-                        row.get(
-                            "timb_meja",
-                            0,
-                        ),
-                        errors="coerce",
-                    )
-                    or 0
-                ),
-
-                "TE": int(
-                    pd.to_numeric(
-                        row.get(
-                            "timb_elektronik",
-                            0,
-                        ),
-                        errors="coerce",
-                    )
-                    or 0
-                ),
-
-                "Sentisimal": int(
-                    pd.to_numeric(
-                        row.get(
-                            "timb_sentisimal",
-                            0,
-                        ),
-                        errors="coerce",
-                    )
-                    or 0
-                ),
-
-                "Bobot Ingsut": int(
-                    pd.to_numeric(
-                        row.get(
-                            "timb_bobot_ingsut",
-                            0,
-                        ),
-                        errors="coerce",
-                    )
-                    or 0
-                ),
-
-                "Neraca": int(
-                    pd.to_numeric(
-                        row.get(
-                            "neraca",
-                            0,
-                        ),
-                        errors="coerce",
-                    )
-                    or 0
-                ),
-
-                "Total UTTP": int(
-                    pd.to_numeric(
-                        row.get(
-                            "total_uttp",
-                            0,
-                        ),
-                        errors="coerce",
-                    )
-                    or 0
-                ),
-
-                "Total Pedagang": int(
-                    pd.to_numeric(
-                        row.get(
-                            "total_pedagang",
-                            0,
-                        ),
-                        errors="coerce",
-                    )
-                    or 0
-                ),
-
-                "Jumlah Hari": int(
-                    pd.to_numeric(
-                        row.get(
-                            "jumlah_hari",
-                            0,
-                        ),
-                        errors="coerce",
-                    )
-                    or 0
-                ),
-            }
-        )
-
-    laporan = pd.DataFrame(
-        hasil
-    )
-
-    if laporan.empty:
-        return laporan
-
-    # =====================================================
-    # URUTKAN PASAR BERDASARKAN TANGGAL PELAKSANAAN
-    # JANUARI -> DESEMBER
-    # =====================================================
+    laporan = pd.DataFrame(hasil)
     bulan_map = {
-        "januari": 1,
-        "februari": 2,
-        "maret": 3,
-        "april": 4,
-        "mei": 5,
-        "juni": 6,
-        "juli": 7,
-        "agustus": 8,
-        "september": 9,
-        "oktober": 10,
-        "november": 11,
-        "desember": 12,
+        "januari": 1, "februari": 2, "maret": 3, "april": 4,
+        "mei": 5, "juni": 6, "juli": 7, "agustus": 8,
+        "september": 9, "oktober": 10, "november": 11, "desember": 12,
     }
 
-
-    def ambil_tanggal_awal_pasar(value):
-
-        text = str(
-            value or ""
-        ).strip()
-
-        if not text:
+    def tanggal_awal(teks):
+        m = re.match(
+            r"^\s*(\d{1,2})(?:\s*[-–]\s*\d{1,2})?\s+"
+            r"([A-Za-z]+)\s+(\d{4})\s*$", str(teks or ""), re.I,
+        )
+        if not m:
+            return pd.Timestamp.max
+        bulan = bulan_map.get(m.group(2).lower())
+        if not bulan:
+            return pd.Timestamp.max
+        try:
+            return pd.Timestamp(int(m.group(3)), bulan, int(m.group(1)))
+        except (ValueError, OverflowError):
             return pd.Timestamp.max
 
-        # Contoh:
-        # 4-5 Februari 2026
-        match_range = re.match(
-            r"^\s*(\d{1,2})-(\d{1,2})\s+"
-            r"([A-Za-z]+)\s+(\d{4})\s*$",
-            text,
-        )
-
-        if match_range:
-
-            hari = int(
-                match_range.group(1)
-            )
-
-            nama_bulan = (
-                match_range.group(3)
-                .lower()
-            )
-
-            tahun_tanggal = int(
-                match_range.group(4)
-            )
-
-            bulan = bulan_map.get(
-                nama_bulan
-            )
-
-            if bulan:
-
-                try:
-                    return pd.Timestamp(
-                        year=tahun_tanggal,
-                        month=bulan,
-                        day=hari,
-                    )
-                except Exception:
-                    pass
-
-        # Contoh:
-        # 6 Februari 2026
-        match_single = re.match(
-            r"^\s*(\d{1,2})\s+"
-            r"([A-Za-z]+)\s+(\d{4})\s*$",
-            text,
-        )
-
-        if match_single:
-
-            hari = int(
-                match_single.group(1)
-            )
-
-            nama_bulan = (
-                match_single.group(2)
-                .lower()
-            )
-
-            tahun_tanggal = int(
-                match_single.group(3)
-            )
-
-            bulan = bulan_map.get(
-                nama_bulan
-            )
-
-            if bulan:
-
-                try:
-                    return pd.Timestamp(
-                        year=tahun_tanggal,
-                        month=bulan,
-                        day=hari,
-                    )
-                except Exception:
-                    pass
-
-        return pd.Timestamp.max
-
-
-    kolom_pelaksanaan = (
-        f"Pelaksanaan {tahun}"
-    )
-
-    laporan["_tanggal_urut"] = (
-        laporan[
-            kolom_pelaksanaan
-        ].apply(
-            ambil_tanggal_awal_pasar
-        )
-    )
-
-    laporan = (
-        laporan
-        .sort_values(
-            [
-                "_tanggal_urut",
-                "Nama Pasar",
-            ]
-        )
-        .drop(
-            columns=[
-                "_tanggal_urut"
-            ]
-        )
-        .reset_index(
-            drop=True
-        )
-    )
-
-    laporan.insert(
-        0,
-        "No",
-        range(
-            1,
-            len(laporan) + 1,
-        ),
-    )
-
+    laporan["_tanggal_urut"] = laporan[f"Pelaksanaan {tahun}"].apply(tanggal_awal)
+    laporan = (laporan.sort_values(["_tanggal_urut", "Nama Pasar"])
+               .drop(columns=["_tanggal_urut"]).reset_index(drop=True))
+    laporan.insert(0, "No", range(1, len(laporan) + 1))
     return laporan
 
 def generate_excel_rekap_pasar(
@@ -981,19 +676,33 @@ def load_geojson(path):
 # KLIK MARKER -> PENDING
 # =========================
 def pick_from_click(map_state, df_context, name_col, kec_col, state_prefix):
-    if not map_state: return False
-    clicked = map_state.get('last_object_clicked')
-    if not clicked: return False
-    latc, lonc = clicked.get('lat'), clicked.get('lng')
-    if None in (latc, lonc): return False
-    if not {'lat','lon',name_col,kec_col}.issubset(df_context.columns): return False
-
-    tmp = df_context[['lat','lon',name_col,kec_col]].dropna().copy()
-    if tmp.empty: return False
-    dist = ((tmp['lat'] - latc)**2 + (tmp['lon'] - lonc)**2).idxmin()
+    """Pilih satu marker per klik, hindari rerun berulang dan klik latar peta."""
+    if not map_state or not isinstance(map_state.get("last_object_clicked"), dict):
+        return False
+    clicked = map_state["last_object_clicked"]
+    try:
+        latc = float(clicked.get("lat"))
+        lonc = float(clicked.get("lng"))
+    except (ValueError, TypeError):
+        return False
+    cols = {"lat", "lon", name_col, kec_col}
+    if not cols.issubset(df_context.columns):
+        return False
+    tmp = df_context[["lat", "lon", name_col, kec_col]].dropna().copy()
+    if tmp.empty:
+        return False
+    distances = (tmp["lat"] - latc) ** 2 + (tmp["lon"] - lonc) ** 2
+    idx = distances.idxmin()
+    if float(distances.loc[idx]) > (0.005 ** 2):
+        return False
+    sig = (round(latc, 6), round(lonc, 6), str(tmp.loc[idx, name_col]))
+    sig_key = f"{state_prefix}_last_click_sig"
+    if st.session_state.get(sig_key) == sig:
+        return False
+    st.session_state[sig_key] = sig
     st.session_state[f"{state_prefix}_pending_pick"] = {
-        'name': str(df_context.loc[dist, name_col]),
-        'kec': str(df_context.loc[dist, kec_col])
+        "name": str(tmp.loc[idx, name_col]),
+        "kec": str(tmp.loc[idx, kec_col]),
     }
     return True
 
@@ -1002,9 +711,20 @@ def pick_from_click(map_state, df_context, name_col, kec_col, state_prefix):
 # DASHBOARD PASAR
 # =========================
 def render_dashboard_pasar():
-    df = load_pasar_supabase()
-    df_master_pasar = load_master_pasar_supabase()
-    geo = load_geojson(FILE_GEOJSON) if os.path.exists(FILE_GEOJSON) else None
+    try:
+        df_master_pasar = load_master_pasar_supabase()
+        df = load_pasar_supabase()
+    except Exception as exc:
+        st.error(f"Data Dashboard Pasar gagal dibaca dari Supabase: {exc}")
+        return
+    if df_master_pasar.empty:
+        st.warning("Master pasar belum tersedia di Supabase.")
+        return
+    try:
+        geo = load_geojson(FILE_GEOJSON) if os.path.exists(FILE_GEOJSON) else None
+    except (OSError, ValueError, KeyError) as exc:
+        st.warning(f"Batas kecamatan tidak dapat ditampilkan: {exc}")
+        geo = None
     # =====================================================
     # NAVIGASI
     # =====================================================
@@ -1043,8 +763,15 @@ def render_dashboard_pasar():
 
     # --- sidebar filter ---
     st.sidebar.markdown("---"); st.sidebar.subheader("Filter Pasar")
-    years = sorted(pd.to_numeric(df['tera_ulang_tahun'], errors='coerce').dropna().astype(int).unique())
-    year_pick = st.sidebar.selectbox("Tahun Tera Ulang", years[::-1], key='pasar_year_pick')
+    years = sorted(
+        pd.to_numeric(df["tera_ulang_tahun"], errors="coerce")
+        .dropna().astype(int).unique().tolist(), reverse=True,
+    )
+    if not years:
+        years = [datetime.now().year]
+    if st.session_state.get("pasar_year_pick") not in years:
+        st.session_state["pasar_year_pick"] = years[0]
+    year_pick = st.sidebar.selectbox("Tahun Tera Ulang", years, key="pasar_year_pick")
     with st.expander(
         "📥 Export Rekap Pasar",
         expanded=False,
@@ -1108,18 +835,24 @@ def render_dashboard_pasar():
         key="pasar_status_filter"
     )
 
-    df_year = df[df['tera_ulang_tahun'] == year_pick].copy()
-    all_kec = uniq(df_year['kecamatan'], clean=True) if not df_year.empty else []
-    all_pasar = uniq(df_year['nama_pasar'], clean=False) if not df_year.empty else []
-
-    kec_pick = st.sidebar.selectbox("Kecamatan", ['(Semua)'] + all_kec,
-                                    key='pasar_kec_filter')
-    if kec_pick == '(Semua)':
-        pasar_ops = ['(Semua)'] + all_pasar
+    df_year = df[df["tera_ulang_tahun"] == year_pick].copy()
+    # Pilihan berasal dari master: pasar yang belum tera juga harus bisa dipilih.
+    sumber_filter = df_master_pasar if not df_master_pasar.empty else df_year
+    all_kec = uniq(sumber_filter["kecamatan"], clean=True)
+    all_pasar = uniq(sumber_filter["nama_pasar"], clean=False)
+    kec_ops = ["(Semua)"] + all_kec
+    if st.session_state.get("pasar_kec_filter", "(Semua)") not in kec_ops:
+        st.session_state["pasar_kec_filter"] = "(Semua)"
+    kec_pick = st.sidebar.selectbox("Kecamatan", kec_ops, key="pasar_kec_filter")
+    if kec_pick == "(Semua)":
+        pasar_ops = ["(Semua)"] + all_pasar
     else:
-        pasar_ops = ['(Semua)'] + uniq(df_year[df_year['kecamatan']==kec_pick]['nama_pasar'], clean=False)
-    nama_pick = st.sidebar.selectbox("Nama Pasar", pasar_ops, key='pasar_name_filter')
-
+        pasar_ops = ["(Semua)"] + uniq(
+            sumber_filter.loc[sumber_filter["kecamatan"] == kec_pick, "nama_pasar"]
+        )
+    if st.session_state.get("pasar_name_filter", "(Semua)") not in pasar_ops:
+        st.session_state["pasar_name_filter"] = "(Semua)"
+    nama_pick = st.sidebar.selectbox("Nama Pasar", pasar_ops, key="pasar_name_filter")
     # simpan state
     st.session_state['pasar_kec_sel'] = kec_pick
     st.session_state['pasar_name_sel'] = nama_pick
@@ -1129,56 +862,51 @@ def render_dashboard_pasar():
     if kec_pick != '(Semua)': fdf = fdf[fdf['kecamatan'] == kec_pick]
     if nama_pick != '(Semua)': fdf = fdf[fdf['nama_pasar'] == nama_pick]
     # =====================================================
-    # DATA KHUSUS PETA
+    # DATA KHUSUS PETA: satu titik per master pasar
     # =====================================================
-    
     peta_df = df_master_pasar.copy()
-    
     if not peta_df.empty:
-    
-        # Data tahun yang sedang dipilih
-        data_tahun = df[
-            df["tera_ulang_tahun"] == year_pick
+        peta_df["id"] = pd.to_numeric(peta_df["id"], errors="coerce")
+        data_tahun = df.loc[
+            df["tera_ulang_tahun"] == year_pick,
+            ["pasar_id", "jumlah_timbangan_tera_ulang"],
         ].copy()
-    
-        kolom_status = data_tahun[
-            [
-                "pasar_id",
-                "jumlah_timbangan_tera_ulang"
-            ]
-        ].copy()
-    
-        kolom_status["sudah_tera"] = True
-    
-        peta_df = peta_df.merge(
-            kolom_status,
-            left_on="id",
-            right_on="pasar_id",
-            how="left"
-        )
-    
-        peta_df["sudah_tera"] = (
-            peta_df["sudah_tera"]
-            .fillna(False)
-            .astype(bool)
-        )
-    
-        peta_df["jumlah_timbangan_tera_ulang"] = (
-            pd.to_numeric(
-                peta_df["jumlah_timbangan_tera_ulang"],
-                errors="coerce"
+        if not data_tahun.empty:
+            data_tahun["pasar_id"] = pd.to_numeric(
+                data_tahun["pasar_id"], errors="coerce"
             )
-            .fillna(0)
-        )
+            data_tahun["jumlah_timbangan_tera_ulang"] = pd.to_numeric(
+                data_tahun["jumlah_timbangan_tera_ulang"], errors="coerce"
+            ).fillna(0)
+            # Jika lebih dari satu kegiatan/tahun, status pasar tetap dihitung sekali.
+            status_tahunan = data_tahun.groupby(
+                "pasar_id", as_index=False
+            )["jumlah_timbangan_tera_ulang"].sum()
+            status_tahunan["sudah_tera"] = True
+            peta_df = peta_df.merge(
+                status_tahunan, left_on="id", right_on="pasar_id", how="left",
+                validate="one_to_one",
+            ).drop(columns=["pasar_id"])
+        if "sudah_tera" not in peta_df:
+            peta_df["sudah_tera"] = False
+        if "jumlah_timbangan_tera_ulang" not in peta_df:
+            peta_df["jumlah_timbangan_tera_ulang"] = 0
+        peta_df["sudah_tera"] = peta_df["sudah_tera"].fillna(False).astype(bool)
+        peta_df["jumlah_timbangan_tera_ulang"] = pd.to_numeric(
+            peta_df["jumlah_timbangan_tera_ulang"], errors="coerce"
+        ).fillna(0)
+    else:
+        peta_df["sudah_tera"] = pd.Series(dtype=bool)
+        peta_df["jumlah_timbangan_tera_ulang"] = pd.Series(dtype=float)
     # --- informasi pasar jika spesifik ---
     if nama_pick != '(Semua)' and not fdf.empty:
         r = fdf.iloc[0]
         st.markdown("---")
         st.markdown(f"""
         <div style="background:#f3e8ff; padding:14px 16px; border-radius:12px; border-left:5px solid #8000FF;">
-            <h4 style="color:#4B0082;">🏪 {r['nama_pasar']}</h4>
-            <p style="font-size:13px;"><b>Kecamatan:</b> {r['kecamatan']}<br>
-            <b>Alamat:</b> {r['alamat']}<br><b>Tahun:</b> {year_pick}</p>
+            <h4 style="color:#4B0082;">🏪 {html.escape(str(r['nama_pasar']))}</h4>
+            <p style="font-size:13px;"><b>Kecamatan:</b> {html.escape(str(r['kecamatan']))}<br>
+            <b>Alamat:</b> {html.escape(str(r['alamat']))}<br><b>Tahun:</b> {year_pick}</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -1203,7 +931,7 @@ def render_dashboard_pasar():
         )
     
         total_pasar = (
-            peta_df["nama_pasar"].nunique()
+            peta_df["id"].nunique()
             if not peta_df.empty
             else 0
         )
@@ -1329,7 +1057,7 @@ def render_dashboard_pasar():
 
     if not coords.empty:
         if nama_pick != '(Semua)':
-            r = fdf[fdf['nama_pasar']==nama_pick].iloc[0]
+            r = peta_filter[peta_filter['nama_pasar']==nama_pick].iloc[0]
             center = [float(r['lat']), float(r['lon'])]; zoom = 16
         elif len(coords) == 1:
             center = [coords.iloc[0]['lat'], coords.iloc[0]['lon']]; zoom = 14
@@ -1439,8 +1167,8 @@ def render_dashboard_pasar():
                 tooltip=r["nama_pasar"],
                 popup=folium.Popup(
                     f"""
-                    <b>{r['nama_pasar']}</b><br>
-                    {r['alamat']}<br>
+                    <b>{html.escape(str(r['nama_pasar']))}</b><br>
+                    {html.escape(str(r['alamat']))}<br>
                     Tahun: {year_pick}<br>
                     Status: {status_text}<br>
                     Total UTTP: {int(r.get('jumlah_timbangan_tera_ulang', 0))}
@@ -2441,3 +2169,8 @@ def render_dashboard_pasar():
 # =========================================================
 def run():
     render_dashboard_pasar()
+
+
+if __name__ == "__main__":
+    st.set_page_config(page_title="Dashboard Pasar – SMART METRO", page_icon="🏪", layout="wide")
+    run()
