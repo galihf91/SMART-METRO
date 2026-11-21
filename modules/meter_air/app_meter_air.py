@@ -3541,25 +3541,26 @@ def run():
                         # Jadi jangan timpa item pertama.
                         if meter_key not in meter_map:
 
+                            # Nomor SKHP dari pengujian terbaru
+                            nomor_skhp = str(
+                                detail.get(
+                                    "nomor_sertifikat"
+                                ) or "-"
+                            ).strip()
+
                             label_meter = (
-                                f"{merek or '-'}"
-                                f" | "
-                                f"{tipe or '-'}"
-                                f" | "
-                                f"No. Seri: "
-                                f"{nomor_seri or '-'}"
+                                f"{merek or '-'} | "
+                                f"{tipe or '-'} | "
+                                f"No. Seri: {nomor_seri or '-'} | "
+                                f"SKHP: {nomor_skhp} | "
+                                f"ID: {uttp_id or '-'}"
                             )
 
-                            meter_map[
-                                meter_key
-                            ] = {
-                                "label": (
-                                    label_meter
-                                ),
-                                "riwayat": (
-                                    item
-                                ),
+                            meter_map[meter_key] = {
+                                "label": label_meter,
+                                "riwayat": item,
                             }
+
 
                     # =========================================
                     # 3. PILIH METER AIR
