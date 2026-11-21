@@ -17,17 +17,18 @@ from sentence_transformers import SentenceTransformer, CrossEncoder
 CHAT_MODEL = "deepseek-chat"
 
 BATAS_KONTEKS = 12000
-KEEP_TOP = 8
+KEEP_TOP = 5
 RIWAYAT_MAKS = 6
 
 MATCH_THRESHOLD = 0.4
-MATCH_COUNT = 30
-MATCH_COUNT_KEYWORD = 10
-RERANK_TOP = 15
+MATCH_COUNT = 15
+MATCH_COUNT_KEYWORD = 6
+RERANK_TOP = 6
 
-BATAS_KONTEKS_TOKEN = 6000
-BATAS_RIWAYAT_TOKEN = 2000
+BATAS_KONTEKS_TOKEN = 3500
+BATAS_RIWAYAT_TOKEN = 1500
 PERKIRAAN_CHAR_PER_TOKEN = 4
+
 
 TABEL_DOKUMEN = "documents"
 RERANKER_MODEL = "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
@@ -314,21 +315,30 @@ def gabung_rrf(daftar_vektor, daftar_keyword, konstanta=60):
     return hasil
 
 def perlu_tulis_ulang_ai(pertanyaan):
-    teks = str(pertanyaan or "").strip().lower()
+    teks = re.sub(
+        r"\s+",
+        " ",
+        str(pertanyaan or "").lower().strip()
+    )
 
     if not teks:
         return False
 
-    if len(teks.split()) <= 8:
-        return True
-
-    penanda = (
-        "itu", "tersebut", "tadi", "kalau", "nya",
-        "sebelumnya", "lanjut", "yang sama",
+    # Hanya tulis ulang bila pertanyaan
+    # benar-benar merujuk percakapan sebelumnya.
+    pola_lanjutan = (
+        r"\b("
+        r"itu|tersebut|tadi|sebelumnya|"
+        r"yang sama|yang tadi|"
+        r"bagaimana dengan|kalau yang|"
+        r"lanjut|lanjutkan|"
+        r"hasilnya|jumlahnya|datanya"
+        r")\b"
     )
 
-    return any(kata in teks for kata in penanda)
-
+    return bool(
+        re.search(pola_lanjutan, teks)
+    )
 
 def tulis_ulang_pertanyaan(pertanyaan, riwayat, client):
     if not perlu_tulis_ulang_ai(pertanyaan):
@@ -10446,45 +10456,505 @@ def ambil_periode_pimpinan_ai(
         "tahun": tahun,
         "bulan": bulan,
     }
+
+# =========================================================
+# FAST RESPONSE - DATABASE LANGSUNG
+# =====================================================
+def jawab_instant_database(pertanyaan, supabase):
+
+    teks = re.sub(
+        r"\s+",
+        " ",
+        str(pertanyaan or "").lower().strip()
+    ).rstrip("?.!")
+
+    awalan = r"(?:berapa (?:jumlah|banyak) |jumlah |total )"
+
+    # JUMLAH SPBU
+    if re.fullmatch(
+        awalan + r"spbu(?: di kabupaten tangerang)?",
+        teks
+    ):
+        hasil = jalankan_tool(
+            "hitung_spbu", {}, supabase
+        )
+
+        if "error" not in hasil:
+            return (
+                f"Berdasarkan database SMART METRO, "
+                f"terdapat **{hasil.get('jumlah_spbu', 0)} SPBU** "
+                f"di Kabupaten Tangerang."
+            )
+
+    # JUMLAH PERUSAHAAN
+    if re.fullmatch(
+        awalan + r"perusahaan(?: yang terdaftar)?",
+        teks
+    ):
+        hasil = jalankan_tool(
+            "hitung_aset",
+            {"sumber": "perusahaan"},
+            supabase
+        )
+
+        if "error" not in hasil:
+            return (
+                f"Terdapat **{hasil.get('jumlah', 0)} "
+                f"perusahaan** dalam database SMART METRO."
+            )
+
+    # JUMLAH PENGUJIAN PER TAHUN
+    cocok = re.fullmatch(
+        awalan +
+        r"pengujian (?:pada |di )?tahun (20\d{2}|ini)",
+        teks
+    )
+
+    if cocok:
+        tahun = (
+            hari_ini_wib().year
+            if cocok.group(1) == "ini"
+            else int(cocok.group(1))
+        )
+
+        hasil = jalankan_tool(
+            "hitung_pengujian",
+            {"tahun": tahun},
+            supabase
+        )
+
+        if "error" not in hasil:
+            jumlah = hasil.get("jumlah", 0)
+
+            return (
+                f"Terdapat **{jumlah:,} pengujian** "
+                f"pada tahun {tahun} menurut database "
+                f"SMART METRO."
+            ).replace(f"{jumlah:,}", f"{jumlah:,}".replace(",", "."))
+    
+    # =====================================================
+    # PENCARIAN SKHP / NOMOR ORDER
+    # =====================================================
+    cocok_nomor = re.fullmatch(
+        r"(?:cari|cek|lihat|tampilkan)\s+"
+        r"(?:skhp|nomor skhp|sertifikat|"
+        r"nomor sertifikat|nomor order)\s+"
+        r"(?:nomor\s+)?(.+)",
+        teks,
+    )
+
+    # =====================================================
+    # PENCARIAN PENGUJIAN BERDASARKAN PERUSAHAAN
+    # =====================================================
+    cocok_perusahaan = re.fullmatch(
+        r"(?:cari|lihat|tampilkan|daftar)\s+"
+        r"(?:pengujian|skhp|sertifikat)\s+"
+        r"(?:milik\s+)?(?:perusahaan\s+)?"
+        r"(.+?)"
+        r"(?:\s+(?:pada\s+)?tahun\s+(20\d{2}))?",
+        teks,
+    )
+
+    if cocok_nomor or cocok_perusahaan:
+
+        argumen = {"batas": 10}
+
+        if cocok_nomor:
+            nomor = cocok_nomor.group(1).strip()
+
+            # Jangan menganggap nama perusahaan
+            # sebagai nomor sertifikat
+            if nomor.startswith(("pt ", "cv ")):
+                return None
+
+            argumen["nomor"] = nomor
+
+        else:
+            nama = cocok_perusahaan.group(1).strip()
+            tahun = cocok_perusahaan.group(2)
+
+            # Hindari pencarian terlalu umum
+            if len(nama) < 3:
+                return None
+
+            argumen["nama_perusahaan"] = nama
+
+            if tahun:
+                argumen["tahun"] = int(tahun)
+
+        hasil = jalankan_tool(
+            "cari_pengujian",
+            argumen,
+            supabase,
+        )
+
+        if "error" in hasil:
+            return None
+
+        daftar = hasil.get("hasil") or []
+
+        if not daftar:
+            return (
+                "Tidak ditemukan pengujian atau SKHP "
+                "yang sesuai dengan pencarian tersebut "
+                "pada database SMART METRO."
+            )
+
+        baris_jawaban = [
+            f"**Ditemukan {len(daftar)} data pengujian "
+            f"yang sesuai:**\n"
+        ]
+
+        for nomor_urut, data in enumerate(
+            daftar, start=1
+        ):
+            perusahaan = (
+                data.get("nama_perusahaan") or "-"
+            )
+            skhp = (
+                data.get("nomor_sertifikat") or "-"
+            )
+            order = (
+                data.get("nomor_order") or "-"
+            )
+            tanggal = (
+                data.get("tanggal_pengujian") or "-"
+            )
+            jenis = (
+                data.get("jenis_pengujian") or "-"
+            )
+            hasil_uji = (
+                data.get("hasil") or "-"
+            )
+
+            baris_jawaban.append(
+                f"**{nomor_urut}. {perusahaan}**\n"
+                f"- Nomor SKHP: {skhp}\n"
+                f"- Nomor Order: {order}\n"
+                f"- Tanggal Pengujian: {tanggal}\n"
+                f"- Jenis Pengujian: {jenis}\n"
+                f"- Hasil: {hasil_uji}"
+            )
+
+        return "\n\n".join(baris_jawaban)
+
+    # Tidak cocok dengan pola cepat
+    return None
+
+
+# =========================================================
+# CACHE RAG PER SESI PENGGUNA
+# =========================================================
+def ambil_konteks_cache_ai(
+    pertanyaan,
+    supabase,
+    model,
+    reranker=None,
+):
+    kunci = re.sub(
+        r"\s+",
+        " ",
+        str(pertanyaan or "").strip().lower()
+    )
+
+    sekarang = time.monotonic()
+
+    cache = st.session_state.setdefault(
+        "ai_rag_cache", {}
+    )
+
+    # Hapus cache yang kedaluwarsa
+    for key in list(cache.keys()):
+        if sekarang - cache[key]["waktu"] > 180:
+            del cache[key]
+
+    # Cache ditemukan
+    if kunci in cache:
+        item = cache[kunci]
+
+        st.session_state["ai_sumber_terakhir"] = [
+            dict(s)
+            for s in item["sumber"]
+        ]
+        st.session_state["ai_waktu_rag"] = 0.0
+        st.session_state["ai_rag_cache_hit"] = True
+
+        return item["konteks"]
+
+    # Cache belum ada -> proses RAG
+    st.session_state["ai_rag_cache_hit"] = False
+
+    mulai_rag = time.perf_counter()
+
+    konteks = ambil_konteks(
+        pertanyaan,
+        supabase,
+        model,
+        reranker,
+    )
+
+    st.session_state["ai_waktu_rag"] = round(
+        time.perf_counter() - mulai_rag,
+        2,
+    )
+
+    sumber = st.session_state.get(
+        "ai_sumber_terakhir", []
+    )
+
+    cache[kunci] = {
+        "waktu": sekarang,
+        "konteks": konteks,
+        "sumber": [
+            dict(s) for s in sumber
+        ],
+    }
+
+    # Batasi penggunaan memori
+    if len(cache) > 20:
+        tertua = min(
+            cache,
+            key=lambda k: cache[k]["waktu"]
+        )
+        del cache[tertua]
+
+    return konteks
+
+# =========================================================
+# STREAMING TEKS DEEPSEEK
+# =========================================================
+def aliran_teks_deepseek(client, pesan):
+
+    response = client.chat.completions.create(
+        model=CHAT_MODEL,
+        messages=pesan,
+        temperature=0.2,
+        timeout=120,
+        stream=True,
+    )
+
+    ada_teks = False
+
+    for chunk in response:
+
+        if not chunk.choices:
+            continue
+
+        delta = chunk.choices[0].delta
+        bagian = getattr(delta, "content", None)
+
+        if bagian:
+            ada_teks = True
+            yield bagian
+
+    if not ada_teks:
+        yield (
+            "Maaf, AI belum menghasilkan jawaban. "
+            "Silakan coba kembali."
+        )
+
+
+# =========================================================
+# IDENTIFIKASI PERTANYAAN DOKUMEN MURNI
+# =========================================================
+def pertanyaan_dokumen_murni_ai(pertanyaan):
+
+    teks = str(pertanyaan or "").lower().strip()
+
+    # Jangan lewati tool jika pertanyaan
+    # meminta data operasional dari Supabase.
+    if re.search(
+        r"\b(berapa|jumlah|total|rekap|statistik|"
+        r"cari pengujian|cari skhp|nomor order|"
+        r"berapa spbu|daftar spbu|"
+        r"monitor|pengawasan|capaian|"
+        r"analisis kinerja)\b",
+        teks,
+    ):
+        return False
+
+    penanda_dokumen = (
+        "apa itu ",
+        "pengertian ",
+        "definisi ",
+        "jelaskan sop ",
+        "jelaskan prosedur ",
+        "bagaimana tata cara ",
+        "apa dasar hukum ",
+        "jelaskan ketentuan ",
+        "jelaskan peraturan ",
+    )
+
+    return teks.startswith(penanda_dokumen)
+
+
+# =========================================================
+# INSTANT: DATABASE LANGSUNG
+# =========================================================
+def jawab_instant_database(pertanyaan, supabase):
+    teks = re.sub(
+        r"\s+", " ",
+        str(pertanyaan or "").strip().lower()
+    ).rstrip("?.!")
+
+    awalan = r"(?:berapa (?:jumlah|banyak) |jumlah |total )"
+
+    # Jumlah SPBU Kabupaten Tangerang
+    if re.fullmatch(
+        awalan + r"spbu(?: di kabupaten tangerang)?",
+        teks,
+    ):
+        hasil = jalankan_tool(
+            "hitung_spbu", {}, supabase
+        )
+        if "error" not in hasil:
+            return (
+                f"Terdapat **{hasil.get('jumlah_spbu', 0)} "
+                f"SPBU** di Kabupaten Tangerang."
+            )
+
+    # Jumlah perusahaan
+    if re.fullmatch(
+        awalan + r"perusahaan(?: yang terdaftar)?",
+        teks,
+    ):
+        hasil = jalankan_tool(
+            "hitung_aset",
+            {"sumber": "perusahaan"},
+            supabase,
+        )
+        if "error" not in hasil:
+            return (
+                f"Terdapat **{hasil.get('jumlah', 0)} "
+                f"perusahaan** dalam database SMART METRO."
+            )
+
+    # Jumlah pengujian per tahun
+    cocok = re.fullmatch(
+        awalan
+        + r"pengujian (?:pada |di )?tahun (20\d{2}|ini)",
+        teks,
+    )
+
+    if cocok:
+        tahun = (
+            hari_ini_wib().year
+            if cocok.group(1) == "ini"
+            else int(cocok.group(1))
+        )
+        hasil = jalankan_tool(
+            "hitung_pengujian",
+            {"tahun": tahun},
+            supabase,
+        )
+        if "error" not in hasil:
+            jumlah = hasil.get("jumlah", 0)
+            return (
+                f"Tercatat **{jumlah:,} pengujian** "
+                f"pada tahun {tahun}."
+            ).replace(
+                f"{jumlah:,}",
+                f"{jumlah:,}".replace(",", "."),
+            )
+
+    return None
+
 # =========================================================
 # TANYA KE MODEL
 # =========================================================
+
 def tanya_deepseek_stream(pertanyaan, riwayat=None):
+
+    
     mulai = time.perf_counter()
+
+    mode_respons = (
+        st.session_state.get("ai_mode_respons")
+        or "⚡ Instant"
+
+    )
 
     try:
         supabase = init_supabase()
-        model = load_model()
-        reranker = load_reranker()
         client = init_client()
     except Exception as exc:
         st.session_state["ai_error_detail"] = str(exc)
-        yield "Maaf, layanan AI belum siap. Silakan coba lagi."
+        yield "Maaf, layanan AI belum siap."
         return
 
-    pertanyaan_retrieval = tulis_ulang_pertanyaan(
-        pertanyaan,
-        riwayat,
-        client,
+    # =====================================================
+    # MODE INSTANT
+    # =====================================================
+    if mode_respons == "⚡ Instant":
+
+
+        try:
+            jawaban_cepat = jawab_instant_database(
+                pertanyaan,
+                supabase,
+            )
+        except Exception:
+            jawaban_cepat = None
+
+        if jawaban_cepat is not None:
+
+            st.session_state["ai_query_rewrite"] = pertanyaan
+            st.session_state["ai_sumber_terakhir"] = []
+            st.session_state["ai_tool_log"] = [
+                "Instant: database langsung"
+            ]
+            st.session_state["ai_konteks_debug"] = ""
+            st.session_state.pop("ai_error_detail", None)
+
+            st.session_state["ai_latency"] = round(
+                time.perf_counter() - mulai,
+                2,
+            )
+
+            yield jawaban_cepat
+            return
+
+        # Pertanyaan yang tidak dikenali:
+        # DeepSeek tetap boleh memakai tool database.
+        pertanyaan_retrieval = pertanyaan
+        konteks = ""
+        st.session_state["ai_sumber_terakhir"] = []
+
+    # =====================================================
+    # MODE ANALYZE
+    # =====================================================
+    else:
+
+        pertanyaan_retrieval = tulis_ulang_pertanyaan(
+            pertanyaan,
+            riwayat,
+            client,
+        )
+
+        try:
+            model = load_model()
+            reranker = load_reranker()
+
+            konteks = ambil_konteks(
+                pertanyaan_retrieval,
+                supabase,
+                model,
+                reranker,
+            )
+
+        except Exception as exc:
+            st.session_state["ai_error_detail"] = str(exc)
+            yield (
+                "Maaf, data pendukung sedang "
+                "tidak dapat diakses."
+            )
+            return
+
+    st.session_state["ai_query_rewrite"] = (
+        pertanyaan_retrieval
     )
 
-    if ai_debug_aktif():
-        st.session_state["ai_query_rewrite"] = pertanyaan_retrieval
 
-    try:
-        konteks = ambil_konteks(
-            pertanyaan_retrieval,
-            supabase,
-            model,
-            reranker,
-        )
-    except Exception as exc:
-        st.session_state["ai_error_detail"] = str(exc)
-        yield (
-            "Maaf, data pendukung sedang tidak dapat diakses. "
-            "Silakan coba lagi."
-        )
-        return
 
     if ai_debug_aktif():
         st.session_state["ai_konteks_debug"] = konteks
@@ -10492,6 +10962,25 @@ def tanya_deepseek_stream(pertanyaan, riwayat=None):
         st.session_state.pop("ai_error_detail", None)
 
     pesan = [{"role": "system", "content": buat_prompt_sistem(konteks)}]
+    
+    if mode_instant:
+        pesan.append({
+            "role": "system",
+            "content": (
+                "MODE INSTANT SMART METRO.\n"
+                "Jawab secara singkat, jelas, dan langsung.\n"
+                "Untuk fakta database, wajib gunakan tool "
+                "database yang tersedia.\n"
+                "Jangan mengarang angka, nomor sertifikat, "
+                "identitas perusahaan, atau hasil pengujian.\n"
+                "Jangan membuat analisis panjang jika tidak diminta.\n"
+                "Jika pertanyaan membutuhkan dokumen atau dasar "
+                "hukum yang tidak tersedia dalam konteks, "
+                "sarankan pengguna memilih mode Analyze.\n"
+                "Jangan menganggap konteks kosong sebagai bukti "
+                "bahwa data database tidak tersedia."
+            ),
+        })
 
     for m in potong_riwayat_ai(riwayat):
         pesan.append({"role": m["role"], "content": m["content"]})
@@ -10542,6 +11031,50 @@ def tanya_deepseek_stream(pertanyaan, riwayat=None):
     log_tool = []
 
     executive_prefetched = False
+    
+    # =====================================================
+    # ANALYZE: STREAMING LANGSUNG UNTUK DOKUMEN
+    # =====================================================
+    mode_respons = (
+        st.session_state.get("ai_mode_respons")
+        or "⚡ Instant"
+    )
+
+    if (
+        mode_respons == "🧠 Analyze"
+        and jenis_jawaban != "executive_summary"
+        and pertanyaan_dokumen_murni_ai(
+            pertanyaan_retrieval
+        )
+    ):
+
+        try:
+            st.session_state["ai_tool_log"] = []
+
+            for bagian in aliran_teks_deepseek(
+                client,
+                pesan,
+            ):
+                yield bagian
+
+            return
+
+        except Exception as exc:
+            st.session_state["ai_error_detail"] = (
+                str(exc)
+            )
+
+            yield (
+                "\n\n⚠️ Terjadi gangguan saat "
+                "menampilkan jawaban AI."
+            )
+            return
+
+        finally:
+            st.session_state["ai_latency"] = round(
+                time.perf_counter() - mulai,
+                2,
+            )
 
     # =========================================================
     # PREFETCH DATA UNTUK MODE PIMPINAN
@@ -10636,37 +11169,21 @@ def tanya_deepseek_stream(pertanyaan, riwayat=None):
 
             return
 
-    # =========================================================
-    # EXECUTIVE SUMMARY:
-    # DATA SUDAH DIPREFETCH -> BUAT JAWABAN FINAL LANGSUNG
-    # =========================================================
+    # =====================================================
+    # EXECUTIVE SUMMARY: STREAMING LANGSUNG
+    # =====================================================
     if executive_prefetched:
 
         try:
-            respons_final = client.chat.completions.create(
-                model=CHAT_MODEL,
-                messages=pesan,
-                temperature=0.2,
-                timeout=120,
-                stream=False,
+            for bagian in aliran_teks_deepseek(
+                client,
+                pesan,
+            ):
+                yield bagian
+
+            st.session_state["ai_tool_log"] = (
+                log_tool
             )
-
-            jawaban_final = str(
-                respons_final.choices[0].message.content
-                or ""
-            ).strip()
-
-            if jawaban_final:
-                yield jawaban_final
-            else:
-                yield (
-                    "Maaf, Executive Summary belum berhasil "
-                    "disusun dari data yang tersedia."
-                )
-
-            st.session_state[
-                "ai_tool_log"
-            ] = log_tool
 
             return
 
@@ -10676,16 +11193,23 @@ def tanya_deepseek_stream(pertanyaan, riwayat=None):
                 f"{type(exc).__name__}: {exc}"
             )
 
-            st.session_state[
-                "ai_error_detail"
-            ] = error_detail
+            st.session_state["ai_error_detail"] = (
+                error_detail
+            )
 
             yield (
-                "⚠️ Executive Summary gagal disusun.\n\n"
-                f"{error_detail}"
+                "\n\n⚠️ Executive Summary mengalami "
+                "gangguan saat ditampilkan."
             )
 
             return
+
+        finally:
+            st.session_state["ai_latency"] = round(
+                time.perf_counter() - mulai,
+                2,
+            )
+
     try:
         for percobaan in range(3):
             request_ai = {
@@ -10760,7 +11284,7 @@ def tanya_deepseek_stream(pertanyaan, riwayat=None):
                     )
 
                 break
-
+            semua_tool_sukses = True
             for indeks in sorted(panggilan):
                 if not panggilan[indeks]["id"]:
                     panggilan[indeks]["id"] = f"call_{indeks}"
@@ -10791,7 +11315,11 @@ def tanya_deepseek_stream(pertanyaan, riwayat=None):
                     argumen,
                     supabase,
                 )
-
+                if (
+                    isinstance(hasil, dict)
+                    and hasil.get("error")
+                ):
+                    semua_tool_sukses = False
                 log_tool.append(
                     f"{panggil['function']['name']}({argumen}) -> {hasil}"
                 )
@@ -10805,6 +11333,41 @@ def tanya_deepseek_stream(pertanyaan, riwayat=None):
                         default=str,
                     ),
                 })
+            
+            # =================================================
+            # STREAMING JAWABAN SETELAH TOOL DATABASE SELESAI
+            # =================================================
+            if semua_tool_sukses:
+
+                pesan.append({
+                    "role": "system",
+                    "content": (
+                        "Seluruh tool database yang diminta "
+                        "sudah selesai dijalankan. "
+                        "Susun jawaban akhir berdasarkan "
+                        "hasil tool yang tersedia. "
+                        "Jangan membuat angka, nomor SKHP, "
+                        "atau fakta tambahan yang tidak "
+                        "didukung hasil database. "
+                        "Jangan meminta tool baru. "
+                        "Jawab langsung sesuai pertanyaan."
+                    ),
+                })
+
+                st.session_state["ai_tool_log"] = (
+                    log_tool
+                )
+
+                # Jawaban muncul secara bertahap
+                for bagian in aliran_teks_deepseek(
+                    client,
+                    pesan,
+                ):
+                    yield bagian
+
+                # Hentikan loop agar tidak menjawab dua kali
+                break
+                
         else:
 
             yield (
@@ -12477,6 +13040,60 @@ def render_chat(tampilkan_di_sidebar=True):
                             or ""
                         ),
                     )
+    
+    # =====================================================
+    # PILIH MODE RESPONS AI
+    # =====================================================
+    mode_lama = st.session_state.get("ai_mode_respons")
+
+    if mode_lama in ("Instant", "Analyze"):
+        st.session_state["ai_mode_respons"] = {
+            "Instant": "⚡ Instant",
+            "Analyze": "🧠 Analyze",
+        }[mode_lama]
+
+    st.markdown("##### ⚡ Mode Respons AI")
+
+    if hasattr(st, "segmented_control"):
+        mode_respons = st.segmented_control(
+            "Pilih mode respons",
+            options=[
+                "⚡ Instant",
+                "🧠 Analyze",
+            ],
+            default="⚡ Instant",
+            selection_mode="single",
+            key="ai_mode_respons",
+            label_visibility="collapsed",
+        )
+    else:
+        mode_respons = st.radio(
+            "Pilih mode respons",
+            options=[
+                "⚡ Instant",
+                "🧠 Analyze",
+            ],
+            horizontal=True,
+            key="ai_mode_respons",
+            label_visibility="collapsed",
+        )
+
+    mode_respons = mode_respons or "⚡ Instant"
+
+    if mode_respons == "⚡ Instant":
+        st.caption(
+            "⚡ Jawaban cepat dari database SMART METRO. "
+            "AI hanya digunakan bila diperlukan."
+        )
+    else:
+        st.caption(
+            "🧠 Analisis mendalam dengan pencarian dokumen, "
+            "database, dan AI."
+        )
+    
+    # =====================================================
+    # PILIH MODE KECEPATAN AI
+    # =====================================================
 
     if tampilkan_di_sidebar:
         if not st.session_state.get(
@@ -12597,6 +13214,66 @@ def render_chat(tampilkan_di_sidebar=True):
             label="Selesai",
             state="complete",
         )
+        
+        if ai_debug_aktif():
+
+            waktu_total = st.session_state.get(
+                "ai_latency"
+            )
+
+            waktu_rag = st.session_state.get(
+                "ai_waktu_rag"
+            )
+
+            cache_hit = st.session_state.get(
+                "ai_rag_cache_hit", False
+            )
+
+            with st.expander(
+                "⏱️ Diagnostik AI",
+                expanded=False
+            ):
+                st.write(
+                    "Mode:",
+                    st.session_state.get(
+                        "ai_mode_respons",
+                        "⚡ Instant"
+                    )
+                )
+
+                st.write(
+                    "Waktu total:",
+                    waktu_total,
+                    "detik"
+                )
+
+                st.write(
+                    "Waktu pencarian RAG:",
+                    waktu_rag,
+                    "detik"
+                )
+
+                st.write(
+                    "Cache RAG:",
+                    "Digunakan"
+                    if cache_hit
+                    else "Tidak digunakan"
+                )
+
+        durasi_ai = st.session_state.get(
+            "ai_latency"
+        )
+
+        mode_terpakai = (
+            st.session_state.get("ai_mode_respons")
+            or "⚡ Instant"
+        )
+
+        if ai_debug_aktif() and durasi_ai is not None:
+            st.caption(
+                f"{mode_terpakai} • "
+                f"Respons {durasi_ai:.2f} detik"
+            )
 
     sumber = st.session_state.get("ai_sumber_terakhir") or []
 
