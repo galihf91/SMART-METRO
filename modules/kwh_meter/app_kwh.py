@@ -4220,26 +4220,25 @@ def run():
                         # Riwayat sudah urut terbaru → lama.
                         # Ambil pengujian terbaru saja
                         # untuk setiap master.
-                        if (
-                            meter_key
-                            not in meter_map
-                        ):
+                        if meter_key not in meter_map:
+
+                            # Nomor SKHP dari pengujian terbaru
+                            nomor_skhp = str(
+                                detail.get(
+                                    "nomor_sertifikat"
+                                ) or "-"
+                            ).strip()
 
                             label = (
-                                f"{merk or '-'}"
-                                f" | "
-                                f"{tipe or '-'}"
-                                f" | "
-                                f"{tegangan or '-'}"
-                                f" | "
-                                f"{arus or '-'}"
-                                f" | "
-                                f"{phs or '-'} Ph"
+                                f"{merk or '-'} | "
+                                f"{tipe or '-'} | "
+                                f"{tegangan or '-'} | "
+                                f"{arus or '-'} | "
+                                f"{phs or '-'} Ph | "
+                                f"SKHP: {nomor_skhp}"
                             )
 
-                            meter_map[
-                                meter_key
-                            ] = {
+                            meter_map[meter_key] = {
                                 "label": label,
                                 "riwayat": item,
                             }
