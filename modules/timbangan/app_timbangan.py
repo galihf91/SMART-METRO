@@ -10410,7 +10410,127 @@ def run():
                     "untuk perusahaan ini."
                 )
                 st.stop()
-    
+            
+            # =====================================================
+            # NOMOR SKHP TERBARU UNTUK PILIHAN TIMBANGAN
+            # =====================================================
+            skhp_by_uttp = {}
+
+            def ambil_data_bertahap(buat_query):
+                hasil = []
+                offset = 0
+                ukuran = 500
+
+                while True:
+                    batch = (
+                        buat_query()
+                        .range(offset, offset + ukuran - 1)
+                        .execute()
+                        .data or []
+                    )
+                    hasil.extend(batch)
+
+                    if len(batch) < ukuran:
+                        break
+
+                    offset += ukuran
+
+                return hasil
+
+            def potong_daftar(items, ukuran=100):
+                for i in range(0, len(items), ukuran):
+                    yield items[i:i + ukuran]
+
+            ids_alat = [a["id"] for a in daftar_alat]
+            relasi = []
+            kandidat_pengujian = {}
+
+            for kelompok in potong_daftar(ids_alat):
+                # Relasi pengujian melalui tabel penghubung
+                relasi.extend(ambil_data_bertahap(
+                    lambda kelompok=kelompok: (
+                        supabase.table("pengujian_uttp")
+                        .select("uttp_id,pengujian_id")
+                        .in_("uttp_id", kelompok)
+                        .order("pengujian_id")
+                    )
+                ))
+
+                # Relasi langsung pengujian.uttp_id
+                langsung = ambil_data_bertahap(
+                    lambda kelompok=kelompok: (
+                        supabase.table("pengujian")
+                        .select(
+                            "id,uttp_id,nomor_sertifikat,"
+                            "tanggal_pengujian"
+                        )
+                        .in_("uttp_id", kelompok)
+                        .order("id")
+                    )
+                )
+
+                for p in langsung:
+                    kandidat_pengujian[p["id"]] = p
+
+            ids_relasi = list({
+                r["pengujian_id"]
+                for r in relasi
+                if r.get("pengujian_id") is not None
+            })
+
+            for kelompok in potong_daftar(ids_relasi):
+                hasil = (
+                    supabase.table("pengujian")
+                    .select(
+                        "id,uttp_id,nomor_sertifikat,"
+                        "tanggal_pengujian"
+                    )
+                    .in_("id", kelompok)
+                    .execute()
+                    .data or []
+                )
+
+                for p in hasil:
+                    kandidat_pengujian[p["id"]] = p
+
+            # Pasangkan setiap pengujian dengan ID UTTP
+            pasangan = {}
+
+            for p in kandidat_pengujian.values():
+                if p.get("uttp_id") in ids_alat:
+                    pasangan.setdefault(
+                        p["uttp_id"], set()
+                    ).add(p["id"])
+
+            for r in relasi:
+                pasangan.setdefault(
+                    r["uttp_id"], set()
+                ).add(r["pengujian_id"])
+
+            for alat_id, ids_pengujian in pasangan.items():
+                daftar = [
+                    kandidat_pengujian[pid]
+                    for pid in ids_pengujian
+                    if pid in kandidat_pengujian
+                    and str(
+                        kandidat_pengujian[pid].get(
+                            "nomor_sertifikat"
+                        ) or ""
+                    ).strip()
+                ]
+
+                if daftar:
+                    terbaru = max(
+                        daftar,
+                        key=lambda p: (
+                            str(p.get("tanggal_pengujian") or ""),
+                            int(p["id"])
+                        )
+                    )
+                    skhp_by_uttp[alat_id] = terbaru[
+                        "nomor_sertifikat"
+                    ]
+
             # =====================================================
             # 5. PILIH ALAT
             # =====================================================
@@ -10418,13 +10538,19 @@ def run():
     
             for alat_item in daftar_alat:
     
+                nomor_skhp = skhp_by_uttp.get(
+                    alat_item["id"], "-"
+                )
+
                 label = (
                     f"{alat_item.get('jenis_uttp') or '-'} | "
                     f"{alat_item.get('merk') or '-'} | "
                     f"{alat_item.get('tipe') or '-'} | "
                     f"No. Seri: "
-                    f"{alat_item.get('nomor_seri') or '-'}"
+                    f"{alat_item.get('nomor_seri') or '-'} | "
+                    f"SKHP: {nomor_skhp}"
                 )
+
     
                 alat_map[
                     label
