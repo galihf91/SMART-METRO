@@ -507,36 +507,54 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     c.drawString(colon_x_fixed, y_row, ":")
     start_x_val = colon_x_fixed + 0.3*cm
 
-    # ============================================================
-    # BATAS LEBAR NILAI KOLOM KIRI
-    # Dipakai untuk Merk, Model, dan Nomor Seri
-    # ============================================================
-    
-    safe_right_left_value = right_col_x + 1.0 * cm
-    
+    # Batas kanan nilai Merek, Model/Tipe, dan Nomor Seri
+    # Digeser 0,35 cm ke kiri dari awal kolom kanan
+    safe_right_left_value = right_col_x - 0.35 * cm
+
     max_left_value_width = (
-        safe_right_left_value
-        - start_x_val
+        safe_right_left_value - start_x_val
     )
-    
-    char_width_left_value = c.stringWidth(
-        "A",
-        "Helvetica",
-        12
-    )
-    
-    chars_per_line_left = max(
-        10,
-        int(
-            max_left_value_width
-            / char_width_left_value
-        )
-    )
+
+    # Pembungkus teks berdasarkan lebar sebenarnya
+    def bungkus_teks_kiri(teks):
+        teks = str(teks or "").strip()
+        if not teks:
+            return []
+
+        hasil = []
+        baris = ""
+
+        for kata in teks.split():
+            calon = f"{baris} {kata}".strip()
+
+            if c.stringWidth(calon, "Helvetica", 12) <= max_left_value_width:
+                baris = calon
+                continue
+
+            if baris:
+                hasil.append(baris)
+                baris = ""
+
+            # Pecah juga kode/nomor seri panjang tanpa spasi
+            for huruf in kata:
+                calon = baris + huruf
+                if (
+                    c.stringWidth(calon, "Helvetica", 12)
+                    <= max_left_value_width
+                ):
+                    baris = calon
+                else:
+                    if baris:
+                        hasil.append(baris)
+                    baris = huruf
+
+        if baris:
+            hasil.append(baris)
+
+        return hasil
+
     merek = data.get('merek', '')
-    wrapped_merek = textwrap.wrap(
-        merek,
-        width=chars_per_line_left
-    )
+    wrapped_merek = bungkus_teks_kiri(merek)
     if wrapped_merek:
         c.drawString(start_x_val, y_row, wrapped_merek[0])
         for i, line in enumerate(wrapped_merek[1:], start=1):
@@ -694,10 +712,7 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
         ":"
     )
 
-    wrapped_nilai_kiri = textwrap.wrap(
-        nilai_kiri,
-        width=chars_per_line_left
-    )
+    wrapped_nilai_kiri = bungkus_teks_kiri(nilai_kiri)
 
     if wrapped_nilai_kiri:
         c.drawString(
@@ -773,7 +788,7 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
 
     tambahan_turun = (
         (jumlah_baris_kiri - 1)
-        * 0.25 * cm
+        * 0.45 * cm
     )
 
     y = (
@@ -982,10 +997,7 @@ def generate_sertifikat_pdf(data, filename, nomor_sertifikat):
     # NILAI NOMOR SERI / NOMOR ALAT
     # ============================================================
     
-    wrapped_seri = textwrap.wrap(
-        nomor_identitas,
-        width=chars_per_line_left
-    )
+    wrapped_seri = bungkus_teks_kiri(nomor_identitas)
     
     if wrapped_seri:
     
